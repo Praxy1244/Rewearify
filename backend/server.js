@@ -1,36 +1,163 @@
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import morgan from "morgan";
-import { connectDB } from "./src/config/db.js";
-import authRoutes from "./src/routes/auth.routes.js";
-import publicRoutes from "./src/routes/public.routes.js";
-import { notFound, onError } from "./src/middleware/error.js";
+import express from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cron from 'node-cron';
 
+// Import configurations and utilities
+import { connectDB } from './src/config/database.js';
+import { errorHandler, notFound } from './src/middleware/errorMiddleware.js';
+
+// Import routes
+import authRoutes from './src/routes/auth.js';
+import userRoutes from './src/routes/users.js';
+import donationRoutes from './src/routes/donations.js';
+import requestRoutes from './src/routes/requests.js';
+import adminRoutes from './src/routes/admin.js';
+import analyticsRoutes from './src/routes/analytics.js';
+import notificationRoutes from './src/routes/notifications.js';
+import aiRoutes from './src/routes/ai.js';
+import publicRoutes from './src/routes/public.js';
+
+// Import scheduled tasks
+import { cleanupExpiredTokens, updateDonationStatuses } from './src/utils/scheduledTasks.js';
+
+// Load environment variables
+dotenv.config();
+
+// Create Express app
 const app = express();
+const server = createServer(app);
 
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN?.split(",") || "*",
-    credentials: true
-  })
-);
-app.use(express.json());
-app.use(morgan("dev"));
-
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/public", publicRoutes);
-
-// Health check
-app.get("/health", (req, res) => res.json({ success: true, status: "ok" }));
-
-// Errors
-app.use(notFound);
-app.use(onError);
-
-// Start
-const PORT = process.env.PORT || 5000;
-connectDB(process.env.MONGO_URI).then(() => {
-  app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+// Setup Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
 });
+
+// Make io accessible in routes
+app.set('io', io);
+
+// Connect to database
+connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify');
+
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
+
+// CORS configuration
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3001',
+    'https://your-frontend-domain.com'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Compression and logging
+app.use(compression());
+app.use(morgan('combined'));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'ReWearify Backend is running!',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0'
+  });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/donations', donationRoutes);
+app.use('/api/requests', requestRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/public', publicRoutes);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  // Join user to their room for notifications
+  socket.on('join-user-room', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`User ${userId} joined their notification room`);
+  });
+
+  // Join admin room
+  socket.on('join-admin-room', () => {
+    socket.join('admin-room');
+    console.log('Admin joined admin room');
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.id}`);
+  });
+});
+
+// Error handling middleware (must be last)
+app.use(notFound);
+app.use(errorHandler);
+
+// Scheduled tasks
+// Clean up expired tokens every hour
+cron.schedule('0 * * * *', () => {
+  console.log('Running scheduled task: cleanup expired tokens');
+  cleanupExpiredTokens();
+});
+
+// Update donation statuses every day at midnight
+cron.schedule('0 0 * * *', () => {
+  console.log('Running scheduled task: update donation statuses');
+  updateDonationStatuses();
+});
+
+// Start server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`🤖 AI Service URL: ${process.env.AI_SERVICE_URL || 'http://localhost:8000'}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+export default app;

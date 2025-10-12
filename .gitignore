@@ -1,0 +1,27 @@
+# Global
+.env
+.env.local
+.env.*.local
+node_modules/
+npm-debug.log
+yarn-error.log
+.DS_Store
+Thumbs.db
+
+# Frontend
+/frontend/build/
+/frontend/dist/
+
+# Backend
+/backend/dist/
+
+# AI service (if Node.js)
+/scdp_ai/node_modules/
+/scdp_ai/.env
+
+# If scdp_ai is Python
+/scdp_ai/__pycache__/
+/scdp_ai/*.pyc
+/scdp_ai/.venv/
+/scdp_ai/venv/
+/scdp_ai/env/
