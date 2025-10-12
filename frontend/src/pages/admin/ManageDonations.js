@@ -1,0 +1,379 @@
+import React, { useState } from 'react';
+import { Search, Filter, Eye, Check, X, Package, Calendar, User } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Textarea } from '../../components/ui/textarea';
+import { mockDonations } from '../../adminmock';
+import { useToast } from '../../hooks/use-toast';
+
+const ManageDonations = () => {
+  const [donations, setDonations] = useState(mockDonations);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedDonation, setSelectedDonation] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const { toast } = useToast();
+
+  const filteredDonations = donations.filter(donation => {
+    const matchesSearch = donation.donorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         donation.itemType.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || donation.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleApprove = (donationId) => {
+    setDonations(prev => prev.map(donation => 
+      donation.id === donationId 
+        ? { ...donation, status: 'approved', dateApproved: new Date().toISOString().split('T')[0] }
+        : donation
+    ));
+    toast({
+      title: "Donation Approved",
+      description: "The donation has been successfully approved.",
+    });
+  };
+
+  const handleReject = (donationId) => {
+    if (!rejectReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a reason for rejection.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setDonations(prev => prev.map(donation => 
+      donation.id === donationId 
+        ? { ...donation, status: 'rejected', dateRejected: new Date().toISOString().split('T')[0], rejectReason }
+        : donation
+    ));
+    setRejectReason('');
+    toast({
+      title: "Donation Rejected",
+      description: "The donation has been rejected with reason provided.",
+    });
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const DonationDetailsModal = ({ donation }) => (
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Donation Details</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <img 
+              src={donation.images[0]} 
+              alt={donation.itemType}
+              className="w-full h-48 object-cover rounded-lg"
+            />
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Item Type</label>
+              <p className="text-lg font-semibold">{donation.itemType}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Donor</label>
+              <p>{donation.donorName}</p>
+              <p className="text-sm text-gray-500">{donation.donorEmail}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Status</label>
+              <Badge className={getStatusColor(donation.status)}>
+                {donation.status.charAt(0).toUpperCase() + donation.status.slice(1)}
+              </Badge>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium text-gray-600">Quantity</label>
+            <p>{donation.quantity} items</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600">Condition</label>
+            <p>{donation.condition}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600">Size</label>
+            <p>{donation.size}</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-600">Description</label>
+          <p className="mt-1">{donation.description}</p>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-600">Tags</label>
+          <div className="flex space-x-2 mt-1">
+            {donation.tags?.map((tag, index) => (
+              <Badge key={index} variant="outline">{tag}</Badge>
+            ))}
+          </div>
+        </div>
+
+        {donation.status === 'pending' && (
+          <div className="flex space-x-3 pt-4 border-t">
+            <Button onClick={() => handleApprove(donation.id)} className="flex-1">
+              <Check className="h-4 w-4 mr-2" />
+              Approve
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex-1">
+                  <X className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reject Donation</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p>Please provide a reason for rejecting this donation:</p>
+                  <Textarea
+                    placeholder="Enter rejection reason..."
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                  />
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={() => handleReject(donation.id)} 
+                      variant="destructive"
+                      className="flex-1"
+                    >
+                      Confirm Rejection
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+
+        {donation.rejectReason && (
+          <div className="bg-red-50 p-3 rounded-lg">
+            <label className="text-sm font-medium text-red-800">Rejection Reason</label>
+            <p className="text-red-700 mt-1">{donation.rejectReason}</p>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  );
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Manage Donations</h1>
+          <p className="text-gray-600 mt-1">Review and manage all donation submissions</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Badge variant="outline" className="text-yellow-600">
+            {donations.filter(d => d.status === 'pending').length} Pending Review
+          </Badge>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Package className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="text-sm text-gray-600">Total</p>
+                <p className="text-2xl font-bold">{donations.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Check className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm text-gray-600">Approved</p>
+                <p className="text-2xl font-bold">{donations.filter(d => d.status === 'approved').length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-5 w-5 text-yellow-500" />
+              <div>
+                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-2xl font-bold">{donations.filter(d => d.status === 'pending').length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <X className="h-5 w-5 text-red-500" />
+              <div>
+                <p className="text-sm text-gray-600">Rejected</p>
+                <p className="text-2xl font-bold">{donations.filter(d => d.status === 'rejected').length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by donor name or item type..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Donations Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Donations ({filteredDonations.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead>Donor</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date Submitted</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredDonations.map((donation) => (
+                <TableRow key={donation.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={donation.images[0]} 
+                        alt={donation.itemType}
+                        className="w-10 h-10 rounded-lg object-cover"
+                      />
+                      <div>
+                        <p className="font-medium">{donation.itemType}</p>
+                        <p className="text-sm text-gray-500">{donation.category}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{donation.donorName}</p>
+                      <p className="text-sm text-gray-500">{donation.donorEmail}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(donation.status)}>
+                      {donation.status.charAt(0).toUpperCase() + donation.status.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{donation.dateSubmitted}</TableCell>
+                  <TableCell>{donation.quantity} items</TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedDonation(donation)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DonationDetailsModal donation={donation} />
+                      </Dialog>
+                      {donation.status === 'pending' && (
+                        <>
+                          <Button size="sm" onClick={() => handleApprove(donation.id)}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="outline">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Reject Donation</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <p>Please provide a reason for rejecting this donation:</p>
+                                <Textarea
+                                  placeholder="Enter rejection reason..."
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                />
+                                <Button 
+                                  onClick={() => handleReject(donation.id)} 
+                                  variant="destructive"
+                                  className="w-full"
+                                >
+                                  Confirm Rejection
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default ManageDonations;

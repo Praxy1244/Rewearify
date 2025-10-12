@@ -1,0 +1,9 @@
+{
+  "short_name": "ReWearify",
+  "name": "ReWearify - Sustainable Clothing Donation Platform",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2d6a4f",
+  "background_color": "#ffffff",
+  "description": "ReWearify is a platform to simplify and manage sustainable clothing donations with NGO support."
+}
