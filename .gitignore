@@ -1,3 +1,6 @@
+# Secrets
+**/.env
+**/.env.*
 # Global
 .env
 .env.local
@@ -25,3 +28,5 @@ Thumbs.db
 /scdp_ai/.venv/
 /scdp_ai/venv/
 /scdp_ai/env/
+scdp_ai/scdp_env/
+
