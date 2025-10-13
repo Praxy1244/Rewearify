@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Edit, Shield, ShieldOff, Trash2, Users, UserCheck, UserX, Crown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -9,16 +9,39 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
-import { mockUsers } from '../../adminmock';
-import { useToast } from '../../hooks/use-toast';
+import { adminService } from '../../services';
+import { toast } from 'sonner';
 
 const ManageUsers = () => {
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState(null);
-  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await adminService.getUsers();
+      if (response.success) {
+        setUsers(response.data.users || []);
+      } else {
+        setError('Failed to fetch users');
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err.message || 'Failed to fetch users');
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -28,50 +51,64 @@ const ManageUsers = () => {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const handleBlockUser = (userId) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'Active' ? 'Blocked' : 'Active' }
-        : user
-    ));
-    const user = users.find(u => u.id === userId);
-    toast({
-      title: user.status === 'Active' ? "User Blocked" : "User Unblocked",
-      description: `${user.name} has been ${user.status === 'Active' ? 'blocked' : 'unblocked'}.`,
-    });
+  const handleBlockUser = async (userId) => {
+    try {
+      const user = users.find(u => u._id === userId);
+      const newStatus = user.status === 'active' ? 'suspended' : 'active';
+      
+      const response = await adminService.updateUserStatus(userId, newStatus);
+      if (response.success) {
+        setUsers(prev => prev.map(u => 
+          u._id === userId ? { ...u, status: newStatus } : u
+        ));
+        toast.success(`User ${newStatus === 'suspended' ? 'blocked' : 'unblocked'} successfully`);
+      } else {
+        toast.error('Failed to update user status');
+      }
+    } catch (err) {
+      console.error('Error updating user status:', err);
+      toast.error('Failed to update user status');
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    setUsers(prev => prev.filter(user => user.id !== userId));
-    toast({
-      title: "User Deleted",
-      description: "The user has been permanently deleted from the system.",
-      variant: "destructive",
-    });
+  const handleDeleteUser = async (userId) => {
+    try {
+      const response = await adminService.deleteUser(userId);
+      if (response.success) {
+        setUsers(prev => prev.filter(user => user._id !== userId));
+        toast.success('User deleted successfully');
+      } else {
+        toast.error('Failed to delete user');
+      }
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      toast.error('Failed to delete user');
+    }
   };
 
   const getRoleIcon = (role) => {
     switch (role) {
-      case 'Admin': return <Crown className="h-4 w-4" />;
-      case 'NGO': return <Users className="h-4 w-4" />;
-      case 'Donor': return <UserCheck className="h-4 w-4" />;
+      case 'admin': return <Crown className="h-4 w-4" />;
+      case 'recipient': return <Users className="h-4 w-4" />;
+      case 'donor': return <UserCheck className="h-4 w-4" />;
       default: return <Users className="h-4 w-4" />;
     }
   };
 
   const getRoleColor = (role) => {
     switch (role) {
-      case 'Admin': return 'bg-purple-100 text-purple-800';
-      case 'NGO': return 'bg-blue-100 text-blue-800';
-      case 'Donor': return 'bg-green-100 text-green-800';
+      case 'admin': return 'bg-purple-100 text-purple-800';
+      case 'recipient': return 'bg-blue-100 text-blue-800';
+      case 'donor': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Blocked': return 'bg-red-100 text-red-800';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'suspended': return 'bg-red-100 text-red-800';
+      case 'banned': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -84,7 +121,7 @@ const ManageUsers = () => {
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
           <Avatar className="h-20 w-20">
-            <AvatarImage src="/placeholder-avatar.jpg" />
+            <AvatarImage src={user.profilePicture} />
             <AvatarFallback className="text-lg">
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
@@ -95,7 +132,7 @@ const ManageUsers = () => {
             <div className="flex items-center space-x-2 mt-2">
               <Badge className={getRoleColor(user.role)}>
                 {getRoleIcon(user.role)}
-                <span className="ml-1">{user.role}</span>
+                <span className="ml-1 capitalize">{user.role}</span>
               </Badge>
               <Badge className={getStatusColor(user.status)}>
                 {user.status}
@@ -108,39 +145,39 @@ const ManageUsers = () => {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-600">Join Date</label>
-              <p>{new Date(user.joinDate).toLocaleDateString()}</p>
+              <p>{new Date(user.createdAt).toLocaleDateString()}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Location</label>
-              <p>{user.location}</p>
+              <p>{user.location?.city || 'Not specified'}, {user.location?.state || ''}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Last Activity</label>
-              <p>{new Date(user.lastActivity).toLocaleDateString()}</p>
+              <p>{new Date(user.lastLoginAt || user.updatedAt).toLocaleDateString()}</p>
             </div>
           </div>
           <div className="space-y-4">
-            {user.role === 'Donor' && (
+            {user.role === 'donor' && (
               <div>
                 <label className="text-sm font-medium text-gray-600">Total Donations</label>
-                <p className="text-2xl font-bold text-green-600">{user.totalDonations || 0}</p>
+                <p className="text-2xl font-bold text-green-600">{user.donationsCount || 0}</p>
               </div>
             )}
-            {user.role === 'NGO' && (
+            {user.role === 'recipient' && (
               <div>
                 <label className="text-sm font-medium text-gray-600">Total Requests</label>
-                <p className="text-2xl font-bold text-blue-600">{user.totalRequests || 0}</p>
+                <p className="text-2xl font-bold text-blue-600">{user.requestsCount || 0}</p>
               </div>
             )}
-            {user.role === 'Admin' && (
+            {user.role === 'admin' && (
               <div>
                 <label className="text-sm font-medium text-gray-600">Admin Actions</label>
-                <p className="text-2xl font-bold text-purple-600">{user.totalActions || 0}</p>
+                <p className="text-2xl font-bold text-purple-600">{user.adminActions || 0}</p>
               </div>
             )}
             <div>
               <label className="text-sm font-medium text-gray-600">Account Status</label>
-              <p className={`font-medium ${user.status === 'Active' ? 'text-green-600' : 'text-red-600'}`}>
+              <p className={`font-medium capitalize ${user.status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
                 {user.status}
               </p>
             </div>
@@ -153,11 +190,11 @@ const ManageUsers = () => {
             Edit User
           </Button>
           <Button
-            variant={user.status === 'Active' ? 'destructive' : 'default'}
+            variant={user.status === 'active' ? 'destructive' : 'default'}
             className="flex-1"
-            onClick={() => handleBlockUser(user.id)}
+            onClick={() => handleBlockUser(user._id)}
           >
-            {user.status === 'Active' ? (
+            {user.status === 'active' ? (
               <>
                 <ShieldOff className="h-4 w-4 mr-2" />
                 Block User
@@ -174,6 +211,35 @@ const ManageUsers = () => {
     </DialogContent>
   );
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading users...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Users</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <Button onClick={fetchUsers} variant="outline">
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -184,7 +250,7 @@ const ManageUsers = () => {
         </div>
         <div className="flex items-center space-x-3">
           <Badge variant="outline" className="text-green-600">
-            {users.filter(u => u.status === 'Active').length} Active Users
+            {users.filter(u => u.status === 'active').length} Active Users
           </Badge>
         </div>
       </div>
@@ -208,7 +274,7 @@ const ManageUsers = () => {
               <UserCheck className="h-5 w-5 text-green-500" />
               <div>
                 <p className="text-sm text-gray-600">Donors</p>
-                <p className="text-2xl font-bold">{users.filter(u => u.role === 'Donor').length}</p>
+                <p className="text-2xl font-bold">{users.filter(u => u.role === 'donor').length}</p>
               </div>
             </div>
           </CardContent>
@@ -218,8 +284,8 @@ const ManageUsers = () => {
             <div className="flex items-center space-x-2">
               <Users className="h-5 w-5 text-blue-500" />
               <div>
-                <p className="text-sm text-gray-600">NGOs</p>
-                <p className="text-2xl font-bold">{users.filter(u => u.role === 'NGO').length}</p>
+                <p className="text-sm text-gray-600">Recipients</p>
+                <p className="text-2xl font-bold">{users.filter(u => u.role === 'recipient').length}</p>
               </div>
             </div>
           </CardContent>
@@ -229,8 +295,8 @@ const ManageUsers = () => {
             <div className="flex items-center space-x-2">
               <UserX className="h-5 w-5 text-red-500" />
               <div>
-                <p className="text-sm text-gray-600">Blocked</p>
-                <p className="text-2xl font-bold">{users.filter(u => u.status === 'Blocked').length}</p>
+                <p className="text-sm text-gray-600">Suspended</p>
+                <p className="text-2xl font-bold">{users.filter(u => u.status === 'suspended').length}</p>
               </div>
             </div>
           </CardContent>
@@ -259,9 +325,9 @@ const ManageUsers = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="Admin">Admin</SelectItem>
-                <SelectItem value="NGO">NGO</SelectItem>
-                <SelectItem value="Donor">Donor</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="recipient">Recipient</SelectItem>
+                <SelectItem value="donor">Donor</SelectItem>
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -271,8 +337,9 @@ const ManageUsers = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Blocked">Blocked</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="banned">Banned</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -298,11 +365,11 @@ const ManageUsers = () => {
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user._id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar>
-                        <AvatarImage src="/placeholder-avatar.jpg" />
+                        <AvatarImage src={user.profilePicture} />
                         <AvatarFallback>
                           {user.name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
@@ -316,7 +383,7 @@ const ManageUsers = () => {
                   <TableCell>
                     <Badge className={getRoleColor(user.role)}>
                       {getRoleIcon(user.role)}
-                      <span className="ml-1">{user.role}</span>
+                      <span className="ml-1 capitalize">{user.role}</span>
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -324,19 +391,19 @@ const ManageUsers = () => {
                       {user.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{new Date(user.joinDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div>
-                      {user.role === 'Donor' && (
-                        <p className="text-sm"><span className="font-medium">{user.totalDonations || 0}</span> donations</p>
+                      {user.role === 'donor' && (
+                        <p className="text-sm"><span className="font-medium">{user.donationsCount || 0}</span> donations</p>
                       )}
-                      {user.role === 'NGO' && (
-                        <p className="text-sm"><span className="font-medium">{user.totalRequests || 0}</span> requests</p>
+                      {user.role === 'recipient' && (
+                        <p className="text-sm"><span className="font-medium">{user.requestsCount || 0}</span> requests</p>
                       )}
-                      {user.role === 'Admin' && (
-                        <p className="text-sm"><span className="font-medium">{user.totalActions || 0}</span> actions</p>
+                      {user.role === 'admin' && (
+                        <p className="text-sm"><span className="font-medium">{user.adminActions || 0}</span> actions</p>
                       )}
-                      <p className="text-xs text-gray-500">Last: {new Date(user.lastActivity).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">Last: {new Date(user.lastLoginAt || user.updatedAt).toLocaleDateString()}</p>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -354,10 +421,10 @@ const ManageUsers = () => {
                       </Button>
                       <Button
                         size="sm"
-                        variant={user.status === 'Active' ? 'destructive' : 'default'}
-                        onClick={() => handleBlockUser(user.id)}
+                        variant={user.status === 'active' ? 'destructive' : 'default'}
+                        onClick={() => handleBlockUser(user._id)}
                       >
-                        {user.status === 'Active' ? <ShieldOff className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                        {user.status === 'active' ? <ShieldOff className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -374,7 +441,7 @@ const ManageUsers = () => {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>
+                            <AlertDialogAction onClick={() => handleDeleteUser(user._id)}>
                               Delete User
                             </AlertDialogAction>
                           </AlertDialogFooter>

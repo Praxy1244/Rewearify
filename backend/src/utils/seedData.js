@@ -1,382 +1,353 @@
-// src/utils/seeder.mjs
-import mongoose from 'mongoose';
+// src/utils/seedData.js
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
-
 dotenv.config();
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify');
-    console.log('✅ Connected to MongoDB');
-  } catch (error) {
-    console.error('❌ DB Connection Error:', error.message);
-    process.exit(1);
-  }
-};
+import mongoose from 'mongoose';
+import bcryptjs from 'bcryptjs';
+import User from '../models/User.js';
+import Donation from '../models/Donation.js';
+import Request from '../models/Request.js';
+import { connectDB } from '../config/database.js';
 
-const seedDatabase = async () => {
+const seedData = async () => {
   try {
-    // Clear collections
-    const collections = ['users', 'donations', 'requests', 'matches', 'notifications'];
-    for (const collection of collections) {
-      try {
-        await mongoose.connection.db.dropCollection(collection);
-      } catch (e) {
-        // Ignore if collection doesn't exist
-      }
-    }
-    console.log('🗑️ Cleared all collections');
+    console.log('🌱 Starting comprehensive database seeding...');
+    await connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify');
+    
+    // Clear existing data
+    await User.deleteMany({});
+    await Donation.deleteMany({});
+    await Request.deleteMany({});
+    console.log('🗑️ Cleared existing data');
 
     // ===== USERS =====
-    const User = (await import('../models/User.js')).default;
-
-    const usersData = [
+    const adminUsers = [
       {
-        name: "Sarah Johnson",
-        email: "sarah@email.com",
-        password: "password123",
-        role: "donor",
+        name: 'Admin User',
+        email: 'admin@rewearify.com',
+        password: await bcryptjs.hash('admin123', 12),
+        role: 'admin',
         location: {
-          address: "123 Main St",
-          city: "New York",
-          state: "New York",
-          country: "USA",
-          zipCode: "10001"
+          address: 'Admin Building',
+          city: 'San Francisco',
+          state: 'California',
+          country: 'USA',
+          zipCode: '94105',
+          coordinates: { type: 'Point', coordinates: [-122.4194, 37.7749] }
         },
-        contact: {
-          phone: "+1234567890"
-        },
+        contact: { phone: '+1234567890' },
         verification: { isEmailVerified: true },
-        status: "active"
+        status: 'active'
+      }
+    ];
+
+    const donorUsers = [
+      {
+        name: 'John Smith',
+        email: 'john.smith@email.com',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'donor',
+        location: {
+          address: '456 Donor Ave',
+          city: 'Los Angeles',
+          state: 'California',
+          country: 'USA',
+          zipCode: '90210',
+          coordinates: { type: 'Point', coordinates: [-118.2437, 34.0522] }
+        },
+        contact: { phone: '+1234567891' },
+        verification: { isEmailVerified: true },
+        status: 'active'
       },
       {
-        name: "Michael",
-        email: "michael@kindhands.org",
-        password: "password123",
-        role: "recipient",
+        name: 'Sarah Johnson',
+        email: 'sarah.johnson@email.com',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'donor',
         location: {
-          address: "123 Service Road",
-          city: "Shimoga",
-          state: "Karnataka",
-          country: "India",
-          zipCode: "577201"
+          address: '789 Giving Blvd',
+          city: 'Chicago',
+          state: 'Illinois',
+          country: 'USA',
+          zipCode: '60601',
+          coordinates: { type: 'Point', coordinates: [-87.6298, 41.8781] }
         },
-        contact: {
-          phone: "+91 9876543210"
+        contact: { phone: '+1234567892' },
+        verification: { isEmailVerified: true },
+        status: 'active'
+      },
+      {
+        name: 'Michael Chen',
+        email: 'michael.chen@email.com',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'donor',
+        location: {
+          address: '321 Charity Lane',
+          city: 'Seattle',
+          state: 'Washington',
+          country: 'USA',
+          zipCode: '98101',
+          coordinates: { type: 'Point', coordinates: [-122.3321, 47.6062] }
         },
+        contact: { phone: '+1234567893' },
+        verification: { isEmailVerified: true },
+        status: 'active'
+      }
+    ];
+
+    const recipientUsers = [
+      {
+        name: 'Hope Foundation',
+        email: 'contact@hopefoundation.org',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'recipient',
+        location: {
+          address: '100 Hope Street',
+          city: 'Boston',
+          state: 'Massachusetts',
+          country: 'USA',
+          zipCode: '02101',
+          coordinates: { type: 'Point', coordinates: [-71.0589, 42.3601] }
+        },
+        contact: { phone: '+1234567894' },
         organization: {
-          name: "Kind Hands",
-          type: "NGO",
-          description: "Dedicated to helping underprivileged communities with clothing and basic necessities."
+          name: 'Hope Foundation',
+          type: 'NGO',
+          registrationNumber: 'NGO001',
+          description: 'Supporting homeless individuals...',
+          servingAreas: ['Boston', 'Cambridge'],
+          targetDemographics: ['homeless', 'low-income families'],
+          capacity: 500
         },
         verification: { 
           isEmailVerified: true,
           isOrganizationVerified: true
         },
-        status: "active"
+        status: 'active'
       },
       {
-        name: "Admin User",
-        email: "admin@rewearify.com",
-        password: "admin123",
-        role: "admin",
+        name: 'Children First Charity',
+        email: 'info@childrenfirst.org',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'recipient',
         location: {
-          address: "Admin Building",
-          city: "San Francisco",
-          state: "California",
-          country: "USA",
-          zipCode: "94105"
+          address: '200 Children Ave',
+          city: 'Miami',
+          state: 'Florida',
+          country: 'USA',
+          zipCode: '33101',
+          coordinates: { type: 'Point', coordinates: [-80.1918, 25.7617] }
         },
-        verification: { isEmailVerified: true },
-        status: "active"
+        contact: { phone: '+1234567895' },
+        organization: {
+          name: 'Children First Charity',
+          type: 'Charity',
+          registrationNumber: 'CHR002',
+          description: 'Providing clothing for underprivileged children',
+          servingAreas: ['Miami', 'Fort Lauderdale'],
+          targetDemographics: ['children', 'families in need'],
+          capacity: 300
+        },
+        verification: { 
+          isEmailVerified: true,
+          isOrganizationVerified: true
+        },
+        status: 'active'
+      },
+      {
+        name: 'Senior Care Alliance',
+        email: 'help@seniorcare.org',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'recipient',
+        location: {
+          address: '300 Elder Way',
+          city: 'Phoenix',
+          state: 'Arizona',
+          country: 'USA',
+          zipCode: '85001',
+          coordinates: { type: 'Point', coordinates: [-112.0740, 33.4484] }
+        },
+        contact: { phone: '+1234567896' },
+        organization: {
+          name: 'Senior Care Alliance',
+          type: 'NGO',
+          registrationNumber: 'NGO003',
+          description: 'Supporting elderly individuals...',
+          servingAreas: ['Phoenix', 'Scottsdale'],
+          targetDemographics: ['elderly', 'senior citizens'],
+          capacity: 200
+        },
+        verification: { 
+          isEmailVerified: true,
+          isOrganizationVerified: true
+        },
+        status: 'active'
+      },
+      {
+        name: 'Women Empowerment Center',
+        email: 'support@womenempowerment.org',
+        password: await bcryptjs.hash('password123', 12),
+        role: 'recipient',
+        location: {
+          address: '400 Empowerment Blvd',
+          city: 'Denver',
+          state: 'Colorado',
+          country: 'USA',
+          zipCode: '80201',
+          coordinates: { type: 'Point', coordinates: [-104.9903, 39.7392] }
+        },
+        contact: { phone: '+1234567897' },
+        organization: {
+          name: 'Women Empowerment Center',
+          type: 'NGO',
+          registrationNumber: 'NGO004',
+          description: 'Empowering women through clothing donations...',
+          servingAreas: ['Denver', 'Boulder'],
+          targetDemographics: ['women', 'single mothers'],
+          capacity: 150
+        },
+        verification: { 
+          isEmailVerified: true,
+          isOrganizationVerified: true
+        },
+        status: 'active'
       }
     ];
 
-    const usersWithHash = await Promise.all(
-      usersData.map(async (user) => ({
-        ...user,
-        password: await bcrypt.hash(user.password, 12)
-      }))
-    );
-
-    const insertedUsers = await User.insertMany(usersWithHash);
-    console.log(`👤 Inserted ${insertedUsers.length} users`);
-
-    const donor = insertedUsers.find(u => u.email === 'sarah@email.com');
-    const recipient = insertedUsers.find(u => u.email === 'michael@kindhands.org');
-    const admin = insertedUsers.find(u => u.email === 'admin@rewearify.com');
+    const createdAdmins = await User.insertMany(adminUsers);
+    const createdDonors = await User.insertMany(donorUsers);
+    const createdRecipients = await User.insertMany(recipientUsers);
+    
+    console.log(`✅ Created ${createdAdmins.length} admin users`);
+    console.log(`✅ Created ${createdDonors.length} donor users`);
+    console.log(`✅ Created ${createdRecipients.length} recipient organizations`);
 
     // ===== DONATIONS =====
-    const Donation = (await import('../models/Donation.js')).default;
+    const clothingTypes = ['shirt', 'pants', 'dress', 'jacket', 'sweater', 'jeans', 'blouse', 'skirt'];
+    const shoeTypes = ['sneakers', 'boots', 'sandals', 'dress shoes', 'casual shoes'];
+    const accessoryTypes = ['belt', 'hat', 'scarf', 'bag', 'jewelry'];
+    const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+    const conditions = ['excellent', 'good', 'fair'];
+    const colors = ['black', 'white', 'blue', 'red', 'green', 'gray', 'brown', 'navy'];
 
-    const donationsData = [
-      {
-        donor: donor._id,
-        title: "Winter Coats Collection",
-        description: "High-quality winter coats for adults and children",
-        category: "outerwear",
-        condition: "excellent",
-        quantity: 5,
-        sizes: [
-          { size: "S", quantity: 2 },
-          { size: "M", quantity: 2 },
-          { size: "L", quantity: 1 }
-        ],
-        colors: ["Black", "Navy", "Brown"],
-        images: [
-          "https://images.unsplash.com/photo-1544966503-7cc5ac882d5e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80"
-        ],
-        location: {
-          address: "123 Main St",
-          city: "New York",
-          state: "New York",
-          country: "USA",
-          zipCode: "10001"
-        },
-        pickupAvailable: true,
-        deliveryRadius: 25,
-        status: "approved",
-        aiAnalysis: {
-          categoryConfidence: 0.95,
-          conditionScore: 0.88,
-          demandPrediction: "high",
-          matchingTags: ["winter", "adults", "children"]
-        },
-        moderation: {
-          approvedBy: admin._id,
-          approvedAt: new Date("2025-09-09")
-        }
-      },
-      {
-        donor: donor._id,
-        title: "Kids School Uniforms",
-        description: "Clean school uniforms for elementary school children",
-        category: "children",
-        condition: "excellent",
-        quantity: 12,
-        sizes: [
-          { size: "6-7Y", quantity: 3 },
-          { size: "8-9Y", quantity: 4 },
-          { size: "10-11Y", quantity: 3 },
-          { size: "12-13Y", quantity: 2 }
-        ],
-        colors: ["Navy", "White", "Khaki"],
-        images: [
-          "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1986&q=80"
-        ],
-        location: {
-          address: "123 Main St",
-          city: "New York",
-          state: "New York",
-          country: "USA",
-          zipCode: "10001"
-        },
-        pickupAvailable: false,
-        deliveryRadius: 15,
-        status: "approved",
-        aiAnalysis: {
-          categoryConfidence: 0.98,
-          conditionScore: 0.91,
-          demandPrediction: "high",
-          matchingTags: ["school", "uniform", "children", "education"]
-        },
-        moderation: {
-          approvedBy: admin._id,
-          approvedAt: new Date("2025-09-09")
-        }
-      }
-    ];
+    const donations = [];
+    for (let i = 0; i < 50; i++) {
+      const donor = createdDonors[Math.floor(Math.random() * createdDonors.length)];
+      const category = ['outerwear', 'casual', 'children', 'accessories', 'shoes'][Math.floor(Math.random() * 5)];
+      
+      let itemType;
+      if (['outerwear', 'casual'].includes(category)) itemType = clothingTypes[Math.floor(Math.random() * clothingTypes.length)];
+      else if (category === 'shoes') itemType = shoeTypes[Math.floor(Math.random() * shoeTypes.length)];
+      else if (category === 'accessories') itemType = accessoryTypes[Math.floor(Math.random() * accessoryTypes.length)];
+      else itemType = 'school uniform'; // for 'children'
 
-    const insertedDonations = await Donation.insertMany(donationsData);
-    console.log(`👕 Inserted ${insertedDonations.length} donations`);
+      const donation = {
+        donor: donor._id,
+        title: `${itemType} Donation ${i + 1}`,
+        description: `Gently used ${itemType} in good condition`,
+        category: category,
+        condition: conditions[Math.floor(Math.random() * conditions.length)],
+        quantity: Math.floor(Math.random() * 5) + 1,
+        sizes: [{
+          size: category === 'accessories' ? 'One Size' : sizes[Math.floor(Math.random() * sizes.length)],
+          quantity: Math.floor(Math.random() * 5) + 1
+        }],
+        colors: [colors[Math.floor(Math.random() * colors.length)]],
+        location: {
+          address: donor.location.address,
+          city: donor.location.city,
+          state: donor.location.state,
+          country: donor.location.country,
+          zipCode: donor.location.zipCode,
+          coordinates: donor.location.coordinates
+        },
+        status: ['pending', 'approved', 'matched', 'completed'][Math.floor(Math.random() * 4)],
+        aiAnalysis: {
+          categoryConfidence: 0.9,
+          conditionScore: 0.85,
+          demandPrediction: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
+          matchingTags: [category, 'donation']
+        }
+      };
+      
+      donations.push(donation);
+    }
+
+    const createdDonations = await Donation.insertMany(donations);
+    console.log(`✅ Created ${createdDonations.length} donations`);
 
     // ===== REQUESTS =====
-    const Request = (await import('../models/Request.js')).default;
+    const urgencyLevels = ['low', 'medium', 'high', 'critical'];
+    const requests = [];
 
-    const requestsData = [
-      {
+    for (let i = 0; i < 30; i++) {
+      const recipient = createdRecipients[Math.floor(Math.random() * createdRecipients.length)];
+      const category = ['outerwear', 'casual', 'children', 'accessories', 'shoes'][Math.floor(Math.random() * 5)];
+      
+      let itemType;
+      if (['outerwear', 'casual'].includes(category)) itemType = clothingTypes[Math.floor(Math.random() * clothingTypes.length)];
+      else if (category === 'shoes') itemType = shoeTypes[Math.floor(Math.random() * shoeTypes.length)];
+      else if (category === 'accessories') itemType = accessoryTypes[Math.floor(Math.random() * accessoryTypes.length)];
+      else itemType = 'school uniform';
+
+      const request = {
         requester: recipient._id,
-        title: "Winter Clothing for Families",
-        description: "Urgent need for winter coats for homeless community.",
-        category: "outerwear",
-        urgency: "high",
-        quantity: 3,
-        sizes: [
-          { size: "M", quantity: 2 },
-          { size: "L", quantity: 1 }
-        ],
+        title: `Request for ${itemType} ${i + 1}`,
+        description: `Need ${itemType} for our beneficiaries`,
+        category: category,
+        urgency: urgencyLevels[Math.floor(Math.random() * urgencyLevels.length)],
+        quantity: Math.floor(Math.random() * 20) + 5,
+        sizes: [{
+          size: sizes[Math.floor(Math.random() * sizes.length)],
+          quantity: Math.floor(Math.random() * 5) + 1
+        }],
         beneficiaries: {
-          count: 10,
-          ageGroup: "mixed",
-          gender: "mixed"
+          count: Math.floor(Math.random() * 100) + 10,
+          ageGroup: ['children', 'adults', 'mixed'][Math.floor(Math.random() * 3)],
+          gender: 'mixed'
         },
         location: {
-          address: "123 Service Road",
-          city: "Shimoga",
-          state: "Karnataka",
-          country: "India",
-          zipCode: "577201"
+          address: recipient.location.address,
+          city: recipient.location.city,
+          state: recipient.location.state,
+          country: recipient.location.country,
+          zipCode: recipient.location.zipCode,
+          coordinates: recipient.location.coordinates
         },
         timeline: {
-          neededBy: new Date("2025-11-30")
+          neededBy: new Date(Date.now() + Math.floor(Math.random() * 60) * 24 * 60 * 60 * 1000)
         },
-        status: "matched",
-        donation: insertedDonations[0]._id,
-        matching: {
-          matchedAt: new Date("2025-09-10"),
-          matchScore: 0.92,
-          autoMatched: false
-        }
-      },
-      {
-        requester: recipient._id,
-        title: "School Uniforms for Children",
-        description: "Supporting families who cannot afford school uniforms.",
-        category: "children",
-        urgency: "medium",
-        quantity: 8,
-        sizes: [
-          { size: "8-9Y", quantity: 4 },
-          { size: "10-11Y", quantity: 4 }
-        ],
-        beneficiaries: {
-          count: 8,
-          ageGroup: "children",
-          gender: "mixed"
-        },
-        location: {
-          address: "123 Service Road",
-          city: "Shimoga",
-          state: "Karnataka",
-          country: "India",
-          zipCode: "577201"
-        },
-        timeline: {
-          neededBy: new Date("2025-10-31")
-        },
-        status: "active"
-      }
-    ];
+        status: ['active', 'matched', 'fulfilled'][Math.floor(Math.random() * 3)]
+      };
+      
+      requests.push(request);
+    }
 
-    const insertedRequests = await Request.insertMany(requestsData);
-    console.log(`📋 Inserted ${insertedRequests.length} requests`);
+    const createdRequests = await Request.insertMany(requests);
+    console.log(`✅ Created ${createdRequests.length} requests`);
 
-    // ===== MATCHES =====
-    const Match = (await import('../models/Match.js')).default;
-
-    const matchesData = [
-      {
-        donation: insertedDonations[0]._id,
-        request: insertedRequests[0]._id,
-        donor: donor._id,
-        requester: recipient._id,
-        matchScore: 0.92,
-        aiAnalysis: {
-          categoryMatch: { score: 0.95, confidence: 0.95 },
-          locationMatch: { distance: 1200, score: 0.8 },
-          urgencyMatch: { score: 0.9, reasoning: "High urgency request" },
-          sizeMatch: {
-            score: 0.95,
-            availableSizes: ["S", "M", "L"],
-            requestedSizes: ["M", "L"]
-          },
-          overallReasons: ["Perfect category match", "Good size availability"],
-          recommendations: ["Schedule pickup within 3 days"]
-        },
-        status: "accepted",
-        acceptance: {
-          donorAccepted: true,
-          donorAcceptedAt: new Date("2025-09-10T10:00:00Z"),
-          requesterAccepted: true,
-          requesterAcceptedAt: new Date("2025-09-10T11:00:00Z")
-        }
-      }
-    ];
-
-    await Match.insertMany(matchesData);
-    console.log(`🔗 Inserted ${matchesData.length} matches`);
-
-    // ===== NOTIFICATIONS =====
-    const Notification = (await import('../models/Notification.js')).default;
-
-    const notificationsData = [
-      // For Donor (Sarah)
-      {
-        recipient: donor._id,
-        type: "donation_approved",
-        title: "Donation Approved!",
-        message: "Your winter coats donation has been approved and is now available for requests.",
-        data: { donationId: insertedDonations[0]._id, actionUrl: `/dashboard/donations/${insertedDonations[0]._id}` },
-        status: "unread",
-        priority: "medium"
-      },
-      {
-        recipient: donor._id,
-        type: "donation_matched",
-        title: "Donation Matched!",
-        message: "Your winter coats donation has been matched with Kind Hands.",
-        data: { 
-          donationId: insertedDonations[0]._id,
-          requestId: insertedRequests[0]._id,
-          matchId: matchesData[0]._id,
-          actionUrl: `/dashboard/matches/${matchesData[0]._id}`
-        },
-        status: "unread",
-        priority: "high"
-      },
-      {
-        recipient: donor._id,
-        type: "feedback_request",
-        title: "How was your experience?",
-        message: "Please rate your donation experience with Kind Hands.",
-        data: { donationId: insertedDonations[0]._id, actionUrl: `/dashboard/donations/${insertedDonations[0]._id}/feedback` },
-        status: "unread",
-        priority: "low"
-      },
-
-      // For Recipient (Michael)
-      {
-        recipient: recipient._id,
-        type: "request_matched",
-        title: "Request Matched!",
-        message: "Your winter clothing request has been matched with Sarah Johnson.",
-        data: { 
-          requestId: insertedRequests[0]._id,
-          donationId: insertedDonations[0]._id,
-          matchId: matchesData[0]._id,
-          actionUrl: `/dashboard/matches/${matchesData[0]._id}`
-        },
-        status: "unread",
-        priority: "high"
-      },
-      {
-        recipient: recipient._id,
-        type: "new_donation_nearby",
-        title: "New Donation Available",
-        message: "Kids school uniforms available in your area.",
-        data: { donationId: insertedDonations[1]._id, actionUrl: `/dashboard/donations/${insertedDonations[1]._id}` },
-        status: "unread",
-        priority: "medium"
-      }
-    ];
-
-    await Notification.insertMany(notificationsData);
-    console.log(`🔔 Inserted ${notificationsData.length} notifications`);
-
-    console.log('\n🎉 SUCCESS! Your ReWearify database is fully seeded with:');
-    console.log('- 3 Users (Donor, Recipient, Admin)');
-    console.log('- 2 Donations (approved)');
-    console.log('- 2 Requests (1 matched, 1 active)');
-    console.log('- 1 Match (accepted)');
-    console.log('- 5 Notifications (all unread)');
+    console.log('\n🎉 Database seeding completed successfully!');
+    console.log('\n📊 Summary:');
+    console.log(`- Admin users: ${createdAdmins.length}`);
+    console.log(`- Donor users: ${createdDonors.length}`);
+    console.log(`- Recipient organizations: ${createdRecipients.length}`);
+    console.log(`- Donations: ${createdDonations.length}`);
+    console.log(`- Requests: ${createdRequests.length}`);
+    
+    console.log('\n🔐 Login Credentials:');
+    console.log('Admin: admin@rewearify.com / admin123');
+    console.log('Donor: john.smith@email.com / password123');
+    console.log('Recipient: contact@hopefoundation.org / password123');
 
     process.exit(0);
   } catch (error) {
-    console.error('🔥 Seeding failed:', error);
+    console.error('❌ Error seeding database:', error);
     process.exit(1);
   }
 };
 
-await connectDB();
-await seedDatabase();
+if (process.argv[1].endsWith('seedData.js')) {
+  seedData();
+}
+
+export default seedData;

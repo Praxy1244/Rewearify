@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { notificationService } from '../../services';
 import { Button } from '../ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
@@ -21,17 +22,36 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { mockNotifications } from '../../mock';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const unreadNotifications = mockNotifications.filter(n => 
-    n.userId === user?.id && !n.read
-  ).length;
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await notificationService.getNotifications();
+      if (response.success) {
+        const userNotifications = response.data.notifications || [];
+        setNotifications(userNotifications);
+        setUnreadCount(userNotifications.filter(n => n.status === 'unread').length);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      // Fallback to empty array if API fails
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -53,7 +73,6 @@ const Navbar = () => {
     switch (user.role) {
       case 'donor':
         return [
-          
           { path: '/donor-dashboard', label: 'Dashboard' },
           { path: '/donor/donate', label: 'New Donation' },
           { path: '/donor/my-donations', label: 'My Donations' },
@@ -61,7 +80,6 @@ const Navbar = () => {
         ];
       case 'recipient':
         return [
-    
           { path: '/recipient-dashboard', label: 'Dashboard' },
           { path: '/recipient/browseItems', label: 'Browse Items' },
           { path: '/recipient/my-requests', label: 'My Requests' },
@@ -69,48 +87,57 @@ const Navbar = () => {
         ];
       case 'admin':
         return [
-      
           { path: '/admin-dashboard', label: 'Dashboard' },
           { path: '/admin/donations', label: 'Manage Donations' },
           { path: '/admin/users', label: 'Manage Users' },
           { path: '/admin/analytics', label: 'Analytics' }
         ];
       default:
-        return baseLinks;
+        return [];
     }
   };
 
   const navLinks = getNavLinks();
   
   const getProfilePath = () => {
-  if (!user) return "/login";
-  switch (user.role) {
-    case "donor": return "/donor/profile";
-    case "recipient": return "/recipient/profile";
-    case "admin": return "/admin/profile";
-    default: return "/profile";
-  }
-};
+    if (!user) return "/login";
+    switch (user.role) {
+      case "donor": return "/donor/profile";
+      case "recipient": return "/recipient/profile";
+      case "admin": return "/admin/profile";
+      default: return "/profile";
+    }
+  };
 
-const getNotificationsPath = () => {
-  if (!user) return "/login";
-  switch (user.role) {
-    case "donor": return "/donor/notifications";
-    case "recipient": return "/recipient/notifications";
-    case "admin": return "/admin/notifications";
-    default: return "/notifications";
-  }
-};
+  const getNotificationsPath = () => {
+    if (!user) return "/login";
+    switch (user.role) {
+      case "donor": return "/donor/notifications";
+      case "recipient": return "/recipient/notifications";
+      case "admin": return "/admin/notifications";
+      default: return "/notifications";
+    }
+  };
 
-const getSettingsPath = () => {
-  if (!user) return "/login";
-  switch (user.role) {
-    case "donor": return "/donor/settings";
-    case "recipient": return "/recipient/settings";
-    case "admin": return "/admin/settings";
-    default: return "/settings";
-  }
-};
+  const getSettingsPath = () => {
+    if (!user) return "/login";
+    switch (user.role) {
+      case "donor": return "/donor/settings";
+      case "recipient": return "/recipient/settings";
+      case "admin": return "/admin/settings";
+      default: return "/settings";
+    }
+  };
+
+  const formatNotificationTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -155,11 +182,11 @@ const getSettingsPath = () => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="relative">
                       <Bell className="h-5 w-5" />
-                      {unreadNotifications > 0 && (
+                      {unreadCount > 0 && (
                         <Badge 
                           className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 hover:bg-red-600"
                         >
-                          {unreadNotifications}
+                          {unreadCount > 99 ? '99+' : unreadCount}
                         </Badge>
                       )}
                     </Button>
@@ -169,29 +196,43 @@ const getSettingsPath = () => {
                       <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
                     </div>
                     <DropdownMenuSeparator />
-                    {mockNotifications
-                      .filter(n => n.userId === user.id)
-                      .slice(0, 5)
-                      .map((notification) => (
-                        <DropdownMenuItem key={notification.id} className="flex-col items-start p-3">
-                          <div className="flex w-full justify-between items-start">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                              <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                    {notifications.length > 0 ? (
+                      <>
+                        {notifications.slice(0, 5).map((notification) => (
+                          <DropdownMenuItem key={notification._id} className="flex-col items-start p-3">
+                            <div className="flex w-full justify-between items-start">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {notification.title}
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                  {notification.message}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {formatNotificationTime(notification.createdAt)}
+                                </p>
+                              </div>
+                              {notification.status === 'unread' && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
+                              )}
                             </div>
-                            {!notification.read && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
-                            )}
-                          </div>
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="justify-center">
+                          <Link 
+                            to={getNotificationsPath()} 
+                            className="text-sm text-green-600 hover:text-green-700"
+                          >
+                            View all notifications
+                          </Link>
                         </DropdownMenuItem>
-                      ))
-                    }
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="justify-center">
-                      <Link to={getNotificationsPath()}  className="text-sm text-green-600 hover:text-green-700">
-                        View all notifications
-                      </Link>
-                    </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <DropdownMenuItem className="justify-center py-4">
+                        <p className="text-sm text-gray-500">No notifications yet</p>
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -202,8 +243,8 @@ const getSettingsPath = () => {
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={user.profilePicture} alt={user.name} />
                         <AvatarFallback>
-  {user?.name?.charAt(0) || "?"}
-</AvatarFallback>
+                          {user?.name?.charAt(0) || "?"}
+                        </AvatarFallback>
                       </Avatar>
                       <div className="hidden sm:block text-left">
                         <p className="text-sm font-medium text-gray-900">{user.name}</p>
