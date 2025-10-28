@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 const createTransporter = () => {
   if (process.env.NODE_ENV === 'production') {
     // Production email service (e.g., SendGrid, AWS SES)
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       service: process.env.EMAIL_SERVICE || 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
@@ -13,14 +13,14 @@ const createTransporter = () => {
     });
   } else {
     // Development - use Ethereal or console
-    return nodemailer.createTransporter({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      auth: {
-        user: process.env.ETHEREAL_USER || 'ethereal.user@ethereal.email',
-        pass: process.env.ETHEREAL_PASS || 'ethereal.pass'
-      }
-    });
+    return nodemailer.createTransport({
+    host: process.env.ETHEREAL_HOST || 'smtp.ethereal.email',
+    port: 587,
+    auth: {
+      user: process.env.ETHEREAL_USER,
+      pass: process.env.ETHEREAL_PASS
+    }
+  });
   }
 };
 
@@ -40,10 +40,7 @@ export const sendEmail = async (to, subject, html, text = null) => {
     const info = await transporter.sendMail(mailOptions);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('Email sent:', {
-        messageId: info.messageId,
-        previewUrl: nodemailer.getTestMessageUrl(info)
-      });
+       console.log('📬 Email sent! Preview URL: %s', nodemailer.getTestMessageUrl(info));
     }
     
     return {
@@ -53,6 +50,7 @@ export const sendEmail = async (to, subject, html, text = null) => {
     };
   } catch (error) {
     console.error('Email sending error:', error);
+    // This throw is important to let the calling function know it failed
     throw new Error('Failed to send email');
   }
 };

@@ -13,6 +13,7 @@ import { Progress } from '../../components/ui/progress';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ArrowLeft, ArrowRight, Info, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import donationService from '../../services/donationService';
 
 const DonationForm = () => {
   const { user } = useAuth();
@@ -96,39 +97,60 @@ const DonationForm = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      const donationData = {
-        ...formData,
-        id: `don_${Date.now()}`,
-        donorId: user.id,
-        donorName: user.name,
-        status: 'pending',
-        createdAt: new Date().toISOString().split('T')[0],
-      };
+  // The NEW and IMPROVED handleSubmit function
+const handleSubmit = async () => {
+  setLoading(true);
 
-      const existingDonations = JSON.parse(localStorage.getItem('user_donations') || '[]');
-      localStorage.setItem('user_donations', JSON.stringify([...existingDonations, donationData]));
+  // We no longer create the full donation object here.
+  // The backend will handle setting the donorId, status, createdAt, etc.
+  const donationPayload = {
+    title: formData.title,
+    description: formData.description,
+    category: formData.category,
+    condition: formData.condition,
+    quantity: formData.quantity,
+    sizes: formData.sizes,
+    colors: formData.colors,
+    location: formData.location,
+    pickupAvailable: formData.pickupAvailable,
+    deliveryRadius: formData.deliveryRadius,
+    urgentNeeded: formData.urgentNeeded,
+    tags: formData.tags
+  };
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+  try {
+    //
+    // THIS IS THE KEY CHANGE!
+    // We call our service to send the data to the backend API.
+    //
+    const response = await donationService.createDonation(donationPayload);
 
+    if (response.success) {
       toast({
-        title: "Donation Created Successfully!",
-        description: "Your donation is pending admin approval and will be listed soon.",
+        title: "Donation Submitted Successfully!",
+        description: "Your donation is now pending admin approval.",
       });
-
       navigate('/donor/my-donations');
-    } catch (error) {
+    } else {
+      // Handle errors returned from the backend
       toast({
-        title: "Error Creating Donation",
-        description: "Please try again later",
+        title: "Submission Failed",
+        description: response.error || "Could not create the donation.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    // Handle network errors or other exceptions
+    console.error("Error creating donation:", error);
+    toast({
+      title: "An Error Occurred",
+      description: "Please check your connection and try again.",
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const renderProgressBar = () => (
     <div className="mb-8">

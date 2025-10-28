@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Check, X, Package, Calendar, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -8,37 +8,120 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
-import { mockDonations } from '../../adminmock';
+import { adminService } from '../../services';
 import { useToast } from '../../hooks/use-toast';
 
 const ManageDonations = () => {
-  const [donations, setDonations] = useState(mockDonations);
+  const [donations, setDonations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const { toast } = useToast();
+  
+  useEffect(() => {
+    fetchDonations();
+  }, []);
+  
+  const fetchDonations = async () => {
+    try {
+      setLoading(true);
+      const response = await adminService.getDonations();
+      if (response.success) {
+        setDonations(response.data || []);
+      } else {
+        setError('Failed to fetch donations');
+        toast({
+          title: "Error",
+          description: "Failed to load donations",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching donations:', err);
+      setError(err.message || 'Failed to fetch donations');
+      toast({
+        title: "Error",
+        description: "Failed to load donations",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add loading and error states
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading donations...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Donations</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <Button onClick={fetchDonations} variant="outline">
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredDonations = donations.filter(donation => {
-    const matchesSearch = donation.donorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         donation.itemType.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = donation.donorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         donation.itemType?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         '';
     const matchesStatus = statusFilter === 'all' || donation.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const handleApprove = (donationId) => {
-    setDonations(prev => prev.map(donation => 
-      donation.id === donationId 
-        ? { ...donation, status: 'approved', dateApproved: new Date().toISOString().split('T')[0] }
-        : donation
-    ));
-    toast({
-      title: "Donation Approved",
-      description: "The donation has been successfully approved.",
-    });
+  const handleApprove = async (donationId) => {
+    try {
+      const response = await adminService.approveDonation(donationId);
+      if (response.success) {
+        // Update local state
+        setDonations(prev => prev.map(donation => 
+          donation.id === donationId 
+            ? { ...donation, status: 'approved', dateApproved: new Date().toISOString().split('T')[0] }
+            : donation
+        ));
+        toast({
+          title: "Donation Approved",
+          description: "The donation has been successfully approved.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to approve donation",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Error approving donation:', err);
+      toast({
+        title: "Error",
+        description: "Failed to approve donation",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleReject = (donationId) => {
+  const handleReject = async (donationId) => {
     if (!rejectReason.trim()) {
       toast({
         title: "Error",
@@ -48,16 +131,35 @@ const ManageDonations = () => {
       return;
     }
     
-    setDonations(prev => prev.map(donation => 
-      donation.id === donationId 
-        ? { ...donation, status: 'rejected', dateRejected: new Date().toISOString().split('T')[0], rejectReason }
-        : donation
-    ));
-    setRejectReason('');
-    toast({
-      title: "Donation Rejected",
-      description: "The donation has been rejected with reason provided.",
-    });
+    try {
+       const response = await adminService.rejectDonation(donationId, { reason: rejectReason });
+       if (response.success) {
+         // Update local state
+         setDonations(prev => prev.map(donation => 
+           donation.id === donationId 
+            ? { ...donation, status: 'rejected', dateRejected: new Date().toISOString().split('T')[0], rejectReason }
+            : donation
+         ));
+         setRejectReason('');
+         toast({
+           title: "Donation Rejected",
+           description: "The donation has been rejected with the provided reason.",
+         });
+       } else {
+         toast({
+           title: "Error",
+           description: response.message || "Failed to reject donation",
+           variant: "destructive",
+         });
+       }
+     } catch (err) {
+       console.error('Error rejecting donation:', err);
+       toast({
+         title: "Error",
+         description: "Failed to reject donation",
+         variant: "destructive",
+       });
+     }
   };
 
   const getStatusColor = (status) => {

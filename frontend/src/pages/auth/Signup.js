@@ -8,8 +8,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { Textarea } from '../../components/ui/textarea';
-import { Leaf, Heart, Eye, EyeOff, Mail, Lock, User, MapPin, Building } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, MapPin, Building } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import RewearifyLogo from '../../components/Layout/RewearifyLogo';
+import GoogleIcon from '../../components/icons/GoogleIcon';
+import { Separator } from '../../components/ui/separator';
 
 const Signup = () => {
   const [step, setStep] = useState(1);
@@ -96,11 +99,11 @@ const Signup = () => {
       if (result.success) {
         toast({
           title: "Welcome to ReWearify!",
-          description: "Your account has been created successfully.",
+          description: "Please check your inbox to verify your email.",
         });
-        navigate('/dashboard');
+        navigate('/login');
       } else {
-        setErrors({ general: result.error });
+        setErrors({ general: result.error || 'Registration failed.'  });
       }
     } catch (err) {
       setErrors({ general: 'An unexpected error occurred. Please try again.' });
@@ -121,36 +124,18 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+   // FIX 1: Full-screen background
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
-        {/* Logo */}
         <div className="text-center">
-          <div className="flex justify-center items-center space-x-2 mb-4">
-            <div className="relative">
-              <Leaf className="h-10 w-10 text-green-600" />
-              <Heart className="h-5 w-5 text-green-500 absolute -top-1 -right-1" />
-            </div>
-            <span className="text-2xl font-bold text-gray-900">ReWearify</span>
-          </div>
-          <p className="text-gray-600">Join the sustainable giving community</p>
+          {/* FIX 2: Consistent logo */}
+          <RewearifyLogo />
+          <p className="mt-2 text-gray-600">Join the sustainable giving community</p>
         </div>
-
-        
-
         <Card className="shadow-xl border-0">
-          <CardHeader className="space-y-1">
+          <CardHeader>
             <CardTitle className="text-2xl text-center">Create your account</CardTitle>
-            <CardDescription className="text-center">
-              Step {step} of 2: {step === 1 ? 'Basic Information' : 'Profile Details'}
-            </CardDescription>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
-              <div 
-                className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(step / 2) * 100}%` }}
-              />
-            </div>
+            <CardDescription className="text-center">Step {step} of 2: {step === 1 ? 'Basic Information' : 'Profile Details'}</CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-4">
@@ -355,12 +340,24 @@ const Signup = () => {
               )}
               <Button
                 onClick={handleNextStep}
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white"
                 disabled={loading}
               >
                 {loading ? 'Creating account...' : step === 1 ? 'Next' : 'Create Account'}
               </Button>
             </div>
+
+            <Separator className="my-4" />
+
+            {/* --- 💡 THE FIX IS HERE --- */}
+            <a href={`${process.env.REACT_APP_BACKEND_URL}/auth/google`} className="w-full">
+              <Button variant="outline" className="w-full">
+                {/* 2. Add the icon component here */}
+                <GoogleIcon className="mr-2 h-4 w-4" />
+                Sign up with Google
+              </Button>
+            </a>
+
 
             <div className="text-center">
               <span className="text-sm text-gray-600">

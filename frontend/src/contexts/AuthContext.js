@@ -113,6 +113,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const handleOAuthCallback = async (token, navigate) => {
+        try {
+          // 1. Store the token from the URL
+          localStorage.setItem('token', token);
+          
+          // 2. Fetch the user data using the new token
+          const response = await authService.getCurrentUser();
+          
+          if (response.success) {
+            // 3. Update the user state
+            setUser(response.data.user);
+            await loadNotifications(response.data.user.id);
+            
+            // 4. Redirect to the correct dashboard
+            switch (response.data.user.role) {
+              case "admin":
+                navigate("/admin-dashboard");
+                break;
+              case "donor":
+                navigate("/donor-dashboard");
+                break;
+              case "recipient":
+                navigate("/recipient-dashboard");
+                break;
+              default:
+                navigate("/dashboard");
+            }
+          } else {
+            throw new Error('Failed to fetch user after OAuth login');
+          }
+        } catch (error) {
+          console.error("OAuth Callback Error:", error);
+          logout(); // Clear any partial login state
+          navigate('/login?error=oauth_failed');
+        }
+      };
+    
+
   const updateProfile = async (updatedData) => {
     try {
       const response = await api.put(`/users/${user.id}`, updatedData);
@@ -181,6 +219,7 @@ export const AuthProvider = ({ children }) => {
     login,
     signup,
     logout,
+    handleOAuthCallback,
     updateProfile,
     updateNotificationRead,
     markAllNotificationsRead,

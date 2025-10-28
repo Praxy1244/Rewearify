@@ -20,6 +20,7 @@ import {
   Truck,
   Calendar
 } from 'lucide-react';
+import AIPredictionWidget from '../AI/AIPredictionWidget';
 
 const RecipientDashboard = () => {
   const { user } = useAuth();
@@ -106,6 +107,8 @@ const RecipientDashboard = () => {
       </div>
     );
   }
+
+  // Using the imported AIPredictionWidget component
 
   return (
     <div className="min-h-screen bg-gray-50">

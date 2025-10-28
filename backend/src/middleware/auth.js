@@ -44,7 +44,7 @@ export const protect = async (req, res, next) => {
       req.user = user;
       
       // Update last active
-      user.updateLastActive();
+      await user.updateLastActive();
       
       next();
     } catch (error) {

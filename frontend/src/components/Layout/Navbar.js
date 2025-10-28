@@ -5,6 +5,7 @@ import { notificationService } from '../../services';
 import { Button } from '../ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
+import RewearifyLogo from '../../components/Layout/RewearifyLogo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -144,15 +145,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="relative">
-              <Leaf className="h-8 w-8 text-green-600 group-hover:text-green-700 transition-colors" />
-              <Heart className="h-4 w-4 text-green-500 absolute -top-1 -right-1 group-hover:text-green-600 transition-colors" />
-            </div>
-            <span className="text-xl font-bold text-gray-900 group-hover:text-green-700 transition-colors">
-              ReWearify
-            </span>
-          </Link>
+          <RewearifyLogo />
 
           {/* Desktop Navigation */}
           {user && (

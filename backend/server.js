@@ -8,7 +8,8 @@ import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cron from 'node-cron';
-
+import passport from 'passport'; 
+import { configurePassport } from './src/config/passport.js'; 
 // Import configurations and utilities
 import { connectDB } from './src/config/database.js';
 import { errorHandler, notFound } from './src/middleware/errorMiddleware.js';
@@ -30,6 +31,10 @@ import { cleanupExpiredTokens, updateDonationStatuses } from './src/utils/schedu
 // Load environment variables
 dotenv.config();
 
+const startServer = async () => {
+  try {
+    await connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify');
+    
 // Create Express app
 const app = express();
 const server = createServer(app);
@@ -45,8 +50,8 @@ const io = new Server(server, {
 // Make io accessible in routes
 app.set('io', io);
 
-// Connect to database
-connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify');
+    app.use(passport.initialize()); // 3. Initialize Passport
+    configurePassport(); // 4. Configure our Google strategy  
 
 // Security middleware
 app.use(helmet({
@@ -152,12 +157,11 @@ server.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Process terminated');
-  });
-});
+} catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
 
-export default app;
+startServer();
+

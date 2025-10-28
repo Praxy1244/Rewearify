@@ -13,47 +13,33 @@ import {
   Eye,
   TrendingDown
 } from 'lucide-react';
-import { aiService } from '../../services/aiService';
+import { aiService } from '../../services';
 
 const FraudDetectionWidget = ({ donorId = null, showBatchResults = false }) => {
   const [fraudData, setFraudData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const mockDonorData = {
-    DonorID: donorId || 'D001',
-    Donor_Reliability: 0.75,
-    Past_Donations: 12,
-    Avg_Quantity_Claimed: 8.5,
-    Avg_Quantity_Received_Ratio: 0.92,
-    Avg_Fulfillment_Delay: 5.2,
-    Num_Manual_Rejects: 1,
-    Num_Flagged: 0,
-    Feedback_Mean: 4.2
-  };
-
   const runFraudDetection = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // For demo purposes, we'll simulate the AI response
-      // In production, this would call: await aiService.detectFraud(mockDonorData);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockResponse = {
-        donor_id: mockDonorData.DonorID,
-        fraud_probability: 0.23,
-        is_flagged: false,
-        risk_level: 'Low',
-        explanation: 'Good reliability score (0.75); Reasonable fulfillment delay (5.2 days); High quantity delivery ratio (0.92)',
-        recommendation: 'Auto-approve'
+      // Prepare donor data for API call
+      const donorData = {
+        donorId: donorId || 'D001'
       };
       
-      setFraudData(mockResponse);
+      // Call the real API service
+      const response = await aiService.performFraudDetection(donorData);
+      
+      if (response && response.data) {
+        setFraudData(response.data);
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (err) {
+      console.error('Fraud detection error:', err);
       setError('Failed to run fraud detection');
     } finally {
       setLoading(false);

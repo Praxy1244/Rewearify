@@ -22,6 +22,7 @@ import {
   Recycle,
   Bell
 } from 'lucide-react';
+import AIPredictionWidget from '../AI/AIPredictionWidget';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -104,7 +105,7 @@ const DonorDashboard = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <p className="text-gray-600">Loading your impact dashboard...</p>
         </div>
       </div>
     );
@@ -137,14 +138,20 @@ const DonorDashboard = () => {
           </div>
 
           {/* Impact Summary */}
-          <Card className="bg-gradient-to-r from-green-500 to-blue-500 text-white border-0">
-            <CardContent className="p-6">
+          <Card className="bg-gradient-to-r from-green-500 to-blue-500 text-white border-0 shadow-xl rounded-xl overflow-hidden">
+            <CardContent className="p-8">
+              <h3 className="text-xl font-semibold mb-4 flex items-center">
+                <Award className="h-6 w-6 mr-2" />
+                Your Impact Dashboard
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="text-center">
+                <div className="text-center bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                  <Package className="h-8 w-8 mx-auto mb-2 text-white" />
                   <div className="text-3xl font-bold">{stats.totalDonations}</div>
                   <div className="text-green-100">Total Donations</div>
                 </div>
-                <div className="text-center">
+                <div className="text-center bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-white" />
                   <div className="text-3xl font-bold">{stats.completedMatches}</div>
                   <div className="text-green-100">Successful Matches</div>
                 </div>
@@ -162,6 +169,11 @@ const DonorDashboard = () => {
               </div>
             </CardContent>
           </Card>
+          
+          {/* AI Predictions */}
+          <div className="mt-6">
+            <AIPredictionWidget userId={user?.id} userType="donor" />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

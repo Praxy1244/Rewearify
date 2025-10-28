@@ -204,4 +204,17 @@ function getCategoryIcon(category) {
   return icons[category] || '📦';
 }
 
+// --- 💡 A TEMPORARY ROUTE FOR TESTING OUR ERROR HANDLER ---
+// This route will intentionally throw an error.
+router.get('/test-error', (req, res, next) => {
+  try {
+    // We are simulating a bug by calling a function that doesn't exist.
+    nonExistentFunction(); 
+  } catch (error) {
+    // Pass the error to our global error handler in errorMiddleware.js
+    next(error);
+  }
+});
+
+
 export default router;

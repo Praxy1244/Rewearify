@@ -6,13 +6,40 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { mockDonations, mockRequests, mockAnalytics } from '../../adminmock';
+import { adminService } from '../../services';
 import { AIInsightsCard, FraudDetectionWidget, MatchingWidget } from '../AI';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
-  const { userStats, donationStats, matchStats, systemHealth } = mockAnalytics;
+  const [dashboardData, setDashboardData] = React.useState({
+    userStats: {},
+    donationStats: {},
+    matchStats: {},
+    systemHealth: {}
+  });
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
   const navigate = useNavigate();
+  
+  React.useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const response = await adminService.getDashboardData();
+        setDashboardData(response.data);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load dashboard data');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, []);
+  
+  const { userStats, donationStats, matchStats, systemHealth } = dashboardData;
 
   const StatCard = ({ title, value, change, icon: Icon, color }) => (
     <Card className="relative overflow-hidden">
@@ -88,6 +115,29 @@ const AdminDashboard = () => {
       </div>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong className="font-bold">Error!</strong>
+        <span className="block sm:inline"> {error}</span>
+        <Button 
+          onClick={() => window.location.reload()} 
+          className="mt-2 bg-red-100 text-red-800 hover:bg-red-200"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

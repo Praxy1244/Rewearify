@@ -18,7 +18,7 @@ import {
   Package,
   Heart
 } from 'lucide-react';
-import { categories, qualityLevels, availabilityStatus } from '../../recepientmock';
+import { requestService } from '../../services';
 
 const BrowseItems = () => {
   const { donationItems, addRequest } = useApp();
@@ -32,6 +32,29 @@ const BrowseItems = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestQuantity, setRequestQuantity] = useState(1);
   const [requestNotes, setRequestNotes] = useState('');
+  
+  // Define categories, quality levels, and availability status
+  const categories = [
+    { value: 'all', label: 'All Categories' },
+    { value: 'clothing', label: 'Clothing' },
+    { value: 'footwear', label: 'Footwear' },
+    { value: 'accessories', label: 'Accessories' },
+    { value: 'household', label: 'Household Items' }
+  ];
+  
+  const qualityLevels = [
+    { value: 'all', label: 'All Quality Levels' },
+    { value: 'excellent', label: 'Excellent' },
+    { value: 'good', label: 'Good' },
+    { value: 'fair', label: 'Fair' }
+  ];
+  
+  const availabilityStatus = [
+    { value: 'all', label: 'All Availability' },
+    { value: 'available', label: 'Available' },
+    { value: 'limited', label: 'Limited' },
+    { value: 'reserved', label: 'Reserved' }
+  ];
 
   // Filter and search items
   const filteredItems = useMemo(() => {

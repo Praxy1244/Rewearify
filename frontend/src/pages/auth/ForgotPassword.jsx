@@ -1,106 +1,72 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Button } from "../../components/ui/button";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Mail, Leaf, Heart } from "lucide-react";
+import { Mail } from "lucide-react";
+import RewearifyLogo from "../../components/Layout/RewearifyLogo";
+import { authService } from "../../services"; // Use our centralized service
+import { useToast } from "../../hooks/use-toast";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const submit = async (e) => {
     e.preventDefault();
-    setMsg("");
     setError("");
     setLoading(true);
 
     try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}/api/auth/forgot-password`,
-        { email }
-      );
-      setMsg(res.data.message || "✅ Check your email for a reset link");
+      const response = await authService.forgotPassword(email); // Use the service
+      if (response.success) {
+        toast({
+          title: "Check your email",
+          description: "If an account with that email exists, a reset link has been sent.",
+        });
+      } else {
+        setError(response.message || "Something went wrong. Please try again.");
+      }
     } catch (err) {
-      setError(err.response?.data?.error || "❌ Something went wrong. Please try again.");
+      setError(err.message || "Failed to send reset link. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
-        {/* Logo */}
         <div className="text-center">
-          <div className="flex justify-center items-center space-x-2 mb-4">
-            <div className="relative">
-              <Leaf className="h-10 w-10 text-green-600" />
-              <Heart className="h-5 w-5 text-green-500 absolute -top-1 -right-1" />
-            </div>
-            <span className="text-2xl font-bold text-gray-900">ReWearify</span>
-          </div>
-          <p className="text-gray-600">We’ll send you a link to reset your password</p>
+          <RewearifyLogo />
+          <p className="mt-2 text-gray-600">We’ll send you a link to reset your password</p>
         </div>
 
         <Card className="shadow-xl border-0">
-          <CardHeader className="space-y-1">
+          <CardHeader>
             <CardTitle className="text-2xl text-center">Forgot Password</CardTitle>
-            <CardDescription className="text-center">
-              Enter your email address to receive a reset link
-            </CardDescription>
+            <CardDescription className="text-center">Enter your email to receive a reset link</CardDescription>
           </CardHeader>
-
           <CardContent className="space-y-4">
-            {error && (
-              <Alert className="border-red-200 bg-red-50">
-                <AlertDescription className="text-red-800">{error}</AlertDescription>
-              </Alert>
-            )}
-            {msg && (
-              <Alert className="border-green-200 bg-green-50">
-                <AlertDescription className="text-green-800">{msg}</AlertDescription>
-              </Alert>
-            )}
-
+            {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    placeholder="you@example.com"
-                  />
+                  <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" placeholder="you@example.com" />
                 </div>
               </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-green-600 hover:bg-green-700"
-                disabled={loading}
-              >
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
               </Button>
             </form>
-
             <div className="text-center mt-4">
-              <Link
-                to="/login"
-                className="text-sm text-green-600 hover:text-green-700 font-medium"
-              >
-                Back to login
-              </Link>
+              <Link to="/login" className="text-sm text-green-600 hover:text-green-700 font-medium">Back to login</Link>
             </div>
           </CardContent>
         </Card>

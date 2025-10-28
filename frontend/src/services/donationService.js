@@ -21,6 +21,16 @@ class DonationService {
       throw error;
     }
   }
+  
+  // Get donations by user ID
+  async getUserDonations(userId) {
+    try {
+      const response = await api.get(API_ENDPOINTS.DONATIONS.BY_USER(userId));
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
 
   // Create new donation
   async createDonation(donationData) {

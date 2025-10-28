@@ -8,6 +8,7 @@ import { ok, fail, created } from '../utils/response.js';
 import { sendTemplateEmail } from '../utils/email.js';
 import { userValidations, handleValidationErrors } from '../utils/validation.js';
 import { protect, restrictTo } from '../middleware/auth.js';
+import passport from 'passport'; 
 
 const router = express.Router();
 
@@ -452,5 +453,32 @@ router.get('/users', protect, restrictTo('admin'), async (req, res) => {
     return fail(res, 'Failed to get users', 500);
   }
 });
+
+// @desc    Auth with Google
+// @route   GET /api/auth/google
+// @access  Public
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// @desc    Google auth callback
+// @route   GET /api/auth/google/callback
+// @access  Public
+router.get('/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login', session: false }),
+  (req, res) => {
+    // On successful authentication, Passport attaches the user to req.user
+    const user = req.user;
+    
+    // We generate our own JWT token for the user
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // We redirect the user to the frontend with the token
+    // The frontend will need to handle this
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+  }
+);
 
 export default router;
