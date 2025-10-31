@@ -59,8 +59,8 @@ router.get('/:id', async (req, res) => {
 // @access  Private (Owner or Admin)
 router.put('/:id', protect, adminOrOwner('id'), userValidations.updateProfile, handleValidationErrors, async (req, res) => {
   try {
-    const allowedUpdates = [
-      'name', 'location', 'organization', 'contact', 'profile', 'preferences'
+     const allowedUpdates = [
+      'name', 'location', 'organization', 'contact', 'profile', 'preferences', 'role'
     ];
 
     // Filter only allowed updates

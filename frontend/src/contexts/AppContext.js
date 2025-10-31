@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import donationService from '../services/donationService';
-import requestService from '../services/requestService';
-import notificationService from '../services/notificationService';
+// Import services using the index file for cleaner imports
+import { donationService, requestService, notificationService } from '../services';
 
 const AppContext = createContext();
 
@@ -15,89 +14,108 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuth(); // Get the currently logged-in user
+
+  // State to hold application-wide data
   const [donations, setDonations] = useState([]);
   const [requests, setRequests] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // --- Start loading as true to handle initial page load/refresh ---
+  const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
 
-  // Fetch user's donations
-  const fetchUserDonations = useCallback(async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setError(null);
+  // Function to fetch all necessary data for the logged-in user
+  const loadInitialData = useCallback(async () => {
+    // Only proceed if there is a logged-in user with an ID
+    if (!user || !user._id) {
+      setDonations([]);
+      setRequests([]);
+      setNotifications([]);
+      setLoading(false); // Stop loading if no user
+      setError(null);
+      return;
+    }
+
+    // --- Explicitly set loading to true when fetching starts ---
+    setLoading(true); 
+    setError(null);   // Clear previous errors
     
     try {
-      const response = await donationService.getUserDonations();
-      if (response.success) {
-        setDonations(response.data);
-      } else {
-        setError(response.error || 'Failed to fetch donations');
-      }
-    } catch (err) {
-      console.error('Error fetching donations:', err);
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+      // Fetch user's data concurrently
+      const [donationsRes, requestsRes, notificationsRes] = await Promise.all([
+        donationService.getUserDonations(user._id),
+        requestService.getUserRequests(user._id),
+        notificationService.getNotifications()
+      ]);
 
-  // Fetch requests related to user's donations
-  const fetchUserRequests = useCallback(async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await requestService.getRequests();
-      if (response.success) {
-        setRequests(response.data);
-      } else {
-        setError(response.error || 'Failed to fetch requests');
-      }
-    } catch (err) {
-      console.error('Error fetching requests:', err);
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+      // --- Process Responses (Keep existing logic) ---
+       if (donationsRes.success && donationsRes.data) {
+         // Use the nested 'donations' array if that's the structure
+         setDonations(donationsRes.data.donations || []); 
+       } else {
+         console.error("Failed to fetch donations:", donationsRes.message || 'No data returned');
+         setDonations([]); 
+       }
 
-  // Fetch user notifications
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await notificationService.getUserNotifications();
-      if (response.success) {
-        setNotifications(response.data);
-      } else {
-        setError(response.error || 'Failed to fetch notifications');
-      }
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+       if (requestsRes.success && requestsRes.data) {
+         // Assuming requests might also be nested
+         setRequests(requestsRes.data.requests || []); 
+       } else {
+         console.error("Failed to fetch requests:", requestsRes.message || 'No data returned');
+         setRequests([]);
+       }
+      
+       if (notificationsRes.success && notificationsRes.data) {
+         setNotifications(notificationsRes.data.notifications || []); 
+       } else {
+         console.error("Failed to fetch notifications:", notificationsRes.message || 'No data returned');
+         setNotifications([]);
+       }
+      // --- End Processing Responses ---
 
+    } catch (err) {
+      console.error('Error loading initial app data:', err);
+      setError(`Failed to load dashboard data: ${err.message || 'Network error'}. Please try again.`);
+      setDonations([]);
+      setRequests([]);
+      setNotifications([]);
+    } finally {
+      // --- Set loading to false ONLY after all fetches are done ---
+      setLoading(false); 
+    }
+  }, [user]); // Rerun this function ONLY if the user object reference changes
+
+  // useEffect to trigger data loading
+  useEffect(() => {
+    // Check if user exists before loading to prevent unnecessary initial load
+    if (user && user._id) {
+        loadInitialData();
+    } else {
+        // If there's no user (e.g., initial load before auth check), ensure loading is false
+        setLoading(false); 
+        setDonations([]);
+        setRequests([]);
+        setNotifications([]);
+        setError(null);
+    }
+  }, [user, loadInitialData]); // Depend on user and the memoized function
+
+  // Function to add a new donation locally
+  const addDonation = (newDonation) => {
+    setDonations(prevDonations => [newDonation, ...prevDonations]);
+  };
+
+  // Value provided by the context
   const value = {
     donations,
     requests,
     notifications,
-    loading,
-    error,
-    fetchUserDonations,
-    fetchUserRequests,
-    fetchNotifications
+    loading, // Provide loading state
+    error,   // Provide error state
+    addDonation,
+    reload: loadInitialData, // Provide reload function
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
+

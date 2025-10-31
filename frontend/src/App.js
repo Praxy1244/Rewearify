@@ -49,6 +49,8 @@ import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
 import DonationForm from './pages/donor/DonationForm';
 import MyDonations from './pages/donor/MyDonations';
+import DonationDetails from './pages/donor/DonationDetails';
+import DonationEdit from './pages/donor/DonationEdit';
 import BrowseNeeds from "./pages/donor/BrowseNeeds";
 import DonorProfile from "./pages/donor/DonorProfile";
 import Notifications from './pages/Notifications'; 
@@ -68,6 +70,8 @@ import ManageUsers from "./pages/admin/ManageUsers";
 import Analytics from "./pages/admin/Analytics";
 import ErrorBoundary from './components/Layout/ErrorBoundary';
 import AuthCallback from "./pages/auth/AuthCallback";
+import VerifyEmail from "./pages/auth/VerifyEmail";
+import SelectRole from "./pages/auth/SelectRole"; 
 
 
 // AI Pages
@@ -133,6 +137,18 @@ function AppContent() {
           <Route path="/donor/my-donations" element={
             <ProtectedRoute allowedRoles={['donor']}>
               <MyDonations />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/donor/donations/:id" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <DonationDetails />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/donor/donations/:id/edit" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <DonationEdit />
             </ProtectedRoute>
           } />
 
@@ -222,9 +238,19 @@ function AppContent() {
             </div>
           } />
 
+           <Route path="/verify-email/:token" element={<VerifyEmail />} />
+
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/callback" element={<AuthCallback />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route 
+            path="/select-role" 
+            element={
+              <ProtectedRoute allowedRoles={["donor", "recipient", "admin"]}>
+                <SelectRole />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </main>
 

@@ -50,12 +50,7 @@ const Login = () => {
       const result = await login(formData.email, formData.password);
       if (result.success) {
         toast({ title: "Welcome back!", description: `Logged in as ${result.data.user.role}.` });
-        switch (result.data.user.role) {
-          case "admin": navigate("/admin-dashboard"); break;
-          case "donor": navigate("/donor-dashboard"); break;
-          case "recipient": navigate("/recipient-dashboard"); break;
-          default: navigate("/dashboard");
-        }
+        navigate('/');
       } else {
         setErrors({ general: result.message || 'Invalid credentials.' });
       }

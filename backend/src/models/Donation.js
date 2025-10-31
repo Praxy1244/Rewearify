@@ -65,12 +65,19 @@ const donationSchema = new mongoose.Schema({
     enum: [
       'outerwear', 'formal', 'casual', 'children', 
       'accessories', 'shoes', 'activewear', 'undergarments',
-      'traditional', 'seasonal', 'maternity', 'plus-size'
+      'traditional', 'seasonal', 'maternity', 'plus-size',
+      // --- FIX 1: ADDED NEW CATEGORIES ---
+      'household', 
+      'linens', 
+      'other'
     ]
   },
+  // --- FIX 2: ADDED NEW SUBCATEGORY FIELD ---
   subcategory: {
     type: String,
-    default: ''
+    trim: true,
+    default: '',
+    maxlength: [100, 'Subcategory cannot exceed 100 characters']
   },
   condition: {
     type: String,

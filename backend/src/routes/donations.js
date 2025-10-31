@@ -123,12 +123,12 @@ router.post('/',
         donor: req.user.id
       };
 
-      // Get AI analysis if available (without images)
+      // Wrap AI call in try/catch so it doesn't crash
       try {
         const aiAnalysis = await getAIAnalysis(donationData);
         donationData.aiAnalysis = aiAnalysis;
       } catch (aiError) {
-        console.error('AI analysis error:', aiError);
+        console.error('AI analysis error (non-blocking):', aiError.message);
         // Continue without AI analysis
       }
 
@@ -140,18 +140,28 @@ router.post('/',
         $inc: { 'statistics.totalDonations': 1 }
       });
 
-      // Notify admins about new donation
-      await Notification.createAndSend({
-        recipient: null, // Will be sent to all admins
-        type: 'new_donation_pending',
+      // --- FIX: Notify all admins ---
+      // 1. Find all admin users
+      const admins = await User.find({ role: 'admin' });
+
+      // 2. Create a notification for each admin
+      const adminNotifications = admins.map(admin => ({
+        recipient: admin._id, // <-- FIX 1: Set a real user ID
+        type: 'new_donation_pending', // <-- FIX 2: Now valid
         title: 'New Donation Pending Review',
         message: `New donation "${donation.title}" submitted by ${req.user.name}`,
         data: {
           donationId: donation._id,
-          actionUrl: `/admin/donations/${donation._id}`
+          actionUrl: `/admin/donations`
         },
-        channels: { inApp: true, email: true }
-      });
+        channels: { inApp: true }
+      }));
+      
+      // 3. Insert all notifications
+      if (adminNotifications.length > 0) {
+        await Notification.insertMany(adminNotifications);
+      }
+      // --- END OF FIX ---
 
       return created(res, { donation }, 'Donation created successfully');
     } catch (error) {
@@ -281,7 +291,8 @@ async function getAIAnalysis(donationData) {
 
     return response.data;
   } catch (error) {
-    console.error('AI service error:', error);
+    // This will be caught by the route handler
+    console.error('AI service error:', error.message);
     throw error;
   }
 }

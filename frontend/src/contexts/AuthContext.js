@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
+import userService from '../services/userService'; 
 import  api  from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 
@@ -18,90 +19,53 @@ export const AuthProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 1. Initialize Auth State
   useEffect(() => {
-    initializeAuth();
-  }, []);
-
-  const initializeAuth = async () => {
-    try {
-      // Check if user is logged in from localStorage
-      const token = authService.getToken();
-      const storedUser = authService.getStoredUser();
-      
-      if (token && storedUser) {
-        // Verify token is still valid by fetching current user
-        try {
+    const initializeAuth = async () => {
+      try {
+        const token = authService.getToken();
+        if (token) {
           const response = await authService.getCurrentUser();
           if (response.success) {
             setUser(response.data.user);
-            await loadNotifications(response.data.user.id);
           } else {
-            // Token is invalid, clear storage
             authService.logout();
           }
-        } catch (error) {
-          // Token is invalid, clear storage
-          authService.logout();
         }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        authService.logout(); 
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Auth initialization error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    initializeAuth();
+  }, []);
 
-  const loadNotifications = async (userId) => {
-    try {
-      const response = await api.get(API_ENDPOINTS.NOTIFICATIONS.BASE);
-      if (response.success) {
-        setNotifications(response.data.notifications || []);
-      }
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-      // Fallback to empty array if notifications fail to load
-      setNotifications([]);
-    }
-  };
-
+  // 2. Login Function
   const login = async (email, password) => {
     try {
       const response = await authService.login({ email, password });
-      
       if (response.success) {
         setUser(response.data.user);
-        await loadNotifications(response.data.user.id);
-        return response;
       }
-      
-      return response;
+      return response; 
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.message || 'Login failed' 
-      };
+      throw error; 
     }
   };
 
+  // 3. Signup Function
   const signup = async (userData) => {
     try {
       const response = await authService.register(userData);
-      
-      if (response.success) {
-        setUser(response.data.user);
-        setNotifications([]); // New user starts with no notifications
-        return response;
-      }
-      
       return response;
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.message || 'Registration failed' 
-      };
+      throw error; 
     }
   };
 
+  // 4. Logout Function
   const logout = async () => {
     try {
       await authService.logout();
@@ -113,106 +77,117 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 5. Google OAuth Callback Handler
   const handleOAuthCallback = async (token, navigate) => {
         try {
-          // 1. Store the token from the URL
           localStorage.setItem('token', token);
+          localStorage.setItem('rewearify_token', token); 
           
-          // 2. Fetch the user data using the new token
           const response = await authService.getCurrentUser();
           
           if (response.success) {
-            // 3. Update the user state
-            setUser(response.data.user);
-            await loadNotifications(response.data.user.id);
+            const freshUser = response.data.user;
+            setUser(freshUser);
             
-            // 4. Redirect to the correct dashboard
-            switch (response.data.user.role) {
-              case "admin":
-                navigate("/admin-dashboard");
-                break;
-              case "donor":
-                navigate("/donor-dashboard");
-                break;
-              case "recipient":
-                navigate("/recipient-dashboard");
-                break;
-              default:
-                navigate("/dashboard");
+            // --- 💡 THE NEW, CLEANER LOGIC ---
+            // 4. Check if the user's role is 'pending'
+            if (freshUser.role === 'pending') {
+              // This is a new user. Force them to select a role.
+              navigate('/select-role');
+            } else {
+              // This is a returning user. Send them to the main landing page.
+              navigate('/');
             }
+            // --- END OF FIX ---
+
           } else {
             throw new Error('Failed to fetch user after OAuth login');
           }
         } catch (error) {
           console.error("OAuth Callback Error:", error);
-          logout(); // Clear any partial login state
+          logout(); 
           navigate('/login?error=oauth_failed');
         }
       };
     
-
-  const updateProfile = async (updatedData) => {
+  // 6. Helper function to update user state locally
+  const updateUserContext = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+    
+  // 7. API function to update user profile
+  const updateUserProfile = async (updatedData) => {
     try {
-      const response = await api.put(`/users/${user.id}`, updatedData);
+      if (!user || !user._id) {
+        throw new Error("No user found to update.");
+      }
+      
+      const response = await userService.updateUserProfile(user._id, updatedData);
       
       if (response.success) {
-        const updatedUser = { ...user, ...response.data.user };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        updateUserContext(response.data.user); // Update context
         return response;
       }
       
       return response;
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.message || 'Profile update failed' 
-      };
+      throw error; 
     }
   };
 
+  // --- Notification functions ---
+  const loadNotifications = async () => {
+    if (!user) return; 
+    try {
+      const response = await api.get(API_ENDPOINTS.NOTIFICATIONS.BASE); 
+      if (response.success) {
+        setNotifications(response.data.notifications || []);
+      }
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+      setNotifications([]);
+    }
+  };
+  
+  useEffect(() => {
+    if(user) {
+      loadNotifications();
+    }
+  }, [user]); 
+
   const updateNotificationRead = async (notificationId) => {
     try {
-      const response = await api.put(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notificationId));
-      
+      const response = await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notificationId));
       if (response.success) {
         setNotifications(notifications.map(n =>
-          n.id === notificationId ? { ...n, read: true } : n
+          n._id === notificationId ? { ...n, status: 'read', 'delivery.inApp.readAt': new Date() } : n
         ));
       }
-      
-      return response;
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
-      // Optimistically update UI even if API call fails
-      setNotifications(notifications.map(n =>
-        n.id === notificationId ? { ...n, read: true } : n
-      ));
     }
   };
 
   const markAllNotificationsRead = async () => {
     try {
-      const response = await api.put(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
-      
+      const response = await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
       if (response.success) {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
+        setNotifications(notifications.map(n => ({ ...n, status: 'read', 'delivery.inApp.readAt': new Date() })));
       }
-      
-      return response;
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
-      // Optimistically update UI even if API call fails
-      setNotifications(notifications.map(n => ({ ...n, read: true })));
     }
   };
 
   const refreshNotifications = async () => {
     if (user) {
-      await loadNotifications(user.id);
+      await loadNotifications();
     }
   };
+  // --- End of Notification functions ---
 
+  // Pass all values to children
   const value = {
     user,
     notifications,
@@ -220,7 +195,8 @@ export const AuthProvider = ({ children }) => {
     signup,
     logout,
     handleOAuthCallback,
-    updateProfile,
+    updateUserProfile,
+    updateUserContext,
     updateNotificationRead,
     markAllNotificationsRead,
     refreshNotifications,
@@ -234,3 +210,4 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+

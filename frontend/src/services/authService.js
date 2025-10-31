@@ -24,13 +24,7 @@ class AuthService {
   async register(userData) {
     try {
       const response = await api.post(API_ENDPOINTS.AUTH.REGISTER, userData);
-      
-      if (response.success && response.data.token) {
-        // Store token and user data
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('rewearify_token', response.data.token);
-      }
+
       
       return response;
     } catch (error) {

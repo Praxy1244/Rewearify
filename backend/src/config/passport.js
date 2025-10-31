@@ -31,9 +31,10 @@ export const configurePassport = () => {
         const newUser = await User.create({
           name: profile.displayName,
           email: profile.emails[0].value,
-          'social.googleId': profile.id, // This is the crucial part
+          'social.googleId': profile.id,
           'profile.profilePicture.url': profile.photos[0].value,
           'verification.isEmailVerified': true, // Google verifies emails
+          role: 'pending' // Explicitly set the role
         });
         return done(null, newUser);
       }

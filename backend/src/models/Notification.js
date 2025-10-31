@@ -29,7 +29,8 @@ const notificationSchema = new mongoose.Schema({
       'login_alert',
       'reminder',
       'promotion',
-      'feedback_request'
+      'feedback_request',
+      'new_donation_pending' // <-- THIS IS THE FIX
     ]
   },
   title: {

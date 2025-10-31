@@ -2,26 +2,20 @@ import { body, param, query, validationResult } from 'express-validator';
 
 // Common validation rules
 export const commonValidations = {
-  // MongoDB ObjectId validation
+  // ... (all other rules are correct) ...
   mongoId: (field = 'id') => 
     param(field).isMongoId().withMessage(`Invalid ${field} format`),
-  
-  // Email validation
   email: (field = 'email') =>
     body(field)
       .isEmail()
       .normalizeEmail()
       .withMessage('Please provide a valid email address'),
-  
-  // Password validation
   password: (field = 'password') =>
     body(field)
       .isLength({ min: 6, max: 128 })
       .withMessage('Password must be between 6 and 128 characters')
       .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
-  
-  // Name validation
   name: (field = 'name') =>
     body(field)
       .trim()
@@ -29,22 +23,16 @@ export const commonValidations = {
       .withMessage('Name must be between 2 and 100 characters')
       .matches(/^[a-zA-Z\s]+$/)
       .withMessage('Name can only contain letters and spaces'),
-  
-  // Phone validation
   phone: (field = 'phone') =>
     body(field)
       .optional()
       .isMobilePhone()
       .withMessage('Please provide a valid phone number'),
-  
-  // URL validation
   url: (field) =>
     body(field)
       .optional()
       .isURL()
       .withMessage(`${field} must be a valid URL`),
-  
-  // Pagination validation
   pagination: [
     query('page')
       .optional()
@@ -61,6 +49,7 @@ export const commonValidations = {
 
 // User validation rules
 export const userValidations = {
+  // ... (all user validations are correct) ...
   register: [
     commonValidations.name(),
     commonValidations.email(),
@@ -75,19 +64,32 @@ export const userValidations = {
       .isLength({ max: 200 })
       .withMessage('Address cannot exceed 200 characters'),
     body('organization.name')
-      .optional()
+      .if(body('role').equals('recipient')) // Only validate if role is 'recipient'
+      .notEmpty()
+      .withMessage('Organization name is required for recipients')
       .trim()
       .isLength({ max: 100 })
-      .withMessage('Organization name cannot exceed 100 characters')
+      .withMessage('Organization name cannot exceed 100 characters'),
+      body('organization.type')
+      .optional({ checkFalsy: true })
+      .isIn(['NGO', 'Charity', 'Community Group', 'School', 'Other'])
+      .withMessage('Invalid organization type'),
+    body('organization.registrationNumber')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage('Registration number cannot exceed 50 characters'),
+    body('organization.website')
+      .optional({ checkFalsy: true })
+      .isURL()
+      .withMessage('Please provide a valid website URL (e.g., https://example.com)'),
   ],
-  
   login: [
     commonValidations.email(),
     body('password')
       .notEmpty()
       .withMessage('Password is required')
   ],
-  
   updateProfile: [
     body('name')
       .optional()
@@ -101,7 +103,6 @@ export const userValidations = {
       .withMessage('Bio cannot exceed 500 characters'),
     commonValidations.phone('contact.phone')
   ],
-  
   changePassword: [
     body('currentPassword')
       .notEmpty()
@@ -110,20 +111,32 @@ export const userValidations = {
   ]
 };
 
-// Donation validation rules (without image validation)
+// --- MODIFIED DONATION VALIDATION ---
 export const donationValidations = {
   create: [
     body('title')
       .trim()
       .isLength({ min: 5, max: 200 })
       .withMessage('Title must be between 5 and 200 characters'),
+      
+    // --- THIS IS THE FIX ---
     body('description')
       .trim()
-      .isLength({ min: 10, max: 1000 })
-      .withMessage('Description must be between 10 and 1000 characters'),
+      .isLength({ min: 5, max: 1000 }) // Changed min from 10 to 5
+      .withMessage('Description must be between 5 and 1000 characters'),
+    // --- END OF FIX ---
+      
     body('category')
-      .isIn(['outerwear', 'formal', 'casual', 'children', 'accessories', 'shoes', 'activewear', 'undergarments', 'traditional', 'seasonal', 'maternity', 'plus-size'])
+      .isIn(['outerwear', 'formal', 'casual', 'children', 'accessories', 'shoes', 'activewear', 'undergarments', 'traditional', 'seasonal', 'maternity', 'plus-size', 'household', 'linens', 'other'])
       .withMessage('Invalid category'),
+      
+    body('subcategory')
+      .trim()
+      .notEmpty()
+      .withMessage('Sub-category is required')
+      .isLength({ max: 100 })
+      .withMessage('Sub-category cannot exceed 100 characters'),
+
     body('condition')
       .isIn(['excellent', 'good', 'fair', 'poor'])
       .withMessage('Invalid condition'),
@@ -140,25 +153,35 @@ export const donationValidations = {
     body('sizes.*.quantity')
       .isInt({ min: 1 })
       .withMessage('Size quantity must be at least 1'),
-    body('location.address')
-      .trim()
-      .notEmpty()
-      .withMessage('Address is required'),
-    body('location.city')
-      .trim()
-      .notEmpty()
-      .withMessage('City is required'),
-    body('location.state')
-      .trim()
-      .notEmpty()
-      .withMessage('State is required'),
-    body('location.country')
-      .trim()
-      .notEmpty()
-      .withMessage('Country is required')
+    body('location')
+      .isObject()
+      .withMessage('Location object is required')
+      .custom(value => {
+         if (!value.address || !value.city || !value.state || !value.country) {
+           throw new Error('Location object must contain address, city, state, and country');
+         }
+         return true;
+      }),
+    body('colors')
+      .optional()
+      .isArray()
+      .withMessage('Colors must be an array'),
+    body('availability')
+      .optional()
+      .isObject()
+      .withMessage('Availability must be an object'),
+    body('preferences')
+      .optional()
+      .isObject()
+      .withMessage('Preferences must be an object'),
+    body('tags')
+      .optional()
+      .isArray()
+      .withMessage('Tags must be an array')
   ],
   
   update: [
+    // ... (update rules are fine) ...
     body('title')
       .optional()
       .trim()
@@ -176,6 +199,7 @@ export const donationValidations = {
   ]
 };
 
+// ... (rest of the file is correct) ...
 // Request validation rules
 export const requestValidations = {
   create: [
@@ -289,7 +313,7 @@ export const handleValidationErrors = (req, res, next) => {
   
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map(error => ({
-      field: error.param,
+      field: error.path, // Use error.path for more accurate field names
       message: error.msg,
       value: error.value
     }));

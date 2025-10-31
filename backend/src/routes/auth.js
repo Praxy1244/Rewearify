@@ -46,12 +46,6 @@ router.post('/register', userValidations.register, handleValidationErrors, async
       }
     });
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
 
     // Generate email verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -90,7 +84,7 @@ router.post('/register', userValidations.register, handleValidationErrors, async
       status: user.status
     };
 
-    return created(res, { token, user: userData }, 'Registration successful');
+    return created(res, { user: userData }, 'Registration successful. Please check your email to verify your account.');
   } catch (error) {
     console.error('Registration error:', error);
     return fail(res, 'Registration failed', 500);
@@ -113,6 +107,11 @@ router.post('/login', userValidations.login, handleValidationErrors, async (req,
     // Check if account is locked
     if (user.isLocked) {
       return fail(res, 'Account is temporarily locked due to too many failed login attempts', 423);
+    }
+
+// --- 💡 ADD THIS VERIFICATION CHECK ---
+    if (!user.verification.isEmailVerified) {
+      return fail(res, 'Email not verified. Please check your inbox for a verification link.', 403); // 403 Forbidden
     }
 
     // Check if account is active

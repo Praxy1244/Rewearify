@@ -17,14 +17,15 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() { return !this.social?.googleId; },
+    required: function() { return !this.social?.googleId; }, // Conditionally required
     minlength: 8,
     select: false
   },
   role: {
     type: String,
-    enum: ['donor', 'recipient', 'admin'],
-    default: 'donor',
+    enum: ['donor', 'recipient', 'admin', 'pending'],
+    // --- 💡 FIX: Change the default role ---
+    default: 'pending', 
   },
   social: {
     googleId: {
@@ -98,37 +99,31 @@ userSchema.methods = {
   },
 
   // Method to increment login attempts
-  incLoginAttempts: function() {
+  incLoginAttempts: async function() {
     if (this.security.lockUntil && this.security.lockUntil < Date.now()) {
-      return this.updateOne({
-        $unset: { 'security.lockUntil': 1 },
-        $set: { 'security.loginAttempts': 1 }
-      });
+      this.security.loginAttempts = 1;
+      this.security.lockUntil = undefined;
+    } else {
+      this.security.loginAttempts = (this.security.loginAttempts || 0) + 1;
     }
-    const updates = { $inc: { 'security.loginAttempts': 1 } };
-    if (this.security.loginAttempts + 1 >= 5 && !this.isLocked) {
-      updates.$set = { 'security.lockUntil': Date.now() + 2 * 60 * 60 * 1000 };
+    
+    if (this.security.loginAttempts >= 5 && !this.isLocked) {
+      this.security.lockUntil = Date.now() + 2 * 60 * 60 * 1000; // Lock for 2 hours
     }
-    return this.updateOne(updates);
+    return this.save({ validateBeforeSave: false }); // Save and return the promise
   },
 
   // Method to reset login attempts
   resetLoginAttempts: function() {
-    return this.updateOne({
-      $set: { 
-        'security.loginAttempts': 0 
-      },
-      $unset: {
-        'security.lockUntil': 1
-      }
-    });
+    this.security.loginAttempts = 0;
+    this.security.lockUntil = undefined;
+    return this.save({ validateBeforeSave: false }); // Save and return the promise
   },
 
   // Method to update last active timestamp
   updateLastActive: function() {
     this.lastActive = new Date();
-    // Use `save` with validation disabled for this simple update
-    return this.save({ validateBeforeSave: false });
+    return this.save({ validateBeforeSave: false }); // Save and return the promise
   }
 };
 // --- END OF REFACTORED METHODS ---
@@ -152,10 +147,29 @@ userSchema.pre('save', async function(next) {
 // Geocoding middleware
 userSchema.pre('save', async function(next) {
   if (this.isModified('location.address') && this.location.address?.trim()) {
-    // ... geocoding logic remains the same
+    const fullAddress = [
+      this.location.address,
+      this.location.city,
+      this.location.state,
+      this.location.country || 'India'
+    ].filter(Boolean).join(', ');
+    
+    try {
+        const coords = await geocodeAddress(fullAddress);
+        if (coords) {
+            this.location.coordinates = { type: 'Point', coordinates: coords };
+        } else {
+            console.warn(`Geocoding failed for address: ${fullAddress}. Using default coordinates.`);
+            this.location.coordinates = { type: 'Point', coordinates: [0, 0] };
+        }
+    } catch(err) {
+        console.error('Geocoding error during save:', err);
+        this.location.coordinates = { type: 'Point', coordinates: [0, 0] }; // Fallback
+    }
   }
-  next();
+  next(); // Make sure to call next() even if geocoding wasn't run
 });
+
 
 export default mongoose.model('User', userSchema);
 

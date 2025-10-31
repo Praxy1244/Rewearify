@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/button';
@@ -13,7 +13,45 @@ import { Progress } from '../../components/ui/progress';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ArrowLeft, ArrowRight, Info, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
-import donationService from '../../services/donationService';
+import { donationService } from '../../services'; // Correct import from services/index.js
+
+// --- Data maps for dynamic fields ---
+const categoryMap = {
+  outerwear: ['Jacket', 'Coat', 'Sweater', 'Vest'],
+  formal: ['Suit', 'Dress Shirt', 'Blouse', 'Trousers', 'Skirt'],
+  casual: ['T-Shirt', 'Jeans', 'Kurta', 'Shorts', 'Polo Shirt'],
+  children: ["Infant Set", "Toddler Outfit", "Youth T-Shirt", "Youth Jeans"],
+  accessories: ['Hat', 'Scarf', 'Belt', 'Handbag', 'Tie'],
+  shoes: ['Sneakers', 'Boots', 'Sandals', 'Formal Shoes'],
+  activewear: ['Sportswear', 'Tracksuit', 'Swimwear'],
+  undergarments: ['New Underwear', 'New Socks', 'New Bras'],
+  traditional: ['Saree', 'Kurta Pajama', 'Lehenga', 'Sherwani'],
+  household: ['Blanket', 'Bedsheet', 'Towel', 'Curtain'],
+  linens: ['Bed Linens', 'Table Linens'],
+  maternity: ['Maternity Top', 'Maternity Bottoms'],
+  'plus-size': ['Plus-Size Top', 'Plus-Size Bottoms'],
+  other: ['Other'],
+};
+
+const sizeMap = {
+  clothing: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'One Size'],
+  children: ['0-3M', '6-12M', '1-2Y', '3-4Y', '5-6Y', '7-8Y', '9-10Y', '11-12Y', '13-14Y'],
+  shoes: ['5', '6', '7', '8', '9', '10', '11', '12+'],
+  household: ['Twin', 'Full', 'Queen', 'King', 'Standard', 'Free Size'],
+  default: ['One Size', 'N/A']
+};
+
+const getSizingCategory = (category) => {
+  if (['outerwear', 'formal', 'casual', 'activewear', 'traditional', 'maternity', 'plus-size', 'undergarments'].includes(category)) {
+    return 'clothing';
+  }
+  if (category === 'children') return 'children';
+  if (category === 'shoes') return 'shoes';
+  if (['household', 'linens'].includes(category)) return 'household';
+  return 'default';
+};
+// --- END: Data maps ---
+
 
 const DonationForm = () => {
   const { user } = useAuth();
@@ -26,16 +64,42 @@ const DonationForm = () => {
     title: '',
     description: '',
     category: '',
+    subcategory: '', // <-- NEW FIELD
     condition: '',
     quantity: 1,
-    sizes: [],
+    sizes: [], 
     colors: [],
-    location: user?.location || '',
+    location: user?.location?.address || '',
     pickupAvailable: true,
     deliveryRadius: 10,
     urgentNeeded: false,
     tags: []
   });
+
+  // --- State for dynamic options ---
+  const [subcategoryOptions, setSubcategoryOptions] = useState([]);
+  const [currentSizeOptions, setCurrentSizeOptions] = useState(sizeMap.default);
+
+  // --- Effect to update dynamic fields when category changes ---
+  useEffect(() => {
+    // Update sub-categories
+    if (formData.category && categoryMap[formData.category]) {
+      setSubcategoryOptions(categoryMap[formData.category]);
+    } else {
+      setSubcategoryOptions([]);
+    }
+    // Reset subcategory if category changes
+    handleInputChange('subcategory', ''); 
+
+    // Update size options
+    const sizingCategory = getSizingCategory(formData.category);
+    setCurrentSizeOptions(sizeMap[sizingCategory]);
+    // Reset sizes if category changes
+    handleInputChange('sizes', []); 
+
+  }, [formData.category]);
+  // --- END: New state and effect ---
+
 
   const categories = [
     { value: 'outerwear', label: 'Outerwear & Coats' },
@@ -44,7 +108,15 @@ const DonationForm = () => {
     { value: 'children', label: "Children's Clothing" },
     { value: 'accessories', label: 'Accessories' },
     { value: 'shoes', label: 'Footwear' },
-    { value: 'activewear', label: 'Activewear & Sports' }
+    { value: 'activewear', label: 'Activewear & Sports' },
+    { value: 'undergarments', label: 'Undergarments (New)' },
+    { value: 'traditional', label: 'Traditional Wear' },
+    { value: 'seasonal', label: 'Seasonal' },
+    { value: 'maternity', label: 'Maternity' },
+    { value: 'plus-size', label: 'Plus-Size' },
+    { value: 'household', label: 'Household (Blankets, etc.)' }, // <-- NEW
+    { value: 'linens', label: 'Linens' }, // <-- NEW
+    { value: 'other', label: 'Other' }, // <-- NEW
   ];
 
   const conditions = [
@@ -53,8 +125,7 @@ const DonationForm = () => {
     { value: 'fair', label: 'Fair - Some wear but usable' }
   ];
 
-  const sizeOptions = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '6-7Y', '8-9Y', '10-11Y', '12-13Y', '14-15Y'];
-  const colorOptions = ['Black', 'White', 'Gray', 'Navy', 'Brown', 'Red', 'Blue', 'Green', 'Pink', 'Purple', 'Yellow', 'Orange'];
+  const colorOptions = ['Black', 'White', 'Gray', 'Navy', 'Brown', 'Red', 'Blue', 'Green', 'Pink', 'Purple', 'Yellow', 'Orange', 'Multi-color'];
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({
@@ -75,11 +146,18 @@ const DonationForm = () => {
   const validateStep = (stepNumber) => {
     switch (stepNumber) {
       case 1:
-        return formData.title && formData.description && formData.category && formData.condition;
+        // --- THIS IS THE FIX ---
+        // We now check the length of title and description
+        return formData.title.trim().length >= 5 && 
+               formData.description.trim().length >= 5 && // Changed from 10 to 5
+               formData.category && 
+               formData.subcategory && 
+               formData.condition;
+        // --- END OF FIX ---
       case 2:
         return formData.sizes.length > 0 && formData.colors.length > 0;
       case 3:
-        return formData.location;
+        return formData.location.trim();
       default:
         return true;
     }
@@ -97,60 +175,89 @@ const DonationForm = () => {
     }
   };
 
-  // The NEW and IMPROVED handleSubmit function
-const handleSubmit = async () => {
-  setLoading(true);
+  const handleSubmit = async () => {
+    setLoading(true);
 
-  // We no longer create the full donation object here.
-  // The backend will handle setting the donorId, status, createdAt, etc.
-  const donationPayload = {
-    title: formData.title,
-    description: formData.description,
-    category: formData.category,
-    condition: formData.condition,
-    quantity: formData.quantity,
-    sizes: formData.sizes,
-    colors: formData.colors,
-    location: formData.location,
-    pickupAvailable: formData.pickupAvailable,
-    deliveryRadius: formData.deliveryRadius,
-    urgentNeeded: formData.urgentNeeded,
-    tags: formData.tags
-  };
+    // 1. --- DATA TRANSFORMATION ---
+    // Parse the location string "City, State"
+    const locationParts = formData.location.split(',').map(s => s.trim());
+    const city = locationParts[0] || formData.location;
+    const state = locationParts[1] || 'Unknown';
 
-  try {
-    //
-    // THIS IS THE KEY CHANGE!
-    // We call our service to send the data to the backend API.
-    //
-    const response = await donationService.createDonation(donationPayload);
+    const formattedLocation = {
+      address: formData.location, 
+      city: city,
+      state: state,
+      country: 'USA', // Assuming USA for now
+      zipCode: ''
+    };
 
-    if (response.success) {
+    // Convert flat size array to object array
+    const formattedSizes = formData.sizes.map(size => ({
+      size: size,
+      quantity: 1 // Simple assumption to pass validation
+    }));
+    
+    // If no sizes were selected, use the total quantity for a "Various" size
+    if (formattedSizes.length === 0 && formData.quantity > 0) {
+        formattedSizes.push({ size: 'Various', quantity: formData.quantity });
+    }
+
+    // 2. --- CREATE FINAL PAYLOAD ---
+    // This object matches the `donationValidations.create` in your backend
+    const donationPayload = {
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      subcategory: formData.subcategory, // <-- SEND NEW FIELD
+      condition: formData.condition,
+      quantity: formData.quantity,
+      sizes: formattedSizes,
+      colors: formData.colors,
+      location: formattedLocation,
+      
+      availability: {
+        pickupAvailable: formData.pickupAvailable,
+        deliveryRadius: formData.deliveryRadius,
+      },
+      preferences: {
+        urgentNeeded: formData.urgentNeeded,
+      },
+      tags: [formData.category, formData.subcategory, ...formData.colors] 
+    };
+
+    // 3. --- API CALL ---
+    try {
+      // We use the imported donationService
+      const response = await donationService.createDonation(donationPayload);
+
+      if (response.success) {
+        toast({
+          title: "Donation Submitted Successfully!",
+          description: "Your donation is now pending admin approval.",
+        });
+        navigate('/donor/my-donations'); 
+      } else {
+        // Handle backend errors (e.g., validation errors)
+        toast({
+          title: "Submission Failed",
+          description: response.message || "Could not create the donation. Please check your fields.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      // Handle network errors
+      console.error("Error creating donation:", error);
       toast({
-        title: "Donation Submitted Successfully!",
-        description: "Your donation is now pending admin approval.",
-      });
-      navigate('/donor/my-donations');
-    } else {
-      // Handle errors returned from the backend
-      toast({
-        title: "Submission Failed",
-        description: response.error || "Could not create the donation.",
+        title: "An Error Occurred",
+        description: error.message || "Please check your connection and try again.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    // Handle network errors or other exceptions
-    console.error("Error creating donation:", error);
-    toast({
-      title: "An Error Occurred",
-      description: "Please check your connection and try again.",
-      variant: "destructive"
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
 
   const renderProgressBar = () => (
     <div className="mb-8">
@@ -177,7 +284,7 @@ const handleSubmit = async () => {
             id="title"
             value={formData.title}
             onChange={(e) => handleInputChange('title', e.target.value)}
-            placeholder="e.g., Winter Coats Collection, Business Attire Set"
+            placeholder="e.g., Warm Winter Coats, King Size Blanket"
             className="mt-1"
           />
         </div>
@@ -209,6 +316,26 @@ const handleSubmit = async () => {
             </Select>
           </div>
 
+          {/* --- NEW SUB-CATEGORY FIELD --- */}
+          <div>
+            <Label htmlFor="subcategory">Sub-Category *</Label>
+            <Select 
+              value={formData.subcategory} 
+              onValueChange={(value) => handleInputChange('subcategory', value)}
+              disabled={subcategoryOptions.length === 0}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select sub-category" />
+              </SelectTrigger>
+              <SelectContent>
+                {subcategoryOptions.map(subcat => (
+                  <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* --- END NEW FIELD --- */}
+
           <div>
             <Label htmlFor="condition">Condition *</Label>
             <Select value={formData.condition} onValueChange={(value) => handleInputChange('condition', value)}>
@@ -222,18 +349,18 @@ const handleSubmit = async () => {
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <div>
-          <Label htmlFor="quantity">Number of Items</Label>
-          <Input
-            id="quantity"
-            type="number"
-            min="1"
-            value={formData.quantity}
-            onChange={(e) => handleInputChange('quantity', parseInt(e.target.value))}
-            className="mt-1 max-w-32"
-          />
+           <div>
+            <Label htmlFor="quantity">Total Number of Items *</Label>
+            <Input
+              id="quantity"
+              type="number"
+              min="1"
+              value={formData.quantity}
+              onChange={(e) => handleInputChange('quantity', parseInt(e.target.value) || 1)}
+              className="mt-1"
+            />
+          </div>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -254,14 +381,16 @@ const handleSubmit = async () => {
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Clothing Details</h2>
-        <p className="text-gray-600">Specify sizes, colors, and quantity</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Item Details</h2>
+        <p className="text-gray-600">Specify sizes and colors</p>
       </div>
 
+      {/* --- DYNAMIC SIZES --- */}
       <div>
         <Label className="text-base font-medium">Available Sizes *</Label>
+         <p className="text-sm text-gray-500 mb-2">Select all that apply. Select at least one.</p>
         <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-2">
-          {sizeOptions.map(size => (
+          {currentSizeOptions.map(size => (
             <Button
               key={size}
               type="button"
@@ -275,9 +404,12 @@ const handleSubmit = async () => {
           ))}
         </div>
       </div>
+      {/* --- END DYNAMIC SIZES --- */}
+
 
       <div>
         <Label className="text-base font-medium">Colors *</Label>
+        <p className="text-sm text-gray-500 mb-2">Select all that apply. Select at least one.</p>
         <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-2">
           {colorOptions.map(color => (
             <Button
@@ -296,7 +428,7 @@ const handleSubmit = async () => {
     </div>
   );
 
-  // Step 3: Pickup & Delivery
+  // Step 3: Pickup & Delivery (No changes needed)
   const renderStep3 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -311,7 +443,7 @@ const handleSubmit = async () => {
             id="location"
             value={formData.location}
             onChange={(e) => handleInputChange('location', e.target.value)}
-            placeholder="City, State/Country"
+            placeholder="City, State (e.g., New York, NY)"
             className="mt-1"
           />
         </div>
@@ -361,6 +493,10 @@ const handleSubmit = async () => {
             <div>
               <strong>Category:</strong> {categories.find(c => c.value === formData.category)?.label}
             </div>
+            {/* --- NEW: Show Sub-Category --- */}
+            <div>
+              <strong>Sub-Category:</strong> {formData.subcategory}
+            </div>
             <div>
               <strong>Condition:</strong> {conditions.find(c => c.value === formData.condition)?.label}
             </div>
@@ -380,9 +516,9 @@ const handleSubmit = async () => {
           <div>
             <strong>Sizes:</strong>
             <div className="flex flex-wrap gap-1 mt-1">
-              {formData.sizes.map(size => (
+              {formData.sizes.length > 0 ? formData.sizes.map(size => (
                 <Badge key={size} variant="secondary">{size}</Badge>
-              ))}
+              )) : <Badge variant="outline">Various</Badge>}
             </div>
           </div>
           
@@ -420,7 +556,7 @@ const handleSubmit = async () => {
             Back to Dashboard
           </Button>
           <h1 className="text-3xl font-bold text-gray-900">Create New Donation</h1>
-          <p className="text-gray-600 mt-2">Help others by donating clothes you no longer need</p>
+          <p className="text-gray-600 mt-2">Help others by donating items you no longer need</p>
         </div>
 
         <Card className="shadow-lg">
@@ -433,11 +569,13 @@ const handleSubmit = async () => {
             {step === 4 && renderStep4()}
 
             <div className="flex justify-between mt-8 pt-6 border-t">
-              {step > 1 && (
+              {step > 1 ? (
                 <Button variant="outline" onClick={() => setStep(step - 1)}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Previous
                 </Button>
+              ) : (
+                 <div></div> // Empty div to keep "Next" button on the right
               )}
               
               <div className="ml-auto">

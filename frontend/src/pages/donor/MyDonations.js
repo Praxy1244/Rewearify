@@ -7,26 +7,38 @@ import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Calendar, MapPin, Package, Eye, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Link, useNavigate } from 'react-router-dom';
 
 const MyDonations = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    fetchMyDonations();
+    if (user && user._id) { 
+      fetchMyDonations();
+    } else if (!user) {
+      setLoading(false);
+      setError("Please log in to see your donations.");
+    }
   }, [user]);
 
   const fetchMyDonations = async () => {
     try {
       setLoading(true);
-      const response = await donationService.getUserDonations(user.id);
+      setError(null); 
+      
+      const response = await donationService.getUserDonations(user._id); 
+      
       if (response.success) {
-        setDonations(response.data.donations || []);
+        // The data is in response.data, which is an array
+        setDonations(response.data || []); 
       } else {
-        setError('Failed to fetch donations');
+        setError(response.message || 'Failed to fetch donations');
+        toast.error(response.message || 'Failed to fetch donations');
       }
     } catch (err) {
       console.error('Error fetching donations:', err);
@@ -38,7 +50,7 @@ const MyDonations = () => {
   };
 
   const handleDeleteDonation = async (donationId) => {
-    if (!window.confirm('Are you sure you want to delete this donation?')) {
+    if (!window.confirm('Are you sure you want to delete this donation? This action is permanent.')) {
       return;
     }
 
@@ -48,11 +60,11 @@ const MyDonations = () => {
         setDonations(donations.filter(d => d._id !== donationId));
         toast.success('Donation deleted successfully');
       } else {
-        toast.error('Failed to delete donation');
+        toast.error(response.message || 'Failed to delete donation');
       }
     } catch (err) {
       console.error('Error deleting donation:', err);
-      toast.error('Failed to delete donation');
+      toast.error(err.message || 'Failed to delete donation');
     }
   };
 
@@ -84,7 +96,8 @@ const MyDonations = () => {
       pending: donations.filter(d => d.status === 'pending').length,
       approved: donations.filter(d => d.status === 'approved').length,
       matched: donations.filter(d => d.status === 'matched').length,
-      completed: donations.filter(d => d.status === 'completed').length
+      completed: donations.filter(d => d.status === 'completed').length,
+      rejected: donations.filter(d => d.status === 'rejected').length,
     };
   };
 
@@ -127,15 +140,16 @@ const MyDonations = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
           <TabsTrigger value="pending">Pending ({statusCounts.pending})</TabsTrigger>
           <TabsTrigger value="approved">Approved ({statusCounts.approved})</TabsTrigger>
           <TabsTrigger value="matched">Matched ({statusCounts.matched})</TabsTrigger>
           <TabsTrigger value="completed">Completed ({statusCounts.completed})</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected ({statusCounts.rejected})</TabsTrigger>
         </TabsList>
 
-        {['all', 'pending', 'approved', 'matched', 'completed'].map((status) => (
+        {['all', 'pending', 'approved', 'matched', 'completed', 'rejected'].map((status) => (
           <TabsContent key={status} value={status} className="space-y-4">
             {filterDonations(status).length === 0 ? (
               <div className="text-center py-12">
@@ -148,8 +162,8 @@ const MyDonations = () => {
                     ? "You haven't made any donations yet." 
                     : `You don't have any ${status} donations.`}
                 </p>
-                <Button onClick={() => window.location.href = '/donor/donate'}>
-                  Make Your First Donation
+                <Button asChild>
+                  <Link to="/donor/donate">Make Your First Donation</Link>
                 </Button>
               </div>
             ) : (
@@ -201,20 +215,25 @@ const MyDonations = () => {
                           </div>
                         )}
 
-                        {donation.items && donation.items.length > 0 && (
+                        {/* --- THIS IS THE FIXED BLOCK --- */}
+                        {donation.sizes && donation.sizes.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {donation.items.slice(0, 3).map((item, index) => (
+                            {/* FIX 1: Changed donation.items to donation.sizes */}
+                            {donation.sizes.slice(0, 3).map((item, index) => ( 
                               <Badge key={index} variant="secondary" className="text-xs">
-                                {item.category}
+                                {/* FIX 2: Changed item.category to item.size */}
+                                {item.size}
                               </Badge>
                             ))}
-                            {donation.items.length > 3 && (
+                            {/* FIX 3: Changed donation.items.length to donation.sizes.length */}
+                            {donation.sizes.length > 3 && ( 
                               <Badge variant="secondary" className="text-xs">
-                                +{donation.items.length - 3} more
+                                +{donation.sizes.length - 3} more
                               </Badge>
                             )}
                           </div>
                         )}
+                        {/* --- END OF FIX --- */}
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -222,7 +241,8 @@ const MyDonations = () => {
                           variant="outline" 
                           size="sm" 
                           className="flex-1"
-                          onClick={() => window.location.href = `/donor/donations/${donation._id}`}
+                          // We use window.location.href for now, until we create the page
+                          onClick={() => navigate(`/donor/donations/${donation._id}`)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           View
@@ -233,7 +253,8 @@ const MyDonations = () => {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => window.location.href = `/donor/donations/${donation._id}/edit`}
+                              // We use window.location.href for now, until we create the page
+                              onClick={() => navigate(`/donor/donations/${donation._id}/edit`)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
