@@ -279,6 +279,7 @@ const TimelineStep = ({ step, title, description, variant = 'dark' }) => (
 // --- Main Landing Component ---
 const Landing = () => {
   const { user, loading: authLoading } = useAuth(); // Get user and auth loading state
+  const navigate = useNavigate();
 
   // We need to wait for auth to be checked
   if (authLoading) {
@@ -312,7 +313,7 @@ const Landing = () => {
           {/* Hide "Start Donating" button if user is logged in */}
           {!user && (
             <div className="text-center mt-12">
-              <Button size="lg" className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-4 transition-transform hover:scale-105" onClick={() => useNavigate('/signup')}>
+              <Button size="lg" className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-4 transition-transform hover:scale-105" onClick={() => navigate('/signup')}>
                 Start Donating <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
@@ -336,7 +337,7 @@ const Landing = () => {
            {/* Hide "Register" button if user is logged in */}
           {!user && (
             <div className="text-center mt-12">
-              <Button size="lg" variant="outline" className="border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white px-8 py-4" onClick={() => useNavigate('/signup')}>
+              <Button size="lg" variant="outline" className="border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white px-8 py-4" onClick={() => navigate('/signup')}>
                 Register Your NGO <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>

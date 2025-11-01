@@ -4,7 +4,10 @@ export const connectDB = async (uri) => {
   try {
     const conn = await mongoose.connect(uri, {
       
-      
+      // --- THIS IS THE FIX ---
+      autoIndex: false, // Don't auto-build indexes (prevents crash)
+      // --- END OF FIX ---
+
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,

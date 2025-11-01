@@ -11,7 +11,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ArrowLeft, Save, Clock, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { useToast } from '../../hooks/use-toast'; // Correct hook
+import { useToast } from '../../hooks/use-toast';
 import { donationService } from '../../services';
 
 // --- Data maps (remain the same) ---
@@ -55,7 +55,7 @@ const DonationEdit = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast(); // This is the correct toast function
+  const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -88,8 +88,10 @@ const DonationEdit = () => {
         if (response.success) {
           const donation = response.data.donation;
           
-          if (donation.donor._id !== user._id) {
-             // --- FIX: Use correct toast format ---
+          // --- THIS IS THE FIX ---
+          // Check for both user.id and user._id
+          const userId = user._id || user.id;
+          if (donation.donor._id !== userId) {
              toast({ 
                title: "Access Denied", 
                description: "You are not authorized to edit this donation.",
@@ -99,6 +101,7 @@ const DonationEdit = () => {
              navigate('/donor/my-donations');
              return;
           }
+          // --- END OF FIX ---
 
           setFormData({
             title: donation.title,
@@ -116,7 +119,6 @@ const DonationEdit = () => {
             tags: donation.tags || []
           });
         } else {
-          // --- FIX: Use correct toast format ---
           toast({ 
             title: "Failed to load donation", 
             description: response.message,
@@ -125,7 +127,6 @@ const DonationEdit = () => {
           setError("Failed to load donation data.");
         }
       } catch (err) {
-        // --- FIX: Use correct toast format ---
         toast({ 
           title: "An error occurred", 
           description: err.message,
@@ -140,7 +141,7 @@ const DonationEdit = () => {
     if (id && user) {
       fetchDonation();
     }
-  }, [id, user, navigate, toast]); // Add toast to dependency array
+  }, [id, user, navigate, toast]);
 
   // --- (Effects and helper functions remain the same) ---
   useEffect(() => {
@@ -193,11 +194,9 @@ const DonationEdit = () => {
     }));
   };
 
-  // --- This is the UPDATE function ---
   const handleSubmit = async () => {
     setLoading(true);
 
-    // 1. --- DATA TRANSFORMATION ---
     const locationParts = formData.location.split(',').map(s => s.trim());
     const city = locationParts[0] || formData.location;
     const state = locationParts[1] || 'Unknown';
@@ -219,7 +218,6 @@ const DonationEdit = () => {
         formattedSizes.push({ size: 'Various', quantity: formData.quantity });
     }
 
-    // 2. --- CREATE FINAL PAYLOAD ---
     const donationPayload = {
       title: formData.title,
       description: formData.description,
@@ -240,19 +238,16 @@ const DonationEdit = () => {
       tags: [formData.category, formData.subcategory, ...formData.colors] 
     };
 
-    // 3. --- API CALL ---
     try {
       const response = await donationService.updateDonation(id, donationPayload);
 
       if (response.success) {
-        // --- FIX: Use correct toast format ---
         toast({
           title: "Donation Updated!",
           description: "Your changes have been saved.",
         });
-        navigate(`/donor/donations/${id}`); // Go back to the details page
+        navigate(`/donor/donations/${id}`);
       } else {
-        // --- FIX: Use correct toast format ---
         toast({
           title: "Update Failed",
           description: response.message || "Could not update the donation.",
@@ -261,7 +256,6 @@ const DonationEdit = () => {
       }
     } catch (error) {
       console.error("Error updating donation:", error);
-      // --- FIX: Use correct toast format ---
       toast({
         title: "An Error Occurred",
         description: error.message || "Please check your connection and try again.",
@@ -303,7 +297,7 @@ const DonationEdit = () => {
         <div className="mb-8">
           <Button 
             variant="ghost" 
-            onClick={() => navigate(`/donor/donations/${id}`)} // Go back to details
+            onClick={() => navigate(`/donor/donations/${id}`)}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -315,8 +309,6 @@ const DonationEdit = () => {
 
         <Card className="shadow-lg">
           <CardContent className="p-8 space-y-6">
-
-            {/* --- Basic Info --- */}
             <div className="space-y-4">
               <div>
                 <Label htmlFor="title">Donation Title *</Label>
@@ -413,7 +405,6 @@ const DonationEdit = () => {
               </div>
             </div>
 
-            {/* --- Sizes & Colors --- */}
             <div className="space-y-6">
               <div>
                 <Label className="text-base font-medium">Available Sizes *</Label>
@@ -452,7 +443,6 @@ const DonationEdit = () => {
               </div>
             </div>
 
-            {/* --- Pickup & Delivery --- */}
             <div className="space-y-4">
               <div>
                 <Label htmlFor="location">Pickup Location *</Label>
@@ -488,7 +478,6 @@ const DonationEdit = () => {
               </div>
             </div>
             
-            {/* --- Submit Button --- */}
             <div className="flex justify-end mt-8 pt-6 border-t">
               <Button 
                 onClick={handleSubmit}

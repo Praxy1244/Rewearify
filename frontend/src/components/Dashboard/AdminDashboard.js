@@ -9,14 +9,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { adminService } from '../../services';
 import { AIInsightsCard, FraudDetectionWidget, MatchingWidget } from '../AI';
 import { useNavigate } from 'react-router-dom';
+// --- FIX 1: Remove mock data import ---
+// import { mockDonations, mockRequests } from '../../adminmock.js'; 
 
 const AdminDashboard = () => {
+  // --- FIX 2: Add state for live data ---
   const [dashboardData, setDashboardData] = React.useState({
-    userStats: {},
-    donationStats: {},
-    matchStats: {},
+    users: {},
+    donations: {},
+    requests: {},
+    matches: {},
     systemHealth: {}
   });
+  const [pendingDonations, setPendingDonations] = React.useState([]);
+  const [pendingRequests, setPendingRequests] = React.useState([]);
+  
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const navigate = useNavigate();
@@ -25,11 +32,39 @@ const AdminDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await adminService.getDashboardData();
-        setDashboardData(response.data);
         setError(null);
+        
+        // --- FIX 3: Fetch all data concurrently ---
+        const [
+          statsResponse,
+          donationsResponse,
+          requestsResponse
+        ] = await Promise.all([
+          adminService.getDashboardData(),
+          adminService.getAllDonations({ status: 'pending', limit: 5 }),
+          adminService.getAllRequests({ status: 'pending', limit: 5 })
+        ]);
+
+        if (statsResponse.success) {
+          setDashboardData(statsResponse.data);
+        } else {
+          throw new Error(statsResponse.message || 'Failed to load dashboard stats');
+        }
+
+        if (donationsResponse.success) {
+          setPendingDonations(donationsResponse.data.donations || []);
+        } else {
+          throw new Error(donationsResponse.message || 'Failed to load pending donations');
+        }
+        
+        if (requestsResponse.success) {
+          setPendingRequests(requestsResponse.data.requests || []);
+        } else {
+          throw new Error(requestsResponse.message || 'Failed to load pending requests');
+        }
+        
       } catch (err) {
-        setError('Failed to load dashboard data');
+        setError(err.message || 'Failed to load dashboard data');
         console.error(err);
       } finally {
         setLoading(false);
@@ -39,7 +74,10 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, []);
   
-  const { userStats, donationStats, matchStats, systemHealth } = dashboardData;
+  // Use safe defaults for stats
+  const { users = {}, donations = {}, requests = {}, matches = {}, systemHealth = {} } = dashboardData;
+
+  // --- FIX 4: Update Card components to use REAL data properties ---
 
   const StatCard = ({ title, value, change, icon: Icon, color }) => (
     <Card className="relative overflow-hidden">
@@ -56,30 +94,28 @@ const AdminDashboard = () => {
     </Card>
   );
 
-  const DonationCard = ({ donation, type }) => (
+  // This component now uses real donation properties
+  const DonationCard = ({ donation }) => (
     <div className="flex items-center space-x-4 p-4 border rounded-lg bg-white hover:shadow-md transition-shadow">
       <img 
-        src={donation.images?.[0] || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=60&h=60&fit=crop'} 
-        alt={donation.itemType}
+        src={donation.images?.[0]?.url || 'https://placehold.co/60x60/E2E8F0/4A5568?text=Img'} 
+        alt={donation.title}
         className="w-12 h-12 rounded-lg object-cover"
       />
       <div className="flex-1">
-        <h4 className="font-medium text-gray-900">{donation.itemType}</h4>
-        <p className="text-sm text-gray-600">by {donation.donorName}</p>
+        <h4 className="font-medium text-gray-900">{donation.title}</h4>
+        <p className="text-sm text-gray-600">by {donation.donor?.name || 'N/A'}</p>
         <div className="flex items-center space-x-2 mt-1">
-          <Badge variant={donation.status === 'pending' ? 'secondary' : 'default'} className="text-xs">
+          <Badge variant={'secondary'} className="text-xs">
             {donation.status}
           </Badge>
-          <span className="text-xs text-gray-500">{donation.dateSubmitted}</span>
+          <span className="text-xs text-gray-500">{new Date(donation.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
       <div className="flex space-x-2">
         {donation.status === 'pending' && (
           <>
-            <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white">
-              Approve
-            </Button>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" onClick={() => navigate('/admin/donations')}>
               Review
             </Button>
           </>
@@ -88,33 +124,33 @@ const AdminDashboard = () => {
     </div>
   );
 
+  // This component now uses real request properties
   const RequestCard = ({ request }) => (
     <div className="flex items-center space-x-4 p-4 border rounded-lg bg-white hover:shadow-md transition-shadow">
       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
         <Package className="h-6 w-6 text-blue-600" />
       </div>
       <div className="flex-1">
-        <h4 className="font-medium text-gray-900">{request.ngoName}</h4>
-        <p className="text-sm text-gray-600">{request.description}</p>
+        <h4 className="font-medium text-gray-900">{request.title}</h4>
+        <p className="text-sm text-gray-600">by {request.requester?.organization?.name || request.requester?.name || 'N/A'}</p>
         <div className="flex items-center space-x-2 mt-1">
-          <Badge variant={request.priority === 'high' ? 'destructive' : 'secondary'} className="text-xs">
+          <Badge variant={'secondary'} className="text-xs">
             {request.status}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {request.priority} priority
+            {request.urgency} priority
           </Badge>
         </div>
       </div>
       <div className="flex space-x-2">
-        <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
-          Approve
-        </Button>
-        <Button size="sm" variant="outline">
-          Review
-        </Button>
+         <Button size="sm" variant="outline">
+            Review
+          </Button>
       </div>
     </div>
   );
+  // --- END OF FIX 4 ---
+
 
   if (loading) {
     return (
@@ -171,28 +207,28 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Users"
-          value={userStats.totalUsers.toLocaleString()}
-          change="+12% from last month"
+          value={users.total?.toLocaleString() || 0}
+          change={`+${users.newThisMonth || 0} from last month`}
           icon={Users}
           color="bg-blue-500"
         />
         <StatCard
           title="Total Donations"
-          value={donationStats.totalDonations.toLocaleString()}
-          change="+8% from last month"
+          value={donations.total?.toLocaleString() || 0}
+          change={`+${donations.newThisWeek || 0} from last week`}
           icon={Package}
           color="bg-green-500"
         />
         <StatCard
-          title="AI Matches"
-          value={matchStats.successfulMatches.toLocaleString()}
-          change="+15% from last month"
+          title="Successful Matches"
+          value={matches.completed?.toLocaleString() || 0}
+          change={`+${matches.newThisWeek || 0} from last week`}
           icon={Heart}
           color="bg-red-500"
         />
         <StatCard
           title="Pending Approvals"
-          value={donationStats.pendingDonations}
+          value={donations.pending || 0}
           change="Requires immediate attention"
           icon={Clock}
           color="bg-orange-500"
@@ -218,12 +254,17 @@ const AdminDashboard = () => {
                   <Package className="h-5 w-5 text-green-500" />
                   <span>Pending Donations</span>
                 </CardTitle>
-                <Button variant="outline" size="sm">Filter</Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/admin/donations')}>View All</Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {mockDonations.filter(d => d.status === 'pending').slice(0, 2).map(donation => (
-                  <DonationCard key={donation.id} donation={donation} type="donation" />
-                ))}
+                {/* --- FIX 5: Use real data --- */}
+                {pendingDonations.length > 0 ? (
+                  pendingDonations.map(donation => (
+                    <DonationCard key={donation._id} donation={donation} />
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">No pending donations. Great job!</p>
+                )}
               </CardContent>
             </Card>
 
@@ -234,12 +275,17 @@ const AdminDashboard = () => {
                   <Heart className="h-5 w-5 text-red-500" />
                   <span>Pending Requests</span>
                 </CardTitle>
-                <Button variant="outline" size="sm">Filter</Button>
+                <Button variant="outline" size="sm">View All</Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {mockRequests.filter(r => r.status === 'pending').map(request => (
-                  <RequestCard key={request.id} request={request} />
-                ))}
+                {/* --- FIX 6: Use real data --- */}
+                {pendingRequests.length > 0 ? (
+                  pendingRequests.map(request => (
+                    <RequestCard key={request._id} request={request} />
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">No pending requests.</p>
+                )}
               </CardContent>
             </Card>
           </div>

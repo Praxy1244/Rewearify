@@ -61,6 +61,7 @@ import MyRequests from "./pages/recipient/MyRequests";
 import Organizations from "./pages/recipient/Organizations";
 import Dashboard from './pages/Dashboard';
 import DonorDashboard from './components/Dashboard/DonorDashboard';
+import DonorSettings from "./pages/donor/DonorSettings";
 import RecipientDashboard from './components/Dashboard/RecipientDashboard';
 import AdminDashboard from './components/Dashboard/AdminDashboard'; 
 import RecipientProfile from "./pages/recipient/RecipientProfile";
@@ -161,6 +162,12 @@ function AppContent() {
           <Route path="/donor/profile" element={
             <ProtectedRoute allowedRoles={['donor']}>
               <DonorProfile />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/donor/settings" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <DonorSettings />
             </ProtectedRoute>
           } />
 

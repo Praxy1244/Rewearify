@@ -25,6 +25,7 @@ class AdminService {
   // Get all donations for admin management
   async getAllDonations(params = {}) {
     try {
+      // This route is defined in src/routes/admin.js
       const response = await api.get(API_ENDPOINTS.ADMIN.DONATIONS, { params });
       return response;
     } catch (error) {
@@ -42,28 +43,20 @@ class AdminService {
     }
   }
 
-  // Approve donation
-  async approveDonation(donationId, notes = '') {
+  // --- THIS IS THE FIX ---
+  // Replaced old functions with the correct one that matches src/routes/admin.js
+  async moderateDonation(donationId, action, reason = '') {
     try {
-      const response = await api.post(`/donations/${donationId}/approve`, { notes });
+      const response = await api.put(
+        `/admin/donations/${donationId}/moderate`, 
+        { action, reason }
+      );
       return response;
     } catch (error) {
       throw error;
     }
   }
-
-  // Reject donation
-  async rejectDonation(donationId, reason, notes = '') {
-    try {
-      const response = await api.post(`/donations/${donationId}/reject`, {
-        reason,
-        notes
-      });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
+  // --- END OF FIX ---
 
   // Update user status
   async updateUserStatus(userId, status, reason = '') {
@@ -89,6 +82,8 @@ class AdminService {
       throw error;
     }
   }
+
+  // ... (rest of the functions remain the same) ...
 
   // Get user activity logs
   async getUserActivityLogs(userId, params = {}) {

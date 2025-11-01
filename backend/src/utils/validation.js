@@ -2,20 +2,26 @@ import { body, param, query, validationResult } from 'express-validator';
 
 // Common validation rules
 export const commonValidations = {
-  // ... (all other rules are correct) ...
+  // MongoDB ObjectId validation
   mongoId: (field = 'id') => 
     param(field).isMongoId().withMessage(`Invalid ${field} format`),
+  
+  // Email validation
   email: (field = 'email') =>
     body(field)
       .isEmail()
       .normalizeEmail()
       .withMessage('Please provide a valid email address'),
+  
+  // Password validation
   password: (field = 'password') =>
     body(field)
       .isLength({ min: 6, max: 128 })
       .withMessage('Password must be between 6 and 128 characters')
       .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+  
+  // Name validation
   name: (field = 'name') =>
     body(field)
       .trim()
@@ -23,16 +29,24 @@ export const commonValidations = {
       .withMessage('Name must be between 2 and 100 characters')
       .matches(/^[a-zA-Z\s]+$/)
       .withMessage('Name can only contain letters and spaces'),
+  
+  // --- THIS IS THE FIX ---
+  // Replaced isMobilePhone() with a more flexible regex
   phone: (field = 'phone') =>
     body(field)
-      .optional()
-      .isMobilePhone()
-      .withMessage('Please provide a valid phone number'),
+      .optional({ checkFalsy: true }) // Allow empty strings
+      .matches(/^\+[1-9]\d{1,14}$/) // E.164 format (e.g., +123456789)
+      .withMessage('Phone number must be in international format (e.g., +1234567891)'),
+  // --- END OF FIX ---
+
+  // URL validation
   url: (field) =>
     body(field)
       .optional()
       .isURL()
       .withMessage(`${field} must be a valid URL`),
+  
+  // Pagination validation
   pagination: [
     query('page')
       .optional()
@@ -49,7 +63,6 @@ export const commonValidations = {
 
 // User validation rules
 export const userValidations = {
-  // ... (all user validations are correct) ...
   register: [
     commonValidations.name(),
     commonValidations.email(),
@@ -74,35 +87,82 @@ export const userValidations = {
       .optional({ checkFalsy: true })
       .isIn(['NGO', 'Charity', 'Community Group', 'School', 'Other'])
       .withMessage('Invalid organization type'),
+    
     body('organization.registrationNumber')
       .optional({ checkFalsy: true })
       .trim()
       .isLength({ max: 50 })
       .withMessage('Registration number cannot exceed 50 characters'),
+      
     body('organization.website')
       .optional({ checkFalsy: true })
       .isURL()
       .withMessage('Please provide a valid website URL (e.g., https://example.com)'),
   ],
+  
   login: [
     commonValidations.email(),
     body('password')
       .notEmpty()
       .withMessage('Password is required')
   ],
+  
   updateProfile: [
     body('name')
       .optional()
       .trim()
       .isLength({ min: 2, max: 100 })
-      .withMessage('Name must be between 2 and 100 characters'),
+      .withMessage('Name must be between 2 and 100 characters')
+      .matches(/^[a-zA-Z\s]+$/) // Allow spaces in name
+      .withMessage('Name can only contain letters and spaces'),
+    
+    body('profile')
+      .optional()
+      .isObject()
+      .withMessage('Profile must be an object'),
     body('profile.bio')
       .optional()
       .trim()
       .isLength({ max: 500 })
       .withMessage('Bio cannot exceed 500 characters'),
-    commonValidations.phone('contact.phone')
+    
+    body('contact')
+      .optional()
+      .isObject()
+      .withMessage('Contact must be an object'),
+    commonValidations.phone('contact.phone'), // This now uses the new, flexible rule
+    
+    body('location')
+      .optional()
+      .isObject()
+      .withMessage('Location must be an object'),
+    body('location.address')
+      .optional({ checkFalsy: true }) // allow empty string
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('Address cannot exceed 200 characters'),
+    body('location.city')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('City cannot exceed 100 characters'),
+    body('location.state')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('State cannot exceed 100 characters'),
+    
+    body('organization')
+      .optional()
+      .isObject()
+      .withMessage('Organization must be an object'),
+    body('organization.name')
+      .optional({ checkFalsy: true }) // Allow empty string
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Organization name cannot exceed 100 characters')
   ],
+  
   changePassword: [
     body('currentPassword')
       .notEmpty()
@@ -111,32 +171,27 @@ export const userValidations = {
   ]
 };
 
-// --- MODIFIED DONATION VALIDATION ---
+
+// Donation validation rules
 export const donationValidations = {
   create: [
     body('title')
       .trim()
       .isLength({ min: 5, max: 200 })
       .withMessage('Title must be between 5 and 200 characters'),
-      
-    // --- THIS IS THE FIX ---
     body('description')
       .trim()
-      .isLength({ min: 5, max: 1000 }) // Changed min from 10 to 5
+      .isLength({ min: 5, max: 1000 }) // Min length is 5
       .withMessage('Description must be between 5 and 1000 characters'),
-    // --- END OF FIX ---
-      
     body('category')
       .isIn(['outerwear', 'formal', 'casual', 'children', 'accessories', 'shoes', 'activewear', 'undergarments', 'traditional', 'seasonal', 'maternity', 'plus-size', 'household', 'linens', 'other'])
       .withMessage('Invalid category'),
-      
     body('subcategory')
       .trim()
       .notEmpty()
       .withMessage('Sub-category is required')
       .isLength({ max: 100 })
       .withMessage('Sub-category cannot exceed 100 characters'),
-
     body('condition')
       .isIn(['excellent', 'good', 'fair', 'poor'])
       .withMessage('Invalid condition'),
@@ -181,7 +236,6 @@ export const donationValidations = {
   ],
   
   update: [
-    // ... (update rules are fine) ...
     body('title')
       .optional()
       .trim()
@@ -199,7 +253,6 @@ export const donationValidations = {
   ]
 };
 
-// ... (rest of the file is correct) ...
 // Request validation rules
 export const requestValidations = {
   create: [
@@ -313,7 +366,7 @@ export const handleValidationErrors = (req, res, next) => {
   
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map(error => ({
-      field: error.path, // Use error.path for more accurate field names
+      field: error.path,
       message: error.msg,
       value: error.value
     }));
@@ -331,33 +384,25 @@ export const handleValidationErrors = (req, res, next) => {
 
 // Custom validators
 export const customValidators = {
-  // Check if coordinates are valid
   coordinates: (value) => {
     if (!Array.isArray(value) || value.length !== 2) {
       throw new Error('Coordinates must be an array of [longitude, latitude]');
     }
-    
     const [lng, lat] = value;
     if (typeof lng !== 'number' || typeof lat !== 'number') {
-      throw new Error('Coordinates must be numbers');
+      throw new Error('Invalid coordinate values');
     }
-    
     if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
       throw new Error('Invalid coordinate values');
     }
-    
     return true;
   },
-  
-  // Check if date is in the future
   futureDate: (value) => {
     if (new Date(value) <= new Date()) {
       throw new Error('Date must be in the future');
     }
     return true;
   },
-  
-  // Check if array has unique values
   uniqueArray: (value) => {
     if (new Set(value).size !== value.length) {
       throw new Error('Array values must be unique');

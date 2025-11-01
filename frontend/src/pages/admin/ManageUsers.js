@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Edit, Shield, ShieldOff, Trash2, Users, UserCheck, UserX, Crown } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Shield, ShieldOff, Users, UserCheck, UserX, Crown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
 import { adminService } from '../../services';
 import { toast } from 'sonner';
 
@@ -28,11 +27,14 @@ const ManageUsers = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await adminService.getUsers();
+      // --- FIX: Call the correct service function ---
+      const response = await adminService.getAllUsers(); 
       if (response.success) {
-        setUsers(response.data.users || []);
+        // The data is at response.data (which is the array)
+        setUsers(response.data || []);
       } else {
         setError('Failed to fetch users');
+        toast.error('Failed to load users');
       }
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -54,14 +56,16 @@ const ManageUsers = () => {
   const handleBlockUser = async (userId) => {
     try {
       const user = users.find(u => u._id === userId);
+      // Determine the new status
       const newStatus = user.status === 'active' ? 'suspended' : 'active';
       
-      const response = await adminService.updateUserStatus(userId, newStatus);
+      const response = await adminService.updateUserStatus(userId, newStatus, newStatus === 'suspended' ? 'Blocked by admin' : 'Activated by admin');
+      
       if (response.success) {
         setUsers(prev => prev.map(u => 
           u._id === userId ? { ...u, status: newStatus } : u
         ));
-        toast.success(`User ${newStatus === 'suspended' ? 'blocked' : 'unblocked'} successfully`);
+        toast.success(`User ${newStatus === 'suspended' ? 'suspended' : 'activated'} successfully`);
       } else {
         toast.error('Failed to update user status');
       }
@@ -70,22 +74,7 @@ const ManageUsers = () => {
       toast.error('Failed to update user status');
     }
   };
-
-  const handleDeleteUser = async (userId) => {
-    try {
-      const response = await adminService.deleteUser(userId);
-      if (response.success) {
-        setUsers(prev => prev.filter(user => user._id !== userId));
-        toast.success('User deleted successfully');
-      } else {
-        toast.error('Failed to delete user');
-      }
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      toast.error('Failed to delete user');
-    }
-  };
-
+  
   const getRoleIcon = (role) => {
     switch (role) {
       case 'admin': return <Crown className="h-4 w-4" />;
@@ -121,7 +110,7 @@ const ManageUsers = () => {
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
           <Avatar className="h-20 w-20">
-            <AvatarImage src={user.profilePicture} />
+            <AvatarImage src={user.profile?.profilePicture?.url} />
             <AvatarFallback className="text-lg">
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
@@ -153,26 +142,20 @@ const ManageUsers = () => {
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Last Activity</label>
-              <p>{new Date(user.lastLoginAt || user.updatedAt).toLocaleDateString()}</p>
+              <p>{new Date(user.lastActive || user.updatedAt).toLocaleDateString()}</p>
             </div>
           </div>
           <div className="space-y-4">
             {user.role === 'donor' && (
               <div>
                 <label className="text-sm font-medium text-gray-600">Total Donations</label>
-                <p className="text-2xl font-bold text-green-600">{user.donationsCount || 0}</p>
+                <p className="text-2xl font-bold text-green-600">{user.statistics?.totalDonations || 0}</p>
               </div>
             )}
             {user.role === 'recipient' && (
               <div>
                 <label className="text-sm font-medium text-gray-600">Total Requests</label>
-                <p className="text-2xl font-bold text-blue-600">{user.requestsCount || 0}</p>
-              </div>
-            )}
-            {user.role === 'admin' && (
-              <div>
-                <label className="text-sm font-medium text-gray-600">Admin Actions</label>
-                <p className="text-2xl font-bold text-purple-600">{user.adminActions || 0}</p>
+                <p className="text-2xl font-bold text-blue-600">{user.statistics?.totalRequests || 0}</p>
               </div>
             )}
             <div>
@@ -185,7 +168,7 @@ const ManageUsers = () => {
         </div>
 
         <div className="flex space-x-3 pt-4 border-t">
-          <Button className="flex-1">
+          <Button className="flex-1" variant="outline">
             <Edit className="h-4 w-4 mr-2" />
             Edit User
           </Button>
@@ -197,12 +180,12 @@ const ManageUsers = () => {
             {user.status === 'active' ? (
               <>
                 <ShieldOff className="h-4 w-4 mr-2" />
-                Block User
+                Suspend User
               </>
             ) : (
               <>
                 <Shield className="h-4 w-4 mr-2" />
-                Unblock User
+                Reactivate User
               </>
             )}
           </Button>
@@ -369,7 +352,7 @@ const ManageUsers = () => {
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar>
-                        <AvatarImage src={user.profilePicture} />
+                        <AvatarImage src={user.profile?.profilePicture?.url} />
                         <AvatarFallback>
                           {user.name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
@@ -395,27 +378,19 @@ const ManageUsers = () => {
                   <TableCell>
                     <div>
                       {user.role === 'donor' && (
-                        <p className="text-sm"><span className="font-medium">{user.donationsCount || 0}</span> donations</p>
+                        <p className="text-sm"><span className="font-medium">{user.statistics?.totalDonations || 0}</span> donations</p>
                       )}
                       {user.role === 'recipient' && (
-                        <p className="text-sm"><span className="font-medium">{user.requestsCount || 0}</span> requests</p>
+                        <p className="text-sm"><span className="font-medium">{user.statistics?.totalRequests || 0}</span> requests</p>
                       )}
-                      {user.role === 'admin' && (
-                        <p className="text-sm"><span className="font-medium">{user.adminActions || 0}</span> actions</p>
-                      )}
-                      <p className="text-xs text-gray-500">Last: {new Date(user.lastLoginAt || user.updatedAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">Last: {new Date(user.lastActive || user.updatedAt).toLocaleDateString()}</p>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="outline" onClick={() => setSelectedUser(user)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <UserDetailsModal user={user} />
-                      </Dialog>
+                      <Button size="sm" variant="outline" onClick={() => setSelectedUser(user)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button size="sm" variant="outline">
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -426,27 +401,6 @@ const ManageUsers = () => {
                       >
                         {user.status === 'active' ? <ShieldOff className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete User</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete {user.name}? This action cannot be undone and will permanently remove all user data.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteUser(user._id)}>
-                              Delete User
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -455,6 +409,11 @@ const ManageUsers = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Modal Dialog */}
+      <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+        {selectedUser && <UserDetailsModal user={selectedUser} />}
+      </Dialog>
     </div>
   );
 };
