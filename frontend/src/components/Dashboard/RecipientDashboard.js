@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Progress } from '../ui/progress';
+import { Spinner } from '../ui/spinner';
 import { 
   Search, 
   Package, 
@@ -15,33 +16,35 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
-  Users,
   Building,
   Truck,
   Calendar
 } from 'lucide-react';
-import AIPredictionWidget from '../AI/AIPredictionWidget';
 
 const RecipientDashboard = () => {
   const { user } = useAuth();
+  
   const { 
-    donations, 
-    requests, 
+    allDonations,
+    userRequests,
     notifications, 
-    loading,
-    fetchAvailableDonations, 
-    fetchUserRequests, 
-    fetchNotifications 
+    loadingStates,
+    fetchAvailableDonations,
+    fetchUserRequests,
+    fetchNotifications
   } = useApp();
-
+  
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
+  // --- MODIFICATION: Simplified the useEffect dependencies ---
+  // The functions are now wrapped in useCallback in the context,
+  // so they are stable and won't cause an infinite loop.
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
         setDashboardLoading(true);
         await Promise.all([
-          fetchAvailableDonations(),
+          fetchAvailableDonations({ status: 'approved' }),
           fetchUserRequests(),
           fetchNotifications()
         ]);
@@ -55,19 +58,19 @@ const RecipientDashboard = () => {
     if (user) {
       loadDashboardData();
     }
-  }, [user, fetchAvailableDonations, fetchUserRequests, fetchNotifications]);
+  }, [user, fetchAvailableDonations, fetchUserRequests, fetchNotifications]); // This is now safe
+  // --- END MODIFICATION ---
 
-  // Filter data for current user
-  const userRequests = requests || [];
-  const availableDonations = donations?.filter(d => d.status === 'approved') || [];
-  const userNotifications = notifications || [];
+  const availableDonations = allDonations || [];
+  const myRequests = userRequests || [];
+  const myNotifications = notifications || [];
 
   const stats = {
-    totalRequests: userRequests.length,
-    approvedRequests: userRequests.filter(r => r.status === 'approved').length,
-    pendingRequests: userRequests.filter(r => r.status === 'pending').length,
+    totalRequests: myRequests.length,
+    approvedRequests: myRequests.filter(r => r.status === 'approved').length,
+    pendingRequests: myRequests.filter(r => r.status === 'pending').length,
     availableItems: availableDonations.length,
-    peopleHelped: user.receivedCount || 8
+    peopleHelped: user?.stats?.peopleHelped || 8 // Use stats object if available
   };
 
   const getStatusColor = (status) => {
@@ -87,7 +90,7 @@ const RecipientDashboard = () => {
       default: return <Clock className="h-4 w-4 text-gray-600" />;
     }
   };
-
+  
   const getUrgencyColor = (urgency) => {
     switch (urgency) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200';
@@ -97,18 +100,17 @@ const RecipientDashboard = () => {
     }
   };
 
-  if (dashboardLoading || loading) {
+  // Check granular loading states
+  const isLoading = dashboardLoading || loadingStates.userRequests || loadingStates.donations;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
-        </div>
+        <Spinner size="lg" />
+        <span className="ml-2 text-lg">Loading your dashboard...</span>
       </div>
     );
   }
-
-  // Using the imported AIPredictionWidget component
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -117,16 +119,18 @@ const RecipientDashboard = () => {
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={user.profilePicture} alt={user.name} />
+              <AvatarImage src={user.profile?.profilePicture?.url} alt={user.name} />
               <AvatarFallback className="text-xl">{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900">
                 Welcome back, {user.name?.split(' ')[0]}!
               </h1>
+              {/* --- FIX 2: Access .name and .address from objects --- */}
               <p className="text-gray-600 mt-1">
-                {user.organization} • {user.location}
+                {user.organization?.name || 'Your Organization'} • {user.location?.address || 'Your Location'}
               </p>
+              {/* --- END FIX 2 --- */}
             </div>
             <Button asChild className="bg-blue-600 hover:bg-blue-700">
               <Link to="/recipient/browseItems">
@@ -155,7 +159,11 @@ const RecipientDashboard = () => {
                 <div className="text-center">
                   <div className="flex items-center justify-center mb-2">
                     <Building className="h-6 w-6 mr-2" />
-                    <span className="text-lg font-semibold">Verified NGO</span>
+                    {/* --- FIX 2: Access .verified from object --- */}
+                    <span className="text-lg font-semibold">
+                      {user.organization?.verified ? "Verified NGO" : "Pending Verification"}
+                    </span>
+                    {/* --- END FIX 2 --- */}
                   </div>
                   <div className="text-blue-100">Organization Status</div>
                 </div>
@@ -178,7 +186,6 @@ const RecipientDashboard = () => {
                   <div className="text-sm text-gray-600">Available Items</div>
                 </CardContent>
               </Card>
-
               <Card>
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center mb-2">
@@ -188,7 +195,6 @@ const RecipientDashboard = () => {
                   <div className="text-sm text-gray-600">Pending Requests</div>
                 </CardContent>
               </Card>
-
               <Card>
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center mb-2">
@@ -213,49 +219,48 @@ const RecipientDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {userRequests.slice(0, 3).map((request) => {
-                    const donation = availableDonations.find(d => d.id === request.donationId);
+                  {myRequests.slice(0, 3).map((request) => {
+                    const donation = availableDonations.find(d => d._id === request.donation);
                     return (
-                      <div key={request.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div key={request._id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                         <img 
-                          src={donation?.images?.[0] || '/api/placeholder/64/64'} 
-                          alt={request.donationTitle}
+                          src={donation?.images?.[0]?.url || 'https://placehold.co/64x64/e2e8f0/64748b?text=Img'} 
+                          alt={donation?.title || 'Donation'}
                           className="w-16 h-16 object-cover rounded-lg"
                         />
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{request.donationTitle}</h4>
+                          <h4 className="font-medium text-gray-900">{donation?.title || 'Requested Item'}</h4>
                           <p className="text-sm text-gray-600">
-                            Requested {request.requestedQuantity} items • Sizes: {request.requestedSizes?.join(', ')}
+                            Requested {request.quantity} items
                           </p>
                           <div className="flex items-center space-x-2 mt-1">
                             {getStatusIcon(request.status)}
                             <Badge className={getStatusColor(request.status)}>
                               {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                             </Badge>
-                            <Badge className={getUrgencyColor(request.urgencyLevel)}>
-                              {request.urgencyLevel} priority
-                            </Badge>
+                            {request.urgency && (
+                              <Badge className={getUrgencyColor(request.urgency)}>
+                                {request.urgency} priority
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-medium text-blue-600">
-                            {Math.round(request.aiMatchScore * 100)}% Match
-                          </div>
                           {request.status === 'approved' && request.expectedDelivery && (
                             <div className="text-xs text-gray-600 mt-1">
                               <Calendar className="h-3 w-3 inline mr-1" />
-                              Due: {request.expectedDelivery}
+                              Due: {new Date(request.expectedDelivery).toLocaleDateString()}
                             </div>
                           )}
-                          <Button variant="ghost" size="sm" className="mt-1">
-                            <Eye className="h-4 w-4" />
+                          <Button variant="ghost" size="sm" className="mt-1" asChild>
+                            <Link to="/recipient/my-requests"><Eye className="h-4 w-4" /></Link>
                           </Button>
                         </div>
                       </div>
                     );
                   })}
                   
-                  {userRequests.length === 0 && (
+                  {myRequests.length === 0 && (
                     <div className="text-center py-8">
                       <Heart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                       <p className="text-gray-600 mb-4">You haven't made any requests yet.</p>
@@ -279,9 +284,9 @@ const RecipientDashboard = () => {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {availableDonations.slice(0, 4).map((donation) => (
-                    <div key={donation.id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div key={donation._id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                       <img 
-                        src={donation.images?.[0] || '/api/placeholder/400/200'} 
+                        src={donation.images?.[0]?.url || 'https://placehold.co/400x200/e2e8f0/64748b?text=Img'} 
                         alt={donation.title}
                         className="w-full h-32 object-cover"
                       />
@@ -295,10 +300,12 @@ const RecipientDashboard = () => {
                             <Badge className="text-xs bg-green-100 text-green-800">
                               {donation.condition}
                             </Badge>
-                            <span className="text-xs text-gray-500">{donation.location}</span>
+                            {/* --- FIX 2: Access .city from object --- */}
+                            <span className="text-xs text-gray-500">{donation.location?.city}</span>
+                            {/* --- END FIX 2 --- */}
                           </div>
-                          <Button size="sm" variant="outline">
-                            Request
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to="/recipient/browseItems">Request</Link>
                           </Button>
                         </div>
                       </div>
@@ -390,16 +397,16 @@ const RecipientDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {userNotifications.slice(0, 3).map((notification) => (
-                    <div key={notification.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50">
-                      <div className={`w-2 h-2 rounded-full mt-2 ${notification.read ? 'bg-gray-300' : 'bg-blue-500'}`}></div>
+                  {myNotifications.slice(0, 3).map((notification) => (
+                    <div key={notification._id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${notification.status === 'read' ? 'bg-gray-300' : 'bg-blue-500'}`}></div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                         <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
                       </div>
                     </div>
                   ))}
-                  {userNotifications.length === 0 && (
+                  {myNotifications.length === 0 && (
                     <div className="text-center py-4">
                       <p className="text-sm text-gray-500">No notifications yet</p>
                     </div>
@@ -419,19 +426,21 @@ const RecipientDashboard = () => {
               <CardContent>
                 <div className="space-y-3">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{user.organization}</div>
-                    <div className="text-xs text-gray-600">{user.location}</div>
+                    {/* --- FIX 2: Access .name and .address from objects --- */}
+                    <div className="text-sm font-medium text-gray-900">{user.organization?.name || 'Your Organization'}</div>
+                    <div className="text-xs text-gray-600">{user.location?.address}</div>
+                    {/* --- END FIX 2 --- */}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge className="bg-green-100 text-green-800 text-xs">
-                      Verified
+                      {user.organization?.verified ? "Verified" : "Not Verified"}
                     </Badge>
                     <Badge className="bg-blue-100 text-blue-800 text-xs">
                       Active Partner
                     </Badge>
                   </div>
                   <Button variant="outline" size="sm" className="w-full" asChild>
-                    <Link to="/recipient/RecipientProfile">
+                    <Link to="/recipient/profile">
                       Update Profile
                     </Link>
                   </Button>

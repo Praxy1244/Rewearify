@@ -265,7 +265,8 @@ export const requestValidations = {
       .isLength({ min: 10, max: 1000 })
       .withMessage('Description must be between 10 and 1000 characters'),
     body('category')
-      .isIn(['outerwear', 'formal', 'casual', 'children', 'accessories', 'shoes', 'activewear', 'undergarments', 'traditional', 'seasonal', 'maternity', 'plus-size'])
+      .optional()
+      .isIn(['outerwear', 'formal', 'casual', 'children', 'accessories', 'shoes', 'activewear', 'undergarments', 'traditional', 'seasonal', 'maternity', 'plus-size', 'household', 'linens', 'other']) // <-- THE FIX IS HERE
       .withMessage('Invalid category'),
     body('urgency')
       .isIn(['low', 'medium', 'high', 'critical'])

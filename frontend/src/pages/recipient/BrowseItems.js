@@ -1,45 +1,67 @@
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContext'; // Using the live context
 import { useToast } from '../../hooks/use-toast';
+import { Spinner } from '../../components/ui/spinner'; // Import Spinner
+import { Alert, AlertDescription } from '../../components/ui/alert'; // Import Alert
 import { 
   Search, 
   MapPin, 
-  Filter,
   Calendar,
   User,
   Package,
-  Heart
+  Heart,
+  AlertCircle
 } from 'lucide-react';
-import { requestService } from '../../services';
+// Note: requestService is not needed for Day 1, but will be for Day 2
+// import { requestService } from '../../services'; 
 
 const BrowseItems = () => {
-  const { donationItems, addRequest } = useApp();
+  // Get live data and functions from AppContext
+  const { 
+    allDonations,     // This is the new prop from AppContext
+    loadDonations,    // This is the function to fetch all donations
+    loadingStates,  // This is the granular loading state
+    errorStates,    // This is the granular error state
+    addRequest      // We keep this for Day 2
+  } = useApp();
+  
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedQuality, setSelectedQuality] = useState('all');
-  const [selectedAvailability, setSelectedAvailability] = useState('all');
+  
   const [selectedItem, setSelectedItem] = useState(null);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestQuantity, setRequestQuantity] = useState(1);
   const [requestNotes, setRequestNotes] = useState('');
+
+  // --- DAY 1 TASK: Fetch live data ---
+  useEffect(() => {
+    // Fetch all "Approved" donations when the component mounts
+    loadDonations({ status: 'approved' });
+  }, [loadDonations]); // Dependency array ensures it runs once
+
   
-  // Define categories, quality levels, and availability status
+  // Define categories, quality levels
   const categories = [
     { value: 'all', label: 'All Categories' },
-    { value: 'clothing', label: 'Clothing' },
-    { value: 'footwear', label: 'Footwear' },
+    { value: 'outerwear', label: 'Outerwear' },
+    { value: 'formal', label: 'Formal' },
+    { value: 'casual', label: 'Casual' },
+    { value: 'children', label: "Children's" },
     { value: 'accessories', label: 'Accessories' },
-    { value: 'household', label: 'Household Items' }
+    { value: 'shoes', label: 'Shoes' },
+    { value: 'household', label: 'Household' },
+    { value: 'other', label: 'Other' },
   ];
   
   const qualityLevels = [
@@ -48,28 +70,21 @@ const BrowseItems = () => {
     { value: 'good', label: 'Good' },
     { value: 'fair', label: 'Fair' }
   ];
-  
-  const availabilityStatus = [
-    { value: 'all', label: 'All Availability' },
-    { value: 'available', label: 'Available' },
-    { value: 'limited', label: 'Limited' },
-    { value: 'reserved', label: 'Reserved' }
-  ];
 
-  // Filter and search items
+  // Filter and search items using live data
   const filteredItems = useMemo(() => {
-    return donationItems.filter(item => {
+    // Use 'allDonations' from the context, not mock data
+    return (allDonations || []).filter(item => {
       const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+                           (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
       
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-      const matchesQuality = selectedQuality === 'all' || item.quality === selectedQuality;
-      const matchesAvailability = selectedAvailability === 'all' || item.availability === selectedAvailability;
+      const matchesQuality = selectedQuality === 'all' || item.condition === selectedQuality; // Use 'condition' field
       
-      return matchesSearch && matchesCategory && matchesQuality && matchesAvailability;
+      return matchesSearch && matchesCategory && matchesQuality;
     });
-  }, [donationItems, searchQuery, selectedCategory, selectedQuality, selectedAvailability]);
+  }, [allDonations, searchQuery, selectedCategory, selectedQuality]);
 
   const handleRequest = (item) => {
     setSelectedItem(item);
@@ -78,19 +93,23 @@ const BrowseItems = () => {
     setShowRequestModal(true);
   };
 
+  // This function is ready for Day 2. 
+  // It uses the local context 'addRequest' for now.
   const confirmRequest = () => {
     if (selectedItem) {
+      // This uses the mock 'addRequest' from context for now
+      // Day 2 will involve making this a real API call
       addRequest({
-        itemId: selectedItem.id,
+        donationId: selectedItem._id, // Use real _id from database
         itemName: selectedItem.title,
-        itemImage: selectedItem.image,
+        itemImage: selectedItem.images?.[0]?.url || '',
         quantity: requestQuantity,
         notes: requestNotes
       });
       
       toast({
         title: "Request Submitted",
-        description: `Your request for "${selectedItem.title}" has been submitted successfully.`,
+        description: `Your request for "${selectedItem.title}" has been submitted.`,
       });
       
       setShowRequestModal(false);
@@ -107,14 +126,29 @@ const BrowseItems = () => {
     }
   };
 
-  const getAvailabilityColor = (availability) => {
-    switch (availability) {
-      case 'available': return 'bg-green-100 text-green-800';
-      case 'limited': return 'bg-yellow-100 text-yellow-800';
-      case 'reserved': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  // --- Loading and Error States ---
+  if (loadingStates.donations) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spinner size="lg" />
+        <span className="ml-2 text-lg">Loading available donations...</span>
+      </div>
+    );
+  }
+
+  if (errorStates.donations) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <Alert variant="destructive" className="max-w-lg">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {errorStates.donations}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  // --- End Loading/Error States ---
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -134,10 +168,10 @@ const BrowseItems = () => {
 
           {/* Search and Filters */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
+            <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Search items..."
+                placeholder="Search by title, description, or tags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -169,19 +203,6 @@ const BrowseItems = () => {
                 ))}
               </SelectContent>
             </Select>
-            
-            <Select value={selectedAvailability} onValueChange={setSelectedAvailability}>
-              <SelectTrigger>
-                <SelectValue placeholder="Availability" />
-              </SelectTrigger>
-              <SelectContent>
-                {availabilityStatus.map(status => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
       </div>
@@ -190,22 +211,17 @@ const BrowseItems = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-lg transition-all duration-300 overflow-hidden">
+            <Card key={item._id} className="hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
               <div className="aspect-video bg-gray-200 relative overflow-hidden">
                 <img 
-                  src={item.image} 
+                  src={item.images?.[0]?.url || 'https://placehold.co/400x300/e2e8f0/64748b?text=Donation'} 
                   alt={item.title}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                 />
-                <div className="absolute top-2 right-2">
-                  <Badge className={getAvailabilityColor(item.availability)}>
-                    {item.availability}
-                  </Badge>
-                </div>
               </div>
               
-              <CardContent className="p-6">
-                <div className="mb-3">
+              <CardContent className="p-6 flex-1 flex flex-col">
+                <div className="mb-3 flex-1">
                   <h3 className="font-semibold text-lg mb-2 text-gray-900">{item.title}</h3>
                   <p className="text-gray-600 text-sm mb-3 line-clamp-2">{item.description}</p>
                 </div>
@@ -213,29 +229,32 @@ const BrowseItems = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Quantity:</span>
-                    <Badge variant="secondary">{item.itemCount} items</Badge>
+                    <Badge variant="secondary">{item.quantity} items</Badge>
                   </div>
                   
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Quality:</span>
-                    <Badge className={getQualityColor(item.quality)}>
-                      {item.quality}
+                    <Badge className={getQualityColor(item.condition)}>
+                      {item.condition}
                     </Badge>
                   </div>
                   
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <MapPin className="w-4 h-4" />
-                    <span>{item.location}</span>
+                    {/* Use real data fields */}
+                    <span>{item.location?.city || 'Unknown'}, {item.location?.state || ''}</span>
                   </div>
                   
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <User className="w-4 h-4" />
-                    <span>{item.donorName}</span>
+                     {/* Use real data fields */}
+                    <span>{item.donor?.name || 'Anonymous Donor'}</span>
                   </div>
                   
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>Posted {new Date(item.datePosted).toLocaleDateString()}</span>
+                     {/* Use real data fields */}
+                    <span>Posted {new Date(item.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
                 
@@ -243,7 +262,6 @@ const BrowseItems = () => {
                   <Button 
                     onClick={() => handleRequest(item)} 
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={item.availability === 'reserved'}
                   >
                     <Heart className="w-4 h-4 mr-2" />
                     Request Item
@@ -255,7 +273,7 @@ const BrowseItems = () => {
         </div>
 
         {filteredItems.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-center py-12 col-span-full">
             <div className="w-24 h-24 mx-auto mb-4 text-gray-300">
               <Search className="w-full h-full" />
             </div>
@@ -275,15 +293,15 @@ const BrowseItems = () => {
             <div className="space-y-4">
               <div className="flex space-x-4">
                 <img 
-                  src={selectedItem.image} 
+                  src={selectedItem.images?.[0]?.url || 'https://placehold.co/100x100/e2e8f0/64748b?text=Donation'} 
                   alt={selectedItem.title}
                   className="w-20 h-20 object-cover rounded-lg"
                 />
                 <div className="flex-1">
                   <h4 className="font-semibold">{selectedItem.title}</h4>
-                  <p className="text-sm text-gray-600">{selectedItem.location}</p>
-                  <Badge className={getQualityColor(selectedItem.quality)}>
-                    {selectedItem.quality}
+                  <p className="text-sm text-gray-600">{selectedItem.location?.city}</p>
+                  <Badge className={getQualityColor(selectedItem.condition)}>
+                    {selectedItem.condition}
                   </Badge>
                 </div>
               </div>
@@ -295,12 +313,12 @@ const BrowseItems = () => {
                     id="quantity"
                     type="number"
                     min="1"
-                    max={selectedItem.itemCount}
+                    max={selectedItem.quantity} // Use real quantity
                     value={requestQuantity}
                     onChange={(e) => setRequestQuantity(Number(e.target.value))}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Maximum available: {selectedItem.itemCount}
+                    Maximum available: {selectedItem.quantity}
                   </p>
                 </div>
                 

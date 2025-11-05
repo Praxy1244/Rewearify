@@ -1,9 +1,250 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react'; // --- MODIFICATION: Import useCallback
 import { useAuth } from './AuthContext';
-// Import services using the index file for cleaner imports
-import { donationService, requestService, notificationService } from '../services';
+
+// Import all your services
+import { 
+  donationService, 
+  requestService, 
+  userService, 
+  notificationService 
+} from '../services'; 
 
 const AppContext = createContext();
+
+const initialState = {
+  // User data
+  userProfile: null,
+  
+  // Donations
+  donations: [],       // For BrowseItems (all approved donations)
+  userDonations: [],   // For DonorDashboard
+  
+  // Requests
+  requests: [],        // For Admin
+  userRequests: [],    // For RecipientDashboard / MyRequests
+  
+  // Other
+  organizations: [],
+  notifications: [],
+  
+  // Granular loading & error states
+  loading: {
+    donations: false,
+    userDonations: false,
+    requests: false,
+    userRequests: false,
+    profile: false,
+    organizations: false,
+    notifications: false
+  },
+  errors: {
+    donations: null,
+    userDonations: null,
+    requests: null,
+    userRequests: null,
+    profile: null,
+    organizations: null,
+    notifications: null
+  }
+};
+
+const appReducer = (state, action) => {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loading: { ...state.loading, [action.payload.key]: action.payload.value }};
+    case 'SET_ERROR':
+      return { ...state, errors: { ...state.errors, [action.payload.key]: action.payload.error }};
+    case 'SET_USER_PROFILE':
+      return { ...state, userProfile: action.payload };
+    case 'SET_DONATIONS':
+      return { ...state, donations: action.payload };
+    case 'SET_USER_DONATIONS':
+      return { ...state, userDonations: action.payload };
+    case 'ADD_DONATION':
+      return { ...state, userDonations: [action.payload, ...state.userDonations] };
+    case 'UPDATE_DONATION':
+      const update = (d) => d.map(item => item._id === action.payload._id ? action.payload : item);
+      return { ...state, donations: update(state.donations), userDonations: update(state.userDonations) };
+    case 'REMOVE_DONATION':
+      const filter = (d) => d.filter(item => item._id !== action.payload);
+      return { ...state, donations: filter(state.donations), userDonations: filter(state.userDonations) };
+    case 'SET_REQUESTS':
+      return { ...state, requests: action.payload };
+    case 'SET_USER_REQUESTS':
+      return { ...state, userRequests: action.payload };
+    case 'ADD_REQUEST':
+      return { ...state, userRequests: [action.payload, ...state.userRequests] };
+    case 'UPDATE_REQUEST':
+      return { ...state, userRequests: state.userRequests.map(item => item._id === action.payload._id ? action.payload : item) };
+    case 'REMOVE_REQUEST':
+      return { ...state, userRequests: state.userRequests.filter(item => item._id !== action.payload) };
+    case 'SET_ORGANIZATIONS':
+      return { ...state, organizations: action.payload };
+    case 'SET_NOTIFICATIONS':
+      return { ...state, notifications: action.payload };
+    default:
+      return state;
+  }
+};
+
+export const AppProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(appReducer, initialState);
+  const { user } = useAuth();
+
+  const setLoading = (key, value) => dispatch({ type: 'SET_LOADING', payload: { key, value } });
+  const setError = (key, error) => dispatch({ type: 'SET_ERROR', payload: { key, error } });
+
+  // --- API FUNCTIONS ---
+
+  // --- MODIFICATION: Wrap functions in useCallback ---
+  const loadUserData = useCallback(async () => {
+    if (!user?._id) return;
+
+    setLoading('profile', true);
+    setLoading('userDonations', true);
+    setLoading('userRequests', true);
+    setLoading('notifications', true);
+
+    try {
+      const [
+        donationsResponse, 
+        requestsResponse,
+        notificationResponse
+      ] = await Promise.all([
+        donationService.getUserDonations(user._id),
+        requestService.getUserRequests(user._id),
+        notificationService.getNotifications()
+      ]);
+
+      if (donationsResponse.success) {
+        dispatch({ type: 'SET_USER_DONATIONS', payload: donationsResponse.data.donations || [] });
+      } else {
+        setError('userDonations', donationsResponse.message);
+      }
+
+      if (requestsResponse.success) {
+        dispatch({ type: 'SET_USER_REQUESTS', payload: requestsResponse.data.requests || [] });
+      } else {
+        setError('userRequests', requestsResponse.message);
+      }
+      
+      if (notificationResponse.success) {
+        dispatch({ type: 'SET_NOTIFICATIONS', payload: notificationResponse.data.notifications || [] });
+      } else {
+        setError('notifications', notificationResponse.message);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      setError('profile', error.message);
+    } finally {
+      setLoading('profile', false);
+      setLoading('userDonations', false);
+      setLoading('userRequests', false);
+      setLoading('notifications', false);
+    }
+  }, [user]); // This function only needs to be re-created if 'user' changes
+
+  const loadDonations = useCallback(async (params = {}) => {
+    try {
+      setLoading('donations', true);
+      setError('donations', null);
+      const response = await donationService.getDonations(params);
+      if (response.success) {
+        dispatch({ type: 'SET_DONATIONS', payload: response.data.donations || [] });
+      } else {
+        setError('donations', response.message);
+      }
+      return response;
+    } catch (error) {
+      setError('donations', error.message);
+      throw error;
+    } finally {
+      setLoading('donations', false);
+    }
+  }, []); // Empty array means this function is created once and never changes
+
+  const createDonation = useCallback(async (donationData) => {
+    const response = await donationService.createDonation(donationData);
+    if (response.success) {
+      dispatch({ type: 'ADD_DONATION', payload: response.data.donation });
+    }
+    return response;
+  }, []);
+
+  const createRequest = useCallback(async (requestData) => {
+    const response = await requestService.createRequest(requestData);
+    if (response.success) {
+      dispatch({ type: 'ADD_REQUEST', payload: response.data.request });
+    }
+    return response;
+  }, []);
+
+  const cancelRequest = useCallback(async (requestId) => {
+    const response = await requestService.deleteRequest(requestId);
+    if (response.success) {
+      dispatch({ type: 'REMOVE_REQUEST', payload: requestId });
+    }
+    return response;
+  }, []);
+  
+  // --- END API FUNCTIONS & MODIFICATION ---
+
+  // Load user data on auth change
+  useEffect(() => {
+    if (user) {
+      loadUserData();
+    } else {
+      // Clear all data on logout
+      dispatch({ type: 'SET_USER_PROFILE', payload: null });
+      dispatch({ type: 'SET_USER_DONATIONS', payload: [] });
+      dispatch({ type: 'SET_USER_REQUESTS', payload: [] });
+      dispatch({ type: 'SET_NOTIFICATIONS', payload: [] });
+      dispatch({ type: 'SET_DONATIONS', payload: [] });
+    }
+  }, [user, loadUserData]); // We add loadUserData here
+  
+  const value = {
+    ...state,
+    
+    // Aliases for Dashboards
+    donations: state.userDonations,
+    requests: state.userRequests,
+    
+    // Alias for BrowseItems Page
+    allDonations: state.donations, 
+    
+    // Combined Loading/Error for simple components
+    loading: Object.values(state.loading).some(Boolean),
+    error: Object.values(state.errors).find(Boolean),
+
+    // Granular states for complex components
+    loadingStates: state.loading,
+    errorStates: state.errors,
+
+    // Actions
+    loadUserData,
+    loadDonations,
+    createDonation,
+    createRequest,
+    cancelRequest,
+
+    // Aliases for components
+    reload: loadUserData,
+    addRequest: createRequest,
+    addDonation: createDonation,
+    
+    // Aliases for RecipientDashboard
+    fetchAvailableDonations: loadDonations,
+    fetchUserRequests: loadUserData,
+    fetchNotifications: loadUserData,
+  };
+
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+    </AppContext.Provider>
+  );
+};
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -12,110 +253,3 @@ export const useApp = () => {
   }
   return context;
 };
-
-export const AppProvider = ({ children }) => {
-  const { user } = useAuth(); // Get the currently logged-in user
-
-  // State to hold application-wide data
-  const [donations, setDonations] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  // --- Start loading as true to handle initial page load/refresh ---
-  const [loading, setLoading] = useState(true); 
-  const [error, setError] = useState(null);
-
-  // Function to fetch all necessary data for the logged-in user
-  const loadInitialData = useCallback(async () => {
-    // Only proceed if there is a logged-in user with an ID
-    if (!user || !user._id) {
-      setDonations([]);
-      setRequests([]);
-      setNotifications([]);
-      setLoading(false); // Stop loading if no user
-      setError(null);
-      return;
-    }
-
-    // --- Explicitly set loading to true when fetching starts ---
-    setLoading(true); 
-    setError(null);   // Clear previous errors
-    
-    try {
-      // Fetch user's data concurrently
-      const [donationsRes, requestsRes, notificationsRes] = await Promise.all([
-        donationService.getUserDonations(user._id),
-        requestService.getUserRequests(user._id),
-        notificationService.getNotifications()
-      ]);
-
-      // --- Process Responses (Keep existing logic) ---
-       if (donationsRes.success && donationsRes.data) {
-         // Use the nested 'donations' array if that's the structure
-         setDonations(donationsRes.data.donations || []); 
-       } else {
-         console.error("Failed to fetch donations:", donationsRes.message || 'No data returned');
-         setDonations([]); 
-       }
-
-       if (requestsRes.success && requestsRes.data) {
-         // Assuming requests might also be nested
-         setRequests(requestsRes.data.requests || []); 
-       } else {
-         console.error("Failed to fetch requests:", requestsRes.message || 'No data returned');
-         setRequests([]);
-       }
-      
-       if (notificationsRes.success && notificationsRes.data) {
-         setNotifications(notificationsRes.data.notifications || []); 
-       } else {
-         console.error("Failed to fetch notifications:", notificationsRes.message || 'No data returned');
-         setNotifications([]);
-       }
-      // --- End Processing Responses ---
-
-    } catch (err) {
-      console.error('Error loading initial app data:', err);
-      setError(`Failed to load dashboard data: ${err.message || 'Network error'}. Please try again.`);
-      setDonations([]);
-      setRequests([]);
-      setNotifications([]);
-    } finally {
-      // --- Set loading to false ONLY after all fetches are done ---
-      setLoading(false); 
-    }
-  }, [user]); // Rerun this function ONLY if the user object reference changes
-
-  // useEffect to trigger data loading
-  useEffect(() => {
-    // Check if user exists before loading to prevent unnecessary initial load
-    if (user && user._id) {
-        loadInitialData();
-    } else {
-        // If there's no user (e.g., initial load before auth check), ensure loading is false
-        setLoading(false); 
-        setDonations([]);
-        setRequests([]);
-        setNotifications([]);
-        setError(null);
-    }
-  }, [user, loadInitialData]); // Depend on user and the memoized function
-
-  // Function to add a new donation locally
-  const addDonation = (newDonation) => {
-    setDonations(prevDonations => [newDonation, ...prevDonations]);
-  };
-
-  // Value provided by the context
-  const value = {
-    donations,
-    requests,
-    notifications,
-    loading, // Provide loading state
-    error,   // Provide error state
-    addDonation,
-    reload: loadInitialData, // Provide reload function
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
-
