@@ -150,7 +150,7 @@ export const AppProvider = ({ children }) => {
       setError('donations', null);
       const response = await donationService.getDonations(params);
       if (response.success) {
-        dispatch({ type: 'SET_DONATIONS', payload: response.data.donations || [] });
+        dispatch({ type: 'SET_DONATIONS', payload: response.data || [] });
       } else {
         setError('donations', response.message);
       }

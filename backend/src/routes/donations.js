@@ -66,10 +66,9 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
 
     // Execute query
     const donations = await Donation.find(query)
-      .sort(sortObj)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('donor', 'name profile.profilePicture location.city statistics.rating');
+    .sort(sortObj)
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
 
     const total = await Donation.countDocuments(query);
 
@@ -90,7 +89,7 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
 router.get('/:id', async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id)
-      .populate('donor', 'name profile.profilePicture location contact statistics.rating verification.isEmailVerified');
+      
 
     if (!donation) {
       return fail(res, 'Donation not found', 404);
