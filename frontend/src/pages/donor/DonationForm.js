@@ -11,11 +11,12 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { ArrowLeft, ArrowRight, Info, Clock, CheckCircle } from 'lucide-react';
-import { useToast } from '../../hooks/use-toast';
-import { donationService } from '../../services'; // Correct import from services/index.js
+import { ArrowLeft, ArrowRight, Info, Clock, CheckCircle, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import { donationService } from '../../services';
+import aiService from '../../services/aiService';
 
-// --- Data maps for dynamic fields ---
+// Category to subcategory mapping
 const categoryMap = {
   outerwear: ['Jacket', 'Coat', 'Sweater', 'Vest'],
   formal: ['Suit', 'Dress Shirt', 'Blouse', 'Trousers', 'Skirt'],
@@ -50,13 +51,10 @@ const getSizingCategory = (category) => {
   if (['household', 'linens'].includes(category)) return 'household';
   return 'default';
 };
-// --- END: Data maps ---
-
 
 const DonationForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -64,10 +62,10 @@ const DonationForm = () => {
     title: '',
     description: '',
     category: '',
-    subcategory: '', // <-- NEW FIELD
+    subcategory: '',
     condition: '',
     quantity: 1,
-    sizes: [], 
+    sizes: [],
     colors: [],
     location: user?.location?.address || '',
     pickupAvailable: true,
@@ -76,30 +74,67 @@ const DonationForm = () => {
     tags: []
   });
 
-  // --- State for dynamic options ---
+  // AI suggestion states
+  const [aiSuggestions, setAISuggestions] = useState({
+    titles: [],
+    descriptions: [],
+    subcategories: [],
+    tags: []
+  });
+  const [fetchingSuggestions, setFetchingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const [subcategoryOptions, setSubcategoryOptions] = useState([]);
   const [currentSizeOptions, setCurrentSizeOptions] = useState(sizeMap.default);
 
-  // --- Effect to update dynamic fields when category changes ---
+  // Update dynamic fields when category changes
   useEffect(() => {
-    // Update sub-categories
     if (formData.category && categoryMap[formData.category]) {
       setSubcategoryOptions(categoryMap[formData.category]);
     } else {
       setSubcategoryOptions([]);
     }
-    // Reset subcategory if category changes
-    handleInputChange('subcategory', ''); 
+    handleInputChange('subcategory', '');
 
-    // Update size options
     const sizingCategory = getSizingCategory(formData.category);
     setCurrentSizeOptions(sizeMap[sizingCategory]);
-    // Reset sizes if category changes
-    handleInputChange('sizes', []); 
-
+    handleInputChange('sizes', []);
   }, [formData.category]);
-  // --- END: New state and effect ---
 
+  // Fetch AI suggestions
+  useEffect(() => {
+    const fetchAISuggestions = async () => {
+      if (!formData.category) {
+        setAISuggestions({ titles: [], descriptions: [], subcategories: [], tags: [] });
+        return;
+      }
+
+      setFetchingSuggestions(true);
+      try {
+        const response = await aiService.analyzeDonation({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          condition: formData.condition
+        });
+        
+        if (response && response.suggestions) {
+          setAISuggestions(response.suggestions);
+          setShowSuggestions(true);
+        }
+      } catch (error) {
+        console.error("AI Suggestion error:", error);
+      } finally {
+        setFetchingSuggestions(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchAISuggestions();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.category, formData.condition]);
 
   const categories = [
     { value: 'outerwear', label: 'Outerwear & Coats' },
@@ -114,9 +149,9 @@ const DonationForm = () => {
     { value: 'seasonal', label: 'Seasonal' },
     { value: 'maternity', label: 'Maternity' },
     { value: 'plus-size', label: 'Plus-Size' },
-    { value: 'household', label: 'Household (Blankets, etc.)' }, // <-- NEW
-    { value: 'linens', label: 'Linens' }, // <-- NEW
-    { value: 'other', label: 'Other' }, // <-- NEW
+    { value: 'household', label: 'Household (Blankets, etc.)' },
+    { value: 'linens', label: 'Linens' },
+    { value: 'other', label: 'Other' },
   ];
 
   const conditions = [
@@ -146,14 +181,11 @@ const DonationForm = () => {
   const validateStep = (stepNumber) => {
     switch (stepNumber) {
       case 1:
-        // --- THIS IS THE FIX ---
-        // We now check the length of title and description
         return formData.title.trim().length >= 5 && 
-               formData.description.trim().length >= 5 && // Changed from 10 to 5
+               formData.description.trim().length >= 5 &&
                formData.category && 
                formData.subcategory && 
                formData.condition;
-        // --- END OF FIX ---
       case 2:
         return formData.sizes.length > 0 && formData.colors.length > 0;
       case 3:
@@ -167,55 +199,51 @@ const DonationForm = () => {
     if (validateStep(step)) {
       setStep(step + 1);
     } else {
-      toast({
-        title: "Please complete all required fields",
-        description: "Fill in the required information to continue",
-        variant: "destructive"
-      });
+      toast.error("Please complete all required fields");
     }
   };
 
   const handleSubmit = async () => {
     setLoading(true);
 
-    // 1. --- DATA TRANSFORMATION ---
-    // Parse the location string "City, State"
+    // Parse location
     const locationParts = formData.location.split(',').map(s => s.trim());
     const city = locationParts[0] || formData.location;
     const state = locationParts[1] || 'Unknown';
 
     const formattedLocation = {
-      address: formData.location, 
+      address: formData.location,
       city: city,
       state: state,
-      country: 'USA', // Assuming USA for now
+      country: 'India',
       zipCode: ''
     };
 
-    // Convert flat size array to object array
+    // Format sizes properly
     const formattedSizes = formData.sizes.map(size => ({
       size: size,
-      quantity: 1 // Simple assumption to pass validation
+      quantity: Math.floor(formData.quantity / formData.sizes.length) || 1
     }));
     
-    // If no sizes were selected, use the total quantity for a "Various" size
-    if (formattedSizes.length === 0 && formData.quantity > 0) {
-        formattedSizes.push({ size: 'Various', quantity: formData.quantity });
+    // If no sizes selected, use a default
+    if (formattedSizes.length === 0) {
+      formattedSizes.push({ 
+        size: 'One Size', 
+        quantity: formData.quantity 
+      });
     }
 
-    // 2. --- CREATE FINAL PAYLOAD ---
-    // This object matches the `donationValidations.create` in your backend
+    // Create clean payload
     const donationPayload = {
-      title: formData.title,
-      description: formData.description,
+      title: formData.title.trim(),
+      description: formData.description.trim(),
       category: formData.category,
-      subcategory: formData.subcategory, // <-- SEND NEW FIELD
+      subcategory: formData.subcategory,
       condition: formData.condition,
       quantity: formData.quantity,
       sizes: formattedSizes,
       colors: formData.colors,
       location: formattedLocation,
-      
       availability: {
         pickupAvailable: formData.pickupAvailable,
         deliveryRadius: formData.deliveryRadius,
@@ -223,41 +251,120 @@ const DonationForm = () => {
       preferences: {
         urgentNeeded: formData.urgentNeeded,
       },
-      tags: [formData.category, formData.subcategory, ...formData.colors] 
+      tags: [formData.category, formData.subcategory, ...formData.colors],
+      images: []
     };
 
-    // 3. --- API CALL ---
+    console.log('Submitting donation payload:', donationPayload);
+
     try {
-      // We use the imported donationService
       const response = await donationService.createDonation(donationPayload);
 
       if (response.success) {
-        toast({
-          title: "Donation Submitted Successfully!",
-          description: "Your donation is now pending admin approval.",
-        });
-        navigate('/donor/my-donations'); 
+        toast.success("Donation submitted successfully!");
+        navigate('/donor/my-donations');
       } else {
-        // Handle backend errors (e.g., validation errors)
-        toast({
-          title: "Submission Failed",
-          description: response.message || "Could not create the donation. Please check your fields.",
-          variant: "destructive"
-        });
+        toast.error(response.message || "Failed to create donation");
+        console.error('Backend error:', response);
       }
     } catch (error) {
-      // Handle network errors
       console.error("Error creating donation:", error);
-      toast({
-        title: "An Error Occurred",
-        description: error.message || "Please check your connection and try again.",
-        variant: "destructive"
-      });
+      
+      let errorMessage = "Please check your connection and try again.";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  // AI Suggestion UI Components
+  const renderTitleSuggestions = () => {
+    if (!showSuggestions || aiSuggestions.titles.length === 0) return null;
+    
+    return (
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-3 w-3 text-blue-600" />
+          <span className="text-xs text-blue-600 font-medium">AI Suggestions:</span>
+          {fetchingSuggestions && (
+            <span className="text-xs text-gray-500">(loading...)</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {aiSuggestions.titles.map((suggestion, idx) => (
+            <Button
+              key={idx}
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleInputChange('title', suggestion)}
+              className="text-xs h-7 px-2 hover:bg-blue-50 hover:border-blue-300"
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDescriptionSuggestions = () => {
+    if (!showSuggestions || aiSuggestions.descriptions.length === 0) return null;
+    
+    return (
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-3 w-3 text-blue-600" />
+          <span className="text-xs text-blue-600 font-medium">AI Suggestions:</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {aiSuggestions.descriptions.map((suggestion, idx) => (
+            <Button
+              key={idx}
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleInputChange('description', suggestion)}
+              className="text-xs h-auto py-1 px-2 whitespace-normal text-left hover:bg-blue-50 hover:border-blue-300"
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSubcategorySuggestions = () => {
+    if (!showSuggestions || aiSuggestions.subcategories.length === 0) return null;
+    
+    return (
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-3 w-3 text-blue-600" />
+          <span className="text-xs text-blue-600 font-medium">Suggested sub-categories:</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {aiSuggestions.subcategories.map((suggestion, idx) => (
+            <Badge
+              key={idx}
+              variant="secondary"
+              className="cursor-pointer hover:bg-blue-100"
+              onClick={() => handleInputChange('subcategory', suggestion)}
+            >
+              {suggestion}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const renderProgressBar = () => (
     <div className="mb-8">
@@ -269,7 +376,6 @@ const DonationForm = () => {
     </div>
   );
 
-  // Step 1: Basic Info
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -287,6 +393,7 @@ const DonationForm = () => {
             placeholder="e.g., Warm Winter Coats, King Size Blanket"
             className="mt-1"
           />
+          {renderTitleSuggestions()}
         </div>
 
         <div>
@@ -299,6 +406,7 @@ const DonationForm = () => {
             rows={4}
             className="mt-1"
           />
+          {renderDescriptionSuggestions()}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -316,7 +424,6 @@ const DonationForm = () => {
             </Select>
           </div>
 
-          {/* --- NEW SUB-CATEGORY FIELD --- */}
           <div>
             <Label htmlFor="subcategory">Sub-Category *</Label>
             <Select 
@@ -333,8 +440,8 @@ const DonationForm = () => {
                 ))}
               </SelectContent>
             </Select>
+            {renderSubcategorySuggestions()}
           </div>
-          {/* --- END NEW FIELD --- */}
 
           <div>
             <Label htmlFor="condition">Condition *</Label>
@@ -350,7 +457,7 @@ const DonationForm = () => {
             </Select>
           </div>
 
-           <div>
+          <div>
             <Label htmlFor="quantity">Total Number of Items *</Label>
             <Input
               id="quantity"
@@ -377,7 +484,6 @@ const DonationForm = () => {
     </div>
   );
 
-  // Step 2: Sizes & Colors
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -385,10 +491,9 @@ const DonationForm = () => {
         <p className="text-gray-600">Specify sizes and colors</p>
       </div>
 
-      {/* --- DYNAMIC SIZES --- */}
       <div>
         <Label className="text-base font-medium">Available Sizes *</Label>
-         <p className="text-sm text-gray-500 mb-2">Select all that apply. Select at least one.</p>
+        <p className="text-sm text-gray-500 mb-2">Select all that apply. Select at least one.</p>
         <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-2">
           {currentSizeOptions.map(size => (
             <Button
@@ -404,8 +509,6 @@ const DonationForm = () => {
           ))}
         </div>
       </div>
-      {/* --- END DYNAMIC SIZES --- */}
-
 
       <div>
         <Label className="text-base font-medium">Colors *</Label>
@@ -428,7 +531,6 @@ const DonationForm = () => {
     </div>
   );
 
-  // Step 3: Pickup & Delivery (No changes needed)
   const renderStep3 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -443,7 +545,7 @@ const DonationForm = () => {
             id="location"
             value={formData.location}
             onChange={(e) => handleInputChange('location', e.target.value)}
-            placeholder="City, State (e.g., New York, NY)"
+            placeholder="City, State (e.g., Delhi, Delhi)"
             className="mt-1"
           />
         </div>
@@ -476,7 +578,6 @@ const DonationForm = () => {
     </div>
   );
 
-  // Step 4: Review & Submit
   const renderStep4 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -493,7 +594,6 @@ const DonationForm = () => {
             <div>
               <strong>Category:</strong> {categories.find(c => c.value === formData.category)?.label}
             </div>
-            {/* --- NEW: Show Sub-Category --- */}
             <div>
               <strong>Sub-Category:</strong> {formData.subcategory}
             </div>
@@ -575,7 +675,7 @@ const DonationForm = () => {
                   Previous
                 </Button>
               ) : (
-                 <div></div> // Empty div to keep "Next" button on the right
+                <div></div>
               )}
               
               <div className="ml-auto">

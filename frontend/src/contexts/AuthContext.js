@@ -43,17 +43,27 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // 2. Login Function
-  const login = async (email, password) => {
-    try {
-      const response = await authService.login({ email, password });
-      if (response.success) {
-        setUser(response.data.user);
+  // 2. Login Function
+const login = async (email, password) => {
+  try {
+    const response = await authService.login({ email, password });
+    if (response.success) {
+      // Set token in localStorage immediately!
+      localStorage.setItem('token', response.data.token);
+      // Fetch the current user details immediately AFTER successful login
+      const userResp = await authService.getCurrentUser();
+      if (userResp.success) {
+        setUser(userResp.data.user);
+      } else {
+        setUser(null);
       }
-      return response; 
-    } catch (error) {
-      throw error; 
     }
-  };
+    return response; 
+  } catch (error) {
+    throw error; 
+  }
+};
+
 
   // 3. Signup Function
   const signup = async (userData) => {

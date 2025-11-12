@@ -1,41 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { donationService } from '../../services';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Calendar, MapPin, Package, Eye, Edit, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Package, Eye, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
 
 const MyDonations = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user && user._id) { 
-      fetchMyDonations();
-    } else if (!user) {
+  // Use useCallback to memoize the function
+  const fetchMyDonations = useCallback(async () => {
+    if (!user || !user._id) {
       setLoading(false);
-      setError("Please log in to see your donations.");
+      return;
     }
-  }, [user]);
 
-  const fetchMyDonations = async () => {
     try {
       setLoading(true);
-      setError(null); 
+      setError(null);
       
-      const response = await donationService.getUserDonations(user._id); 
+      console.log('Fetching donations for user:', user._id);
+      const response = await donationService.getUserDonations(user._id);
+      console.log('Donations API response:', response);
       
       if (response.success) {
-        // The data is in response.data, which is an array
-        setDonations(response.data || []); 
+        setDonations(response.data || []);
       } else {
         setError(response.message || 'Failed to fetch donations');
         toast.error(response.message || 'Failed to fetch donations');
@@ -47,7 +46,28 @@ const MyDonations = () => {
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchMyDonations();
+    setRefreshing(false);
+    toast.success('Donations refreshed');
   };
+
+  // Effect to fetch donations when component mounts or user changes
+  useEffect(() => {
+    if (!authLoading) {
+      if (user && user._id) {
+        console.log('useEffect triggered - fetching donations');
+        fetchMyDonations();
+      } else {
+        setLoading(false);
+        setError("Please log in to see your donations.");
+      }
+    }
+  }, [user, authLoading, fetchMyDonations]);
 
   const handleDeleteDonation = async (donationId) => {
     if (!window.confirm('Are you sure you want to delete this donation? This action is permanent.')) {
@@ -101,6 +121,21 @@ const MyDonations = () => {
     };
   };
 
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Checking authentication...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading spinner while fetching donations
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -108,6 +143,15 @@ const MyDonations = () => {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading your donations...</p>
+            <Button 
+              onClick={handleRefresh} 
+              variant="outline" 
+              className="mt-4"
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh Now
+            </Button>
           </div>
         </div>
       </div>
@@ -121,7 +165,8 @@ const MyDonations = () => {
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Donations</h3>
             <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={fetchMyDonations} variant="outline">
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
           </div>
@@ -134,9 +179,19 @@ const MyDonations = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Donations</h1>
-        <p className="text-gray-600">Track and manage your clothing donations</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Donations</h1>
+          <p className="text-gray-600">Track and manage your clothing donations</p>
+        </div>
+        <Button 
+          onClick={handleRefresh} 
+          variant="outline"
+          disabled={refreshing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -215,25 +270,20 @@ const MyDonations = () => {
                           </div>
                         )}
 
-                        {/* --- THIS IS THE FIXED BLOCK --- */}
                         {donation.sizes && donation.sizes.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {/* FIX 1: Changed donation.items to donation.sizes */}
-                            {donation.sizes.slice(0, 3).map((item, index) => ( 
+                            {donation.sizes.slice(0, 3).map((item, index) => (
                               <Badge key={index} variant="secondary" className="text-xs">
-                                {/* FIX 2: Changed item.category to item.size */}
                                 {item.size}
                               </Badge>
                             ))}
-                            {/* FIX 3: Changed donation.items.length to donation.sizes.length */}
-                            {donation.sizes.length > 3 && ( 
+                            {donation.sizes.length > 3 && (
                               <Badge variant="secondary" className="text-xs">
                                 +{donation.sizes.length - 3} more
                               </Badge>
                             )}
                           </div>
                         )}
-                        {/* --- END OF FIX --- */}
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -241,7 +291,6 @@ const MyDonations = () => {
                           variant="outline" 
                           size="sm" 
                           className="flex-1"
-                          // We use window.location.href for now, until we create the page
                           onClick={() => navigate(`/donor/donations/${donation._id}`)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -253,7 +302,6 @@ const MyDonations = () => {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              // We use window.location.href for now, until we create the page
                               onClick={() => navigate(`/donor/donations/${donation._id}/edit`)}
                             >
                               <Edit className="h-4 w-4" />

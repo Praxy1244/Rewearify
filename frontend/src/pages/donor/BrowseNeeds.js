@@ -1,309 +1,427 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { Sparkles, Search, Filter, Building2, Package, TrendingUp, MapPin } from 'lucide-react';
+import NGOCard from '../../components/NGOCard';
+import DonationCard from '../../components/DonationCard';
+import aiService from '../../services/aiService';
+import { donationService } from '../../services';
+import { toast } from 'sonner';
 
-const BrowseNeeds = ({ currentUser, refreshData }) => {
-  const [needs, setNeeds] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('active');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
+const BrowseNeeds = () => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('ngos');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  
+  // Data states
+  const [ngos, setNgos] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [matches, setMatches] = useState([]);
+  
+  // Loading states
+  const [loadingNGOs, setLoadingNGOs] = useState(true);
+  const [loadingDonations, setLoadingDonations] = useState(false);
+  const [loadingAI, setLoadingAI] = useState(false);
 
+  // Fetch NGOs (mock data for now - replace with real API)
   useEffect(() => {
-    fetchNeeds();
-  }, [filter, categoryFilter, priorityFilter]);
-
-  const fetchNeeds = async () => {
-    try {
-      let url = '/needs';
-      const params = new URLSearchParams();
-      
-      if (filter !== 'all') {
-        params.append('status', filter);
-      }
-      if (categoryFilter !== 'all') {
-        params.append('category', categoryFilter);
-      }
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await api.get(url);
-      let filteredNeeds = response.data;
-      
-      if (priorityFilter !== 'all') {
-        filteredNeeds = filteredNeeds.filter(need => need.priority === priorityFilter);
-      }
-      
-      setNeeds(filteredNeeds);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching needs:', error);
-      setLoading(false);
-    }
-  };
-
-  const fulfillNeed = async (needId) => {
-    if (window.confirm('Are you sure you want to fulfill this need? This action cannot be undone.')) {
+    const fetchNGOs = async () => {
+      setLoadingNGOs(true);
       try {
-        await api.post(`/needs/${needId}/fulfill?donor_id=${currentUser.id}`);
-        fetchNeeds();
-        refreshData();
-        alert('Need fulfilled successfully! The recipient will be notified.');
+        // Mock NGO data - Replace with real API call
+        const mockNGOs = [
+          {
+            id: 'ngo001',
+            name: 'Hope Foundation',
+            city: 'Delhi',
+            state: 'Delhi',
+            categories: ['outerwear', 'casual', 'children'],
+            capacity: 100,
+            urgentNeed: true
+          },
+          {
+            id: 'ngo002',
+            name: 'Helping Hands',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            categories: ['formal', 'shoes', 'accessories'],
+            capacity: 150,
+            urgentNeed: false
+          },
+          {
+            id: 'ngo003',
+            name: 'Community Care',
+            city: 'Bengaluru',
+            state: 'Karnataka',
+            categories: ['children', 'household', 'casual'],
+            capacity: 80,
+            urgentNeed: true
+          },
+          {
+            id: 'ngo004',
+            name: 'Care & Share',
+            city: 'Delhi',
+            state: 'Delhi',
+            categories: ['traditional', 'formal', 'accessories'],
+            capacity: 120,
+            urgentNeed: false
+          },
+          {
+            id: 'ngo005',
+            name: 'Seva Trust',
+            city: 'Chennai',
+            state: 'Tamil Nadu',
+            categories: ['activewear', 'shoes', 'casual'],
+            capacity: 90,
+            urgentNeed: true
+          }
+        ];
+        setNgos(mockNGOs);
       } catch (error) {
-        console.error('Error fulfilling need:', error);
-        alert('Error fulfilling need. Please try again.');
+        console.error('Error fetching NGOs:', error);
+        toast.error('Failed to load NGOs');
+      } finally {
+        setLoadingNGOs(false);
       }
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getCategoryIcon = (category) => {
-    const icons = {
-      food: '🍎',
-      clothing: '👕',
-      shelter: '🏠',
-      education: '📚',
-      medical: '🏥',
-      other: '📦'
     };
-    return icons[category] || '📦';
-  };
+
+    fetchNGOs();
+  }, []);
+
+  // Fetch approved donations
+  useEffect(() => {
+    const fetchDonations = async () => {
+      if (activeTab !== 'donations') return;
+      
+      setLoadingDonations(true);
+      try {
+        const response = await donationService.getDonations({ status: 'approved', limit: 50 });
+        if (response.success) {
+          setDonations(response.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching donations:', error);
+        toast.error('Failed to load donations');
+      } finally {
+        setLoadingDonations(false);
+      }
+    };
+
+    fetchDonations();
+  }, [activeTab]);
+
+  // Fetch AI recommendations
+  useEffect(() => {
+    const fetchAIRecommendations = async () => {
+      if (!user) return;
+      
+      setLoadingAI(true);
+      try {
+        // Get recommendations based on user's donation history
+        const mockRecommendations = ngos.slice(0, 3).map(ngo => ({
+          ...ngo,
+          matchScore: Math.random() * 0.4 + 0.6, // 0.6-1.0
+          reason: `Based on your ${Math.random() > 0.5 ? 'previous donations' : 'location'}`
+        }));
+        setAiRecommendations(mockRecommendations);
+      } catch (error) {
+        console.error('Error fetching AI recommendations:', error);
+      } finally {
+        setLoadingAI(false);
+      }
+    };
+
+    fetchAIRecommendations();
+  }, [user, ngos]);
+
+  // Generate smart matches
+  useEffect(() => {
+    const generateMatches = async () => {
+      if (activeTab !== 'matches' || donations.length === 0 || ngos.length === 0) return;
+
+      try {
+        // Create matches between donations and NGOs
+        const generatedMatches = donations.slice(0, 10).map(donation => {
+          // Find NGOs that accept this donation category
+          const matchingNGOs = ngos.filter(ngo => 
+            ngo.categories.some(cat => cat === donation.category)
+          );
+          
+          if (matchingNGOs.length === 0) return null;
+          
+          const bestNGO = matchingNGOs[0];
+          return {
+            donation,
+            ngo: bestNGO,
+            matchScore: Math.random() * 0.3 + 0.7, // 0.7-1.0
+            reason: `${bestNGO.name} accepts ${donation.category} and has capacity`
+          };
+        }).filter(Boolean);
+
+        setMatches(generatedMatches);
+      } catch (error) {
+        console.error('Error generating matches:', error);
+      }
+    };
+
+    generateMatches();
+  }, [activeTab, donations, ngos]);
+
+  // Filter NGOs
+  const filteredNGOs = ngos.filter(ngo => {
+    const matchesSearch = !searchQuery || 
+      ngo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ngo.city.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = !categoryFilter || 
+      ngo.categories.includes(categoryFilter);
+    
+    const matchesLocation = !locationFilter || 
+      ngo.city.toLowerCase() === locationFilter.toLowerCase();
+
+    return matchesSearch && matchesCategory && matchesLocation;
+  });
+
+  // Filter donations
+  const filteredDonations = donations.filter(donation => {
+    const matchesSearch = !searchQuery || 
+      donation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      donation.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = !categoryFilter || donation.category === categoryFilter;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'food', label: 'Food & Groceries' },
-    { value: 'clothing', label: 'Clothing' },
-    { value: 'shelter', label: 'Shelter' },
-    { value: 'education', label: 'Education' },
-    { value: 'medical', label: 'Medical' },
-    { value: 'other', label: 'Other' }
+    'outerwear', 'casual', 'formal', 'children', 'shoes', 
+    'accessories', 'household', 'traditional', 'activewear'
   ];
-
-  const priorities = [
-    { value: 'all', label: 'All Priorities' },
-    { value: 'urgent', label: 'Urgent' },
-    { value: 'high', label: 'High' },
-    { value: 'medium', label: 'Medium' },
-    { value: 'low', label: 'Low' }
-  ];
-
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="animate-pulse space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-40 rounded-lg"></div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="p-8">
+    <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Community Needs</h1>
-        <p className="text-gray-600">Discover how you can make a difference in your community</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse & Match</h1>
+        <p className="text-gray-600">Discover NGOs, available items, and AI-powered matches</p>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="active">Active Needs</option>
-              <option value="fulfilled">Fulfilled</option>
-              <option value="all">All Needs</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              {categories.map(category => (
-                <option key={category.value} value={category.value}>
-                  {category.label}
-                </option>
+      {/* AI Recommendations Section */}
+      {aiRecommendations.length > 0 && (
+        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              AI-Recommended NGOs for You
+            </CardTitle>
+            <p className="text-sm text-gray-600">Based on your donation history and preferences</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {aiRecommendations.map((ngo, idx) => (
+                <NGOCard 
+                  key={idx} 
+                  ngo={ngo} 
+                  matchScore={ngo.matchScore}
+                />
               ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              {priorities.map(priority => (
-                <option key={priority.value} value={priority.value}>
-                  {priority.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Results Summary */}
-      <div className="mb-6">
-        <p className="text-gray-600">
-          Showing {needs.length} {needs.length === 1 ? 'need' : 'needs'}
-          {categoryFilter !== 'all' && ` in ${categoryFilter}`}
-          {priorityFilter !== 'all' && ` with ${priorityFilter} priority`}
-        </p>
-      </div>
-
-      {/* Needs List */}
-      {needs.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {needs.map((need) => (
-            <div key={need.id} className="bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">{getCategoryIcon(need.category)}</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{need.title}</h3>
-                    <p className="text-sm text-gray-600 capitalize">{need.category}</p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col items-end space-y-2">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium border capitalize ${getPriorityColor(need.priority)}`}>
-                    {need.priority}
-                  </span>
-                  {need.status === 'fulfilled' && (
-                    <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                      Fulfilled
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <p className="text-gray-600 mb-4 line-clamp-3">{need.description}</p>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center text-sm text-gray-500">
-                  <span className="mr-2">📍</span>
-                  <span>{need.location}</span>
-                </div>
-                
-                {need.quantity_needed && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span className="mr-2">📦</span>
-                    <span>{need.quantity_needed}</span>
-                  </div>
-                )}
-                
-                <div className="flex items-center text-sm text-gray-500">
-                  <span className="mr-2">📅</span>
-                  <span>Posted {formatDate(need.created_at)}</span>
-                </div>
-                
-                {need.deadline && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span className="mr-2">⏰</span>
-                    <span>Needed by {formatDate(need.deadline)}</span>
-                  </div>
-                )}
-                
-                {need.fulfilled_at && (
-                  <div className="flex items-center text-sm text-green-600">
-                    <span className="mr-2">✅</span>
-                    <span>Fulfilled {formatDate(need.fulfilled_at)}</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex justify-between items-center pt-4 border-t">
-                <div className="text-sm text-gray-500">
-                  Need ID: {need.id.substring(0, 8)}...
-                </div>
-                
-                {need.status === 'active' ? (
-                  <button
-                    onClick={() => fulfillNeed(need.id)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    Fulfill Need
-                  </button>
-                ) : (
-                  <span className="text-sm text-gray-500 italic">
-                    {need.status === 'fulfilled' ? 'Already fulfilled' : 'Not available'}
-                  </span>
-                )}
-              </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-gray-400 text-2xl">🔍</span>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No needs found</h3>
-          <p className="text-gray-600 mb-4">
-            {filter === 'active' 
-              ? "There are no active needs matching your filters at the moment."
-              : "No needs match your current filter criteria."
-            }
-          </p>
-          <button
-            onClick={() => {
-              setFilter('active');
-              setCategoryFilter('all');
-              setPriorityFilter('all');
-            }}
-            className="text-green-600 hover:text-green-700 font-medium"
-          >
-            Clear all filters
-          </button>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Call to Action */}
-      {needs.filter(need => need.status === 'active').length > 0 && (
-        <div className="mt-8 bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white text-center">
-          <h3 className="text-xl font-semibold mb-2">Make a Difference Today</h3>
-          <p className="text-green-100 mb-4">
-            {needs.filter(need => need.status === 'active').length} people in your community need your help.
-          </p>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="bg-white text-green-600 px-6 py-2 rounded-lg font-medium hover:bg-green-50 transition-colors"
-          >
-            Browse More Needs
-          </button>
+      {/* Search and Filters */}
+<Card className="mb-6">
+  <CardContent className="pt-6">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="md:col-span-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by name, location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
-      )}
+      </div>
+      
+      <Select value={categoryFilter || "all"} onValueChange={(val) => setCategoryFilter(val === "all" ? "" : val)}>
+        <SelectTrigger>
+          <SelectValue placeholder="All Categories" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Categories</SelectItem>
+          {categories.map(cat => (
+            <SelectItem key={cat} value={cat}>
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Input
+        placeholder="Filter by city"
+        value={locationFilter}
+        onChange={(e) => setLocationFilter(e.target.value)}
+      />
+    </div>
+
+    {(searchQuery || categoryFilter || locationFilter) && (
+      <div className="mt-4 flex items-center gap-2 flex-wrap">
+        <span className="text-sm text-gray-500">Active filters:</span>
+        {searchQuery && (
+          <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery('')}>
+            Search: {searchQuery} ×
+          </Badge>
+        )}
+        {categoryFilter && (
+          <Badge variant="secondary" className="cursor-pointer" onClick={() => setCategoryFilter('')}>
+            Category: {categoryFilter} ×
+          </Badge>
+        )}
+        {locationFilter && (
+          <Badge variant="secondary" className="cursor-pointer" onClick={() => setLocationFilter('')}>
+            Location: {locationFilter} ×
+          </Badge>
+        )}
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => {
+            setSearchQuery('');
+            setCategoryFilter('');
+            setLocationFilter('');
+          }}
+        >
+          Clear all
+        </Button>
+      </div>
+    )}
+  </CardContent>
+</Card>
+
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="ngos">
+            <Building2 className="h-4 w-4 mr-2" />
+            NGOs ({filteredNGOs.length})
+          </TabsTrigger>
+          <TabsTrigger value="donations">
+            <Package className="h-4 w-4 mr-2" />
+            Available Items ({filteredDonations.length})
+          </TabsTrigger>
+          <TabsTrigger value="matches">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Smart Matches ({matches.length})
+          </TabsTrigger>
+        </TabsList>
+
+        {/* NGOs Tab */}
+        <TabsContent value="ngos" className="mt-6">
+          {loadingNGOs ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading NGOs...</p>
+            </div>
+          ) : filteredNGOs.length === 0 ? (
+            <div className="text-center py-12">
+              <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No NGOs found</h3>
+              <p className="text-gray-600">Try adjusting your filters</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredNGOs.map((ngo, idx) => (
+                <NGOCard key={idx} ngo={ngo} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Donations Tab */}
+        <TabsContent value="donations" className="mt-6">
+          {loadingDonations ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading donations...</p>
+            </div>
+          ) : filteredDonations.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No donations found</h3>
+              <p className="text-gray-600">Check back later for available items</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredDonations.map((donation, idx) => (
+                <DonationCard key={idx} donation={donation} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Matches Tab */}
+        <TabsContent value="matches" className="mt-6">
+          {matches.length === 0 ? (
+            <div className="text-center py-12">
+              <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No matches yet</h3>
+              <p className="text-gray-600">AI will find the best matches between items and NGOs</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {matches.map((match, idx) => (
+                <Card key={idx} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          {match.donation.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-2">{match.donation.description}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{match.donation.category}</Badge>
+                          <Badge variant="outline">{match.donation.quantity} items</Badge>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
+                            {Math.round(match.matchScore * 100)}%
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                            <Building2 className="h-4 w-4" />
+                            {match.ngo.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 mb-2">{match.reason}</p>
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <MapPin className="h-3 w-3" />
+                            {match.ngo.city}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

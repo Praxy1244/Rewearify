@@ -122,14 +122,8 @@ router.post('/',
         donor: req.user.id
       };
 
-      // Wrap AI call in try/catch so it doesn't crash
-      try {
-        const aiAnalysis = await getAIAnalysis(donationData);
-        donationData.aiAnalysis = aiAnalysis;
-      } catch (aiError) {
-        console.error('AI analysis error (non-blocking):', aiError.message);
-        // Continue without AI analysis
-      }
+      // REMOVED: AI analysis call - not needed in database
+      // AI suggestions are only used in frontend form
 
       // Create donation
       const donation = await Donation.create(donationData);
@@ -139,14 +133,12 @@ router.post('/',
         $inc: { 'statistics.totalDonations': 1 }
       });
 
-      // --- FIX: Notify all admins ---
-      // 1. Find all admin users
+      // Notify all admins
       const admins = await User.find({ role: 'admin' });
 
-      // 2. Create a notification for each admin
       const adminNotifications = admins.map(admin => ({
-        recipient: admin._id, // <-- FIX 1: Set a real user ID
-        type: 'new_donation_pending', // <-- FIX 2: Now valid
+        recipient: admin._id,
+        type: 'new_donation_pending',
         title: 'New Donation Pending Review',
         message: `New donation "${donation.title}" submitted by ${req.user.name}`,
         data: {
@@ -156,11 +148,9 @@ router.post('/',
         channels: { inApp: true }
       }));
       
-      // 3. Insert all notifications
       if (adminNotifications.length > 0) {
         await Notification.insertMany(adminNotifications);
       }
-      // --- END OF FIX ---
 
       return created(res, { donation }, 'Donation created successfully');
     } catch (error) {
