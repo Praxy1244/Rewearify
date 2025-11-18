@@ -1,4 +1,7 @@
-/* eslint-env browser */
-export { default as AIInsightsCard } from './AIInsightsCard';
-export { default as FraudDetectionWidget } from './FraudDetectionWidget';
-export { default as MatchingWidget } from './MatchingWidget';
+export { SmartSuggestions } from './SmartSuggestions';
+export { MatchingWidget } from './MatchingWidget';
+export { FraudAlertWidget } from './FraudAlertWidget';
+export { AnalyticsWidget } from './AnalyticsWidget';
+export { LogisticsClusterWidget } from './LogisticsClusterWidget';
+export { RequestSuggestions } from './RequestSuggestions';
+

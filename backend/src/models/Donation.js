@@ -246,6 +246,19 @@ const donationSchema = new mongoose.Schema({
     default: function() {
       return new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
     }
+  },
+  // Legacy/Simplified AI fields (kept for compatibility with Phase 3 code)
+  isFlagged: {
+    type: Boolean,
+    default: false
+  },
+  flagReason: {
+    type: String,
+    default: ""
+  },
+  riskScore: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true,

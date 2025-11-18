@@ -75,8 +75,6 @@ import VerifyEmail from "./pages/auth/VerifyEmail";
 import SelectRole from "./pages/auth/SelectRole"; 
 
 
-// AI Pages
-import AIInsights from "./pages/ai/AIInsights";
 
 // ✅ Wrapper component to control Footer visibility
 function AppContent() {
@@ -221,13 +219,7 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          {/* AI Routes */}
-          <Route path="/ai/insights" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <AIInsights />
-            </ProtectedRoute>
-          } />
-
+          
           {/* Notifications Route */}
           <Route path="/notifications" element={
             <ProtectedRoute allowedRoles={['donor', 'recipient']}>

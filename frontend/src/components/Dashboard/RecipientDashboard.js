@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
 import { Button } from '../ui/button';
@@ -18,12 +18,18 @@ import {
   Eye,
   Building,
   Truck,
-  Calendar
+  Calendar,
+  TrendingUp // Added icon
 } from 'lucide-react';
+
+// --- AI Feature Imports ---
+import { RequestSuggestions } from '../AI/RequestSuggestions';
+import { getDonorTrends } from '../../services/aiService';
 
 const RecipientDashboard = () => {
   const { user } = useAuth();
-  
+  const navigate = useNavigate(); // Hook for navigation
+
   const { 
     allDonations,
     userRequests,
@@ -35,10 +41,12 @@ const RecipientDashboard = () => {
   } = useApp();
   
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  
+  // --- AI State ---
+  const [trends, setTrends] = useState([]);
+  // ----------------
 
-  // --- MODIFICATION: Simplified the useEffect dependencies ---
-  // The functions are now wrapped in useCallback in the context,
-  // so they are stable and won't cause an infinite loop.
+  // Main Dashboard Data Fetch
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
@@ -58,8 +66,23 @@ const RecipientDashboard = () => {
     if (user) {
       loadDashboardData();
     }
-  }, [user, fetchAvailableDonations, fetchUserRequests, fetchNotifications]); // This is now safe
-  // --- END MODIFICATION ---
+  }, [user, fetchAvailableDonations, fetchUserRequests, fetchNotifications]);
+
+  // --- AI Feature: Fetch Trends (Independent Effect) ---
+  useEffect(() => {
+    const loadTrends = async () => {
+      try {
+        const response = await getDonorTrends();
+        if (response.trending) {
+            setTrends(response.trending);
+        }
+      } catch (err) {
+        console.log("AI Trends service unavailable (non-critical)");
+      }
+    };
+    loadTrends();
+  }, []);
+  // ----------------------------------------------------
 
   const availableDonations = allDonations || [];
   const myRequests = userRequests || [];
@@ -70,7 +93,7 @@ const RecipientDashboard = () => {
     approvedRequests: myRequests.filter(r => r.status === 'approved').length,
     pendingRequests: myRequests.filter(r => r.status === 'pending').length,
     availableItems: availableDonations.length,
-    peopleHelped: user?.stats?.peopleHelped || 8 // Use stats object if available
+    peopleHelped: user?.stats?.peopleHelped || 8
   };
 
   const getStatusColor = (status) => {
@@ -100,7 +123,6 @@ const RecipientDashboard = () => {
     }
   };
 
-  // Check granular loading states
   const isLoading = dashboardLoading || loadingStates.userRequests || loadingStates.donations;
 
   if (isLoading) {
@@ -115,6 +137,7 @@ const RecipientDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-4">
@@ -126,11 +149,9 @@ const RecipientDashboard = () => {
               <h1 className="text-3xl font-bold text-gray-900">
                 Welcome back, {user.name?.split(' ')[0]}!
               </h1>
-              {/* --- FIX 2: Access .name and .address from objects --- */}
               <p className="text-gray-600 mt-1">
                 {user.organization?.name || 'Your Organization'} • {user.location?.address || 'Your Location'}
               </p>
-              {/* --- END FIX 2 --- */}
             </div>
             <Button asChild className="bg-blue-600 hover:bg-blue-700">
               <Link to="/recipient/browseItems">
@@ -159,11 +180,9 @@ const RecipientDashboard = () => {
                 <div className="text-center">
                   <div className="flex items-center justify-center mb-2">
                     <Building className="h-6 w-6 mr-2" />
-                    {/* --- FIX 2: Access .verified from object --- */}
                     <span className="text-lg font-semibold">
                       {user.organization?.verified ? "Verified NGO" : "Pending Verification"}
                     </span>
-                    {/* --- END FIX 2 --- */}
                   </div>
                   <div className="text-blue-100">Organization Status</div>
                 </div>
@@ -173,9 +192,10 @@ const RecipientDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
+          {/* Main Content (Left Column) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Quick Stats */}
+            
+            {/* Quick Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-4 text-center">
@@ -206,7 +226,7 @@ const RecipientDashboard = () => {
               </Card>
             </div>
 
-            {/* My Requests */}
+            {/* My Requests List */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center space-x-2">
@@ -253,7 +273,7 @@ const RecipientDashboard = () => {
                             </div>
                           )}
                           <Button variant="ghost" size="sm" className="mt-1" asChild>
-                            <Link to="/recipient/my-requests"><Eye className="h-4 w-4" /></Link>
+                            <Link to={`/requests/${request._id}`}><Eye className="h-4 w-4" /></Link>
                           </Button>
                         </div>
                       </div>
@@ -300,12 +320,10 @@ const RecipientDashboard = () => {
                             <Badge className="text-xs bg-green-100 text-green-800">
                               {donation.condition}
                             </Badge>
-                            {/* --- FIX 2: Access .city from object --- */}
                             <span className="text-xs text-gray-500">{donation.location?.city}</span>
-                            {/* --- END FIX 2 --- */}
                           </div>
                           <Button size="sm" variant="outline" asChild>
-                            <Link to="/recipient/browseItems">Request</Link>
+                            <Link to={`/donations/${donation._id}`}>Request</Link>
                           </Button>
                         </div>
                       </div>
@@ -330,9 +348,34 @@ const RecipientDashboard = () => {
             </Card>
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar Area (Right Column) */}
           <div className="space-y-6">
-            {/* Request Progress */}
+
+            {/* ----------------------------------- */}
+            {/* AI FEATURE: Smart Insights Widget  */}
+            {/* ----------------------------------- */}
+            {trends.length > 0 && (
+              <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100 shadow-sm">
+                <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-emerald-800 text-lg">
+                        <TrendingUp className="w-5 h-5" />
+                        Smart Insights
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-xs text-emerald-700 mb-3 font-medium">
+                        High supply items available now:
+                    </p>
+                    <RequestSuggestions 
+                        suggestions={trends} 
+                        onSelect={(item) => navigate(`/recipient/browseItems?search=${item}`)} 
+                    />
+                </CardContent>
+              </Card>
+            )}
+            {/* ----------------------------------- */}
+
+            {/* Monthly Progress */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -412,6 +455,7 @@ const RecipientDashboard = () => {
                     </div>
                   )}
                 </div>
+                <Button variant="outline" size="sm" className="w-full mt-4" asChild><Link to="/notifications">View All Notifications</Link></Button>
               </CardContent>
             </Card>
 
@@ -426,10 +470,8 @@ const RecipientDashboard = () => {
               <CardContent>
                 <div className="space-y-3">
                   <div>
-                    {/* --- FIX 2: Access .name and .address from objects --- */}
                     <div className="text-sm font-medium text-gray-900">{user.organization?.name || 'Your Organization'}</div>
                     <div className="text-xs text-gray-600">{user.location?.address}</div>
-                    {/* --- END FIX 2 --- */}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge className="bg-green-100 text-green-800 text-xs">

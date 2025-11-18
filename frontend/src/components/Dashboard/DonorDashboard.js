@@ -1,14 +1,15 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useApp } from '../../contexts/AppContext'; // Use the AppContext
+import { useApp } from '../../contexts/AppContext';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Skeleton } from '../ui/skeleton'; // Import Skeleton
-import { Progress } from '../ui/progress'; // Import Progress
+import { Skeleton } from '../ui/skeleton';
+import { Progress } from '../ui/progress';
+import { Settings } from 'lucide-react';
 import { 
   Plus, 
   Package, 
@@ -20,23 +21,41 @@ import {
   Award,
   Bell,
   Recycle, 
-  TrendingUp 
+  TrendingUp,
+  Sparkles,
+  Building
 } from 'lucide-react';
-import AIPredictionWidget from '../AI/AIPredictionWidget'; // Keep AI widget if used
 
-// Donor Dashboard component connected to live data via AppContext
+// --- AI Features ---
+import { RequestSuggestions } from '../AI/RequestSuggestions';
+import aiService from '../../services/aiService';
+
 const DonorDashboard = () => {
   const { user } = useAuth();
-  // Get live data and loading/error states directly from AppContext
-  const { donations, notifications, loading, error, reload } = useApp(); 
+  const navigate = useNavigate();
+  const { donations, notifications, loading, error, reload } = useApp();
 
-  // Calculate statistics based on live data (provide default values)
+  // AI State
+  const [trendingItems, setTrendingItems] = useState([]);
+
+  // Fetch AI Trends independently so it doesn't block the main UI
+  useEffect(() => {
+    const fetchTrends = async () => {
+        try {
+            const res = await aiService.getDonorTrends();
+            if (res.trending) setTrendingItems(res.trending);
+        } catch (err) {
+            // Silent fail for AI suggestions
+            console.log("AI Trends not available");
+        }
+    };
+    fetchTrends();
+  }, []);
+
   const userDonations = donations || [];
   const completedMatches = userDonations.filter(d => d.status === 'completed').length;
-  // Example impact score calculation (adjust formula as needed)
   const impactScore = (user?.statistics?.rating || 0) * 50 + completedMatches * 20 + userDonations.length * 5; 
 
-  // Helper function for status badge colors
   const getStatusColor = (status) => {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-800';
@@ -48,7 +67,6 @@ const DonorDashboard = () => {
     }
   };
   
-  // Helper function for status icons
   const getStatusIcon = (status) => {
     switch (status) {
       case 'approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
@@ -60,19 +78,16 @@ const DonorDashboard = () => {
     }
   };
 
-  // --- Render Loading State ---
   if (loading) {
-    return <DashboardSkeleton />; // Use the skeleton component for loading UI
+    return <DashboardSkeleton />;
   }
 
-  // --- Render Error State ---
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Alert variant="destructive" className="bg-red-50 border-red-200">
           <AlertCircle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">{error}</AlertDescription>
-          {/* Add a button to retry fetching data */}
           <Button onClick={reload} variant="outline" size="sm" className="mt-2 border-red-300 text-red-700 hover:bg-red-100">
              Try Again
            </Button>
@@ -81,11 +96,10 @@ const DonorDashboard = () => {
     );
   }
 
-  // --- Render Actual Dashboard Content ---
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
+        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-4">
             <Avatar className="h-16 w-16">
@@ -101,14 +115,14 @@ const DonorDashboard = () => {
               </p>
             </div>
             <Button asChild className="bg-green-600 hover:bg-green-700">
-              <Link to="/donor/donate">
+              <Link to="/donate">
                 <Plus className="h-5 w-5 mr-2" />
                 New Donation
               </Link>
             </Button>
           </div>
 
-          {/* Impact Summary Card */}
+          {/* Impact Card */}
           <Card className="bg-gradient-to-r from-green-500 to-blue-500 text-white border-0 shadow-xl rounded-xl overflow-hidden">
              <CardContent className="p-8">
                <h3 className="text-xl font-semibold mb-4 flex items-center">
@@ -136,21 +150,14 @@ const DonorDashboard = () => {
                    <Badge className="mt-2 bg-white/20 text-white border-white/30 text-xs">
                      Eco Champion
                    </Badge>
-                   <div className="text-green-100 mt-1 text-sm">Your Badge</div>
                  </div>
                </div>
              </CardContent>
            </Card>
-          
-          {/* AI Predictions Widget (Optional) */}
-          {/* <div className="mt-6">
-            <AIPredictionWidget userId={user?._id} userType="donor" />
-          </div> */}
         </div>
 
-        {/* Main Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content Area (Donations) */}
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -170,7 +177,6 @@ const DonorDashboard = () => {
                         src={donation.images?.[0]?.url || 'https://placehold.co/64x64/E2E8F0/4A5568?text=Img'} 
                         alt={donation.title}
                         className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                        // Add error handling for images
                         onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/64x64/E2E8F0/4A5568?text=Error'; }}
                       />
                       <div className="flex-1 min-w-0">
@@ -187,7 +193,6 @@ const DonorDashboard = () => {
                         </div>
                       </div>
                       <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
-                        {/* Update this link when donation detail page exists */}
                         <Link to={`/donor/my-donations`}><Eye className="h-4 w-4" /></Link> 
                       </Button>
                     </div>
@@ -196,7 +201,7 @@ const DonorDashboard = () => {
                       <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                       <p className="text-gray-600 mb-4">You haven't made any donations yet.</p>
                       <Button asChild className="bg-green-600 hover:bg-green-700">
-                        <Link to="/donor/donate">Make Your First Donation</Link>
+                        <Link to="/donate">Make Your First Donation</Link>
                       </Button>
                     </div>
                   )}
@@ -205,41 +210,39 @@ const DonorDashboard = () => {
             </Card>
           </div>
 
-          {/* Sidebar Area */}
+          {/* Sidebar */}
           <div className="space-y-6">
-             <Card>
-               <CardHeader className="pb-4">
-                 <CardTitle className="flex items-center space-x-2">
-                   <Recycle className="h-5 w-5 text-green-600" />
-                   <span>Monthly Impact Goal</span>
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="space-y-4">
-                 <div>
-                   <div className="flex justify-between text-sm mb-1">
-                     <span>Donations Made</span>
-                     <span>{userDonations.length}/5</span> 
-                   </div>
-                   <Progress value={Math.min((userDonations.length / 5) * 100, 100)} className="h-2" />
-                 </div>
-                 <div>
-                   <div className="flex justify-between text-sm mb-1">
-                     <span>Impact Score</span>
-                     <span>{impactScore}/1000</span>
-                   </div>
-                   <Progress value={Math.min((impactScore / 1000) * 100, 100)} className="h-2" />
-                 </div>
-               </CardContent>
-             </Card>
+             
+             {/* --- AI Feature: Community Needs --- */}
+             {trendingItems.length > 0 && (
+                 <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-100">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-indigo-700 text-lg">
+                            <Sparkles className="w-5 h-5" />
+                            Community Needs
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-indigo-600 mb-3">
+                            High demand items in your area:
+                        </p>
+                        <RequestSuggestions 
+                            suggestions={trendingItems} 
+                            onSelect={(item) => navigate(`/donate?type=${item}`)} 
+                        />
+                    </CardContent>
+                 </Card>
+             )}
+             {/* ----------------------------------- */}
 
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button asChild className="w-full justify-start" variant="outline"><Link to="/donor/donate"><Plus className="h-4 w-4 mr-2" />Add New Donation</Link></Button>
+                <Button asChild className="w-full justify-start" variant="outline"><Link to="/donate"><Plus className="h-4 w-4 mr-2" />Add New Donation</Link></Button>
                 <Button asChild className="w-full justify-start" variant="outline"><Link to="/donor/my-donations"><Package className="h-4 w-4 mr-2" />Track My Donations</Link></Button>
-                <Button asChild className="w-full justify-start" variant="outline"><Link to="/donor/browseNeeds"><Heart className="h-4 w-4 mr-2" />Browse Community Needs</Link></Button>
+                <Button asChild className="w-full justify-start" variant="outline"><Link to="/donor/profile"><Settings className="h-4 w-4 mr-2" />Settings</Link></Button>
               </CardContent>
             </Card>
 
@@ -258,7 +261,6 @@ const DonorDashboard = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{n.title}</p>
                           <p className="text-xs text-gray-500 truncate">{n.message}</p>
-                          <p className="text-xs text-gray-400 mt-1">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                       </div>
                    )) : (
@@ -275,10 +277,8 @@ const DonorDashboard = () => {
   );
 };
 
-// --- Skeleton Component for Loading State ---
 const DashboardSkeleton = () => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
-    {/* Skeleton Header */}
     <div className="mb-8">
       <div className="flex items-center space-x-4 mb-4">
         <Skeleton className="h-16 w-16 rounded-full bg-gray-200" />
@@ -288,24 +288,18 @@ const DashboardSkeleton = () => (
         </div>
          <Skeleton className="h-10 w-36 bg-gray-200 rounded-md" />
       </div>
-      {/* Skeleton Impact Card */}
       <Skeleton className="h-40 w-full bg-gray-200 rounded-xl" />
     </div>
-    {/* Skeleton Main Grid */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-6">
-         {/* Skeleton Recent Donations Card */}
-        <Skeleton className="h-64 w-full bg-gray-200 rounded-lg" />
+         <Skeleton className="h-64 w-full bg-gray-200 rounded-lg" />
       </div>
       <div className="space-y-6">
-        {/* Skeleton Sidebar Cards */}
         <Skeleton className="h-48 w-full bg-gray-200 rounded-lg" />
         <Skeleton className="h-56 w-full bg-gray-200 rounded-lg" />
-         <Skeleton className="h-56 w-full bg-gray-200 rounded-lg" />
       </div>
     </div>
   </div>
 );
 
 export default DonorDashboard;
-
