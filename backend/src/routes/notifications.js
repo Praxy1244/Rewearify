@@ -28,17 +28,27 @@ router.get('/', protect, async (req, res) => {
       read: false
     });
 
-    return paginated(res, notifications, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total,
-      unreadCount
-    }, 'Notifications retrieved successfully');
+    // ✨ UPDATED: Return in expected format
+    return res.json({
+      success: true,
+      data: notifications,  // Array of notifications
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        unreadCount
+      },
+      message: 'Notifications retrieved successfully'
+    });
   } catch (error) {
     console.error('Get notifications error:', error);
-    return fail(res, 'Failed to get notifications', 500);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get notifications'
+    });
   }
 });
+
 
 // @desc    Mark notification as read
 // @route   PUT /api/notifications/:id/read

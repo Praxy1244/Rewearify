@@ -10,6 +10,7 @@ import { Server } from 'socket.io';
 import cron from 'node-cron';
 import passport from 'passport'; 
 import { configurePassport } from './src/config/passport.js'; 
+import socketService from './src/services/socketService.js';
 // Import configurations and utilities
 import { connectDB } from './src/config/database.js';
 import { errorHandler, notFound } from './src/middleware/errorMiddleware.js';
@@ -24,6 +25,8 @@ import analyticsRoutes from './src/routes/analytics.js';
 import notificationRoutes from './src/routes/notifications.js';
 import aiRoutes from './src/routes/ai.js';
 import publicRoutes from './src/routes/public.js';
+import recommendationRoutes from './src/routes/recommendations.js';
+
 
 // Import scheduled tasks
 import { cleanupExpiredTokens, updateDonationStatuses } from './src/utils/scheduledTasks.js';
@@ -108,28 +111,13 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
 
-  // Join user to their room for notifications
-  socket.on('join-user-room', (userId) => {
-    socket.join(`user-${userId}`);
-    console.log(`User ${userId} joined their notification room`);
-  });
+socketService.initialize(io);
+app.set('socketService', socketService);
 
-  // Join admin room
-  socket.on('join-admin-room', () => {
-    socket.join('admin-room');
-    console.log('Admin joined admin room');
-  });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
-  });
-});
+console.log('✅ Socket.IO service initialized with enhanced features');
 
 // Error handling middleware (must be last)
 app.use(notFound);

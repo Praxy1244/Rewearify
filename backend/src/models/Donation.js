@@ -66,13 +66,9 @@ const donationSchema = new mongoose.Schema({
       'outerwear', 'formal', 'casual', 'children', 
       'accessories', 'shoes', 'activewear', 'undergarments',
       'traditional', 'seasonal', 'maternity', 'plus-size',
-      // --- FIX 1: ADDED NEW CATEGORIES ---
-      'household', 
-      'linens', 
-      'other'
+      'household', 'linens', 'other'
     ]
   },
-  // --- FIX 2: ADDED NEW SUBCATEGORY FIELD ---
   subcategory: {
     type: String,
     trim: true,
@@ -106,9 +102,46 @@ const donationSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'pending', 'approved', 'rejected', 'matched', 'completed', 'cancelled', 'expired'],
+    enum: [
+      'draft', 'pending', 'approved', 'rejected', 
+      'matched', 'pickup_scheduled', 'in_transit', 
+      'delivered', 'completed', 'cancelled', 
+      'expired', 'flagged'
+    ],
     default: 'pending'
   },
+  
+  // ✨ NEW: FSM State History
+  state_history: [{
+    from_state: {
+      type: String,
+      required: true
+    },
+    to_state: {
+      type: String,
+      required: true
+    },
+    action: {
+      type: String,
+      required: true
+    },
+    actor: {
+      id: {
+        type: mongoose.Schema.Types.Mixed,  
+        ref: 'User'
+      },
+      name: String,
+      role: String
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed
+    }
+  }],
+  
   location: {
     address: {
       type: String,
@@ -138,7 +171,7 @@ const donationSchema = new mongoose.Schema({
         default: 'Point'
       },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number],
         index: '2dsphere',
         default: [0, 0]
       }
@@ -155,7 +188,7 @@ const donationSchema = new mongoose.Schema({
     },
     deliveryRadius: {
       type: Number,
-      default: 10, // km
+      default: 10,
       min: 0,
       max: 100
     },
@@ -175,7 +208,7 @@ const donationSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
-    preferredRecipients: [String], // NGO types
+    preferredRecipients: [String],
     restrictions: [String],
     specialInstructions: String
   },
@@ -211,6 +244,18 @@ const donationSchema = new mongoose.Schema({
       default: false
     }
   },
+  
+  // ✨ NEW: FSM Timestamp Fields
+  approvedAt: Date,
+  rejectedAt: Date,
+  matchedAt: Date,
+  pickupScheduledAt: Date,
+  inTransitAt: Date,
+  deliveredAt: Date,
+  completedAt: Date,
+  cancelledAt: Date,
+  flaggedAt: Date,
+  
   analytics: {
     viewCount: {
       type: Number,
@@ -244,10 +289,11 @@ const donationSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     default: function() {
-      return new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+      return new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
     }
   },
-  // Legacy/Simplified AI fields (kept for compatibility with Phase 3 code)
+  
+  // Legacy fields for compatibility
   isFlagged: {
     type: Boolean,
     default: false
@@ -266,7 +312,7 @@ const donationSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes for better query performance
+// Indexes
 donationSchema.index({ donor: 1 });
 donationSchema.index({ status: 1 });
 donationSchema.index({ category: 1 });
@@ -276,15 +322,15 @@ donationSchema.index({ 'preferences.urgentNeeded': 1 });
 donationSchema.index({ expiresAt: 1 });
 donationSchema.index({ tags: 1 });
 donationSchema.index({ 'aiAnalysis.demandPrediction': 1 });
+donationSchema.index({ 'state_history.timestamp': 1 });
 
-// Virtual for requests
+// Virtuals
 donationSchema.virtual('requests', {
   ref: 'Request',
   localField: '_id',
   foreignField: 'donation'
 });
 
-// Virtual for active requests count
 donationSchema.virtual('activeRequestsCount', {
   ref: 'Request',
   localField: '_id',
@@ -293,7 +339,7 @@ donationSchema.virtual('activeRequestsCount', {
   match: { status: 'pending' }
 });
 
-// Pre middleware to populate donor info
+// Pre middleware
 donationSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'donor',
@@ -302,43 +348,92 @@ donationSchema.pre(/^find/, function(next) {
   next();
 });
 
-// Method to increment view count
+// ✨ NEW: Pre-save middleware to track state changes
+donationSchema.pre('save', function(next) {
+  // Initialize state_history if this is a new document
+  if (this.isNew && !this.state_history) {
+    this.state_history = [];
+  }
+  next();
+});
+
+// Methods
 donationSchema.methods.incrementViews = async function() {
   this.analytics.viewCount += 1;
   this.analytics.lastViewed = new Date();
   return this.save();
 };
 
-// Method to approve donation
 donationSchema.methods.approve = async function(adminId, notes = '') {
   this.status = 'approved';
   this.moderation.approvedBy = adminId;
   this.moderation.approvedAt = new Date();
+  this.approvedAt = new Date();
   this.moderation.moderatorNotes = notes;
   return this.save();
 };
 
-// Method to reject donation
 donationSchema.methods.reject = async function(adminId, reason, notes = '') {
   this.status = 'rejected';
   this.moderation.rejectedBy = adminId;
   this.moderation.rejectedAt = new Date();
+  this.rejectedAt = new Date();
   this.moderation.rejectionReason = reason;
   this.moderation.moderatorNotes = notes;
   return this.save();
 };
 
-// Method to match with request
 donationSchema.methods.matchWith = async function(requestId, matchScore = 0, autoMatched = false) {
   this.status = 'matched';
   this.matching.matchedWith = requestId;
   this.matching.matchedAt = new Date();
+  this.matchedAt = new Date();
   this.matching.matchScore = matchScore;
   this.matching.autoMatched = autoMatched;
   return this.save();
 };
 
-// Static method to find nearby donations
+// ✨ NEW: FSM-specific methods
+donationSchema.methods.getLifecycleStats = function() {
+  if (!this.state_history || this.state_history.length === 0) {
+    return null;
+  }
+
+  const timeInStates = {};
+  for (let i = 0; i < this.state_history.length; i++) {
+    const entry = this.state_history[i];
+    const nextEntry = this.state_history[i + 1];
+    
+    const startTime = new Date(entry.timestamp);
+    const endTime = nextEntry ? new Date(nextEntry.timestamp) : new Date();
+    const duration = (endTime - startTime) / (1000 * 60 * 60); // hours
+
+    if (!timeInStates[entry.to_state]) {
+      timeInStates[entry.to_state] = 0;
+    }
+    timeInStates[entry.to_state] += duration;
+  }
+
+  return {
+    total_transitions: this.state_history.length,
+    time_in_states: timeInStates,
+    current_state: this.status
+  };
+};
+
+donationSchema.methods.getCurrentStateAge = function() {
+  if (!this.state_history || this.state_history.length === 0) {
+    return 0;
+  }
+  
+  const lastTransition = this.state_history[this.state_history.length - 1];
+  const now = new Date();
+  const lastTransitionTime = new Date(lastTransition.timestamp);
+  
+  return (now - lastTransitionTime) / (1000 * 60 * 60); // hours
+};
+
+// Static methods
 donationSchema.statics.findNearby = function(coordinates, maxDistance = 10000, filters = {}) {
   const query = {
     'location.coordinates': {
@@ -357,11 +452,31 @@ donationSchema.statics.findNearby = function(coordinates, maxDistance = 10000, f
   return this.find(query);
 };
 
-// Static method to get trending donations
 donationSchema.statics.getTrending = function(limit = 10) {
   return this.find({ status: 'approved' })
     .sort({ 'analytics.viewCount': -1, createdAt: -1 })
     .limit(limit);
+};
+
+// ✨ NEW: Get donations by state
+donationSchema.statics.findByState = function(state, filters = {}) {
+  return this.find({ status: state, ...filters })
+    .sort({ createdAt: -1 });
+};
+
+// ✨ NEW: Get stuck donations (in same state too long)
+donationSchema.statics.findStuck = function(state, hours = 72) {
+  const cutoffDate = new Date(Date.now() - hours * 60 * 60 * 1000);
+  
+  return this.find({
+    status: state,
+    'state_history': {
+      $elemMatch: {
+        to_state: state,
+        timestamp: { $lte: cutoffDate }
+      }
+    }
+  });
 };
 
 export default mongoose.model('Donation', donationSchema);

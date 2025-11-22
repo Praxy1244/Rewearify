@@ -48,12 +48,22 @@ export const protect = async (req, res, next) => {
 // Restrict to certain roles
 export const restrictTo = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return fail(res, 'Access denied. Insufficient permissions.', 403);
+    console.log('🔒 restrictTo middleware');
+    console.log('   User:', req.user);
+    console.log('   User role:', req.user?.role);
+    console.log('   Allowed roles:', roles);
+    console.log('   Match:', roles.includes(req.user?.role));
+    
+    if (!req.user || !roles.includes(req.user.role)) {
+      console.log('   ❌ Access denied');
+      return fail(res, 'You do not have permission to perform this action', 403);
     }
+    
+    console.log('   ✅ Access granted');
     next();
   };
 };
+
 
 // Optional authentication
 export const optionalAuth = async (req, res, next) => {

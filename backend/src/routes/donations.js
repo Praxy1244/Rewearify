@@ -6,8 +6,11 @@ import { ok, fail, created, paginated } from '../utils/response.js';
 import { protect, restrictTo, adminOrOwner } from '../middleware/auth.js';
 import { donationValidations, searchValidations, handleValidationErrors } from '../utils/validation.js';
 import axios from 'axios';
+import donationFSM from '../services/fsmService.js';
 
 const router = express.Router();
+
+// ==================== GENERAL ROUTES (NO PARAMS) ====================
 
 // @desc    Get all donations with filters and search
 // @route   GET /api/donations
@@ -55,7 +58,7 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
             type: 'Point',
             coordinates: [lng, lat]
           },
-          $maxDistance: radius * 1000 // Convert km to meters
+          $maxDistance: radius * 1000
         }
       };
     }
@@ -66,9 +69,9 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
 
     // Execute query
     const donations = await Donation.find(query)
-    .sort(sortObj)
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .sort(sortObj)
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     const total = await Donation.countDocuments(query);
 
@@ -83,13 +86,289 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
   }
 });
 
+// @desc    Create new donation
+// @route   POST /api/donations
+// @access  Private (Donor or Admin)
+router.post('/', 
+  protect, 
+  restrictTo('donor', 'admin'),  // ✅ Allow both donor and admin
+  donationValidations.create, 
+  handleValidationErrors, 
+  async (req, res) => {
+    try {
+      const donationData = {
+        ...req.body,
+        donor: req.user.id
+      };
+
+      console.log('🔍 Running fraud detection...');
+      
+      const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      let fraudCheckResult = null;
+      
+      try {
+        const fraudResponse = await axios.post(`${AI_SERVICE_URL}/fraud-check`, {
+          category: donationData.category,
+          condition: donationData.condition,
+          quantity: donationData.quantity,
+          description: donationData.description,
+          location: donationData.location
+        }, { timeout: 5000 });
+
+        if (fraudResponse.data.success) {
+          fraudCheckResult = fraudResponse.data.data;
+          console.log(`📊 Fraud Score: ${fraudCheckResult.fraud_score} (${fraudCheckResult.risk_level})`);
+          
+          donationData.riskScore = fraudCheckResult.fraud_score;
+          donationData.aiAnalysis = {
+            ...donationData.aiAnalysis,
+            fraudScore: fraudCheckResult.fraud_score,
+            qualityScore: fraudCheckResult.quality_score
+          };
+        }
+      } catch (aiError) {
+        console.error('⚠️ Fraud check failed (non-blocking):', aiError.message);
+      }
+
+      const donation = await Donation.create(donationData);
+
+      // Auto-flag if suspicious
+      if (fraudCheckResult && fraudCheckResult.is_suspicious) {
+        console.log('🚨 High fraud risk detected - flagging donation');
+        
+        donation.isFlagged = true;
+        donation.flagReason = fraudCheckResult.fraud_flags.join(', ');
+        
+        try {
+          await donationFSM.transition(
+            donation,
+            'flagged',
+            {
+              id: null,  // ✅ Changed from 'system' to null
+              name: 'Fraud Detection AI',
+              role: 'system'
+            },
+            {
+              fraud_score: fraudCheckResult.fraud_score,
+              risk_level: fraudCheckResult.risk_level,
+              flags: fraudCheckResult.fraud_flags,
+              automated: true
+            }
+          );
+        } catch (fsmError) {
+          console.error('FSM transition failed:', fsmError.message);
+          donation.status = 'flagged';
+        }
+        
+        await donation.save();
+
+        // Notify admins about flagged donation
+        const admins = await User.find({ role: 'admin', status: 'active' });
+        const socketService = req.app.get('socketService');
+
+        for (const admin of admins) {
+          try {
+            const notification = await Notification.create({
+              recipient: admin._id,
+              type: 'fraud_alert',
+              title: '⚠️ Suspicious Donation Flagged',
+              message: `Donation "${donation.title}" flagged for review. Risk score: ${(fraudCheckResult.fraud_score * 100).toFixed(0)}%`,
+              data: {
+                donationId: donation._id,
+                donorId: req.user.id,
+                donorName: req.user.name,
+                fraudScore: fraudCheckResult.fraud_score,
+                riskLevel: fraudCheckResult.risk_level,
+                actionUrl: `/admin/donations/flagged`
+              },
+              channels: { inApp: true, email: true, push: false }
+            });
+
+            if (socketService) {
+              socketService.sendToUser(admin._id.toString(), {
+                _id: notification._id,
+                id: notification._id,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message,
+                data: notification.data,
+                createdAt: notification.createdAt,
+                read: false
+              });
+            }
+          } catch (notifError) {
+            console.error('Notification error:', notifError);
+          }
+        }
+
+        return created(res, { 
+          donation,
+          fraud_check: fraudCheckResult,
+          warning: 'Donation flagged for manual review due to suspicious activity'
+        }, 'Donation submitted but flagged for review');
+      }
+
+      // Update user statistics
+      await User.findByIdAndUpdate(req.user.id, {
+        $inc: { 'statistics.totalDonations': 1 }
+      });
+
+      // Notify admins (normal flow)
+      const admins = await User.find({ role: 'admin', status: 'active' });
+      const socketService = req.app.get('socketService');
+
+      for (const admin of admins) {
+        try {
+          const notification = await Notification.create({
+            recipient: admin._id,
+            type: 'new_donation_pending',
+            title: 'New Donation Pending Review',
+            message: `New donation "${donation.title}" submitted by ${req.user.name}`,
+            data: {
+              donationId: donation._id,
+              donorId: req.user.id,
+              donorName: req.user.name,
+              actionUrl: `/admin/donations`
+            },
+            channels: { inApp: true, email: false, push: false }
+          });
+
+          if (socketService) {
+            socketService.sendToUser(admin._id.toString(), {
+              _id: notification._id,
+              id: notification._id,
+              type: notification.type,
+              title: notification.title,
+              message: notification.message,
+              data: notification.data,
+              createdAt: notification.createdAt,
+              read: false
+            });
+          }
+        } catch (error) {
+          console.error(`Error sending notification to admin ${admin._id}:`, error);
+        }
+      }
+
+      return created(res, { 
+        donation,
+        fraud_check: fraudCheckResult
+      }, 'Donation created successfully. Pending admin approval.');
+      
+    } catch (error) {
+      console.error('Create donation error:', error);
+      return fail(res, 'Failed to create donation', 500);
+    }
+  }
+);
+
+// ==================== SPECIAL ROUTES (BEFORE /:id) ====================
+
+// @desc    Get flagged donations
+// @route   GET /api/donations/flagged
+// @access  Private (Admin)
+router.get('/flagged', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    
+    const flaggedDonations = await Donation.find({ 
+      $or: [
+        { status: 'flagged' },
+        { isFlagged: true }
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .lean();
+
+    const total = await Donation.countDocuments({ 
+      $or: [
+        { status: 'flagged' },
+        { isFlagged: true }
+      ]
+    });
+
+    return res.json({
+      success: true,
+      message: 'Flagged donations retrieved successfully',
+      data: flaggedDonations,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Get flagged donations error:', error);
+    return fail(res, 'Failed to get flagged donations', 500);
+  }
+});
+
+// @desc    Get fraud analytics
+// @route   GET /api/donations/analytics/fraud
+// @access  Private (Admin)
+router.get('/analytics/fraud', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const totalFlagged = await Donation.countDocuments({ isFlagged: true });
+    const totalDonations = await Donation.countDocuments();
+    
+    const recentFlagged = await Donation.find({ isFlagged: true })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('title donor riskScore flagReason createdAt')
+      .lean();
+
+    return ok(res, {
+      total_flagged: totalFlagged,
+      total_donations: totalDonations,
+      flag_rate: totalDonations > 0 ? ((totalFlagged / totalDonations) * 100).toFixed(2) + '%' : '0%',
+      recent_flagged: recentFlagged
+    }, 'Fraud analytics retrieved successfully');
+  } catch (error) {
+    console.error('Get fraud analytics error:', error);
+    return fail(res, 'Failed to get fraud analytics', 500);
+  }
+});
+
+// @desc    Get user's donations
+// @route   GET /api/donations/user/:userId
+// @access  Private (Owner or Admin)
+router.get('/user/:userId', protect, adminOrOwner('userId'), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    
+    let query = { donor: req.params.userId };
+    if (status) query.status = status;
+
+    const donations = await Donation.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Donation.countDocuments(query);
+
+    return paginated(res, donations, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total
+    }, 'User donations retrieved successfully');
+  } catch (error) {
+    console.error('Get user donations error:', error);
+    return fail(res, 'Failed to get user donations', 500);
+  }
+});
+
+// ==================== DYNAMIC ID ROUTES (AFTER SPECIAL ROUTES) ====================
+
 // @desc    Get single donation
 // @route   GET /api/donations/:id
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const donation = await Donation.findById(req.params.id)
-      
+    const donation = await Donation.findById(req.params.id);
 
     if (!donation) {
       return fail(res, 'Donation not found', 404);
@@ -106,59 +385,6 @@ router.get('/:id', async (req, res) => {
     return fail(res, 'Failed to get donation', 500);
   }
 });
-
-// @desc    Create new donation
-// @route   POST /api/donations
-// @access  Private (Donor)
-router.post('/', 
-  protect, 
-  restrictTo('donor'), 
-  donationValidations.create, 
-  handleValidationErrors, 
-  async (req, res) => {
-    try {
-      const donationData = {
-        ...req.body,
-        donor: req.user.id
-      };
-
-      // REMOVED: AI analysis call - not needed in database
-      // AI suggestions are only used in frontend form
-
-      // Create donation
-      const donation = await Donation.create(donationData);
-
-      // Update user statistics
-      await User.findByIdAndUpdate(req.user.id, {
-        $inc: { 'statistics.totalDonations': 1 }
-      });
-
-      // Notify all admins
-      const admins = await User.find({ role: 'admin' });
-
-      const adminNotifications = admins.map(admin => ({
-        recipient: admin._id,
-        type: 'new_donation_pending',
-        title: 'New Donation Pending Review',
-        message: `New donation "${donation.title}" submitted by ${req.user.name}`,
-        data: {
-          donationId: donation._id,
-          actionUrl: `/admin/donations`
-        },
-        channels: { inApp: true }
-      }));
-      
-      if (adminNotifications.length > 0) {
-        await Notification.insertMany(adminNotifications);
-      }
-
-      return created(res, { donation }, 'Donation created successfully');
-    } catch (error) {
-      console.error('Create donation error:', error);
-      return fail(res, 'Failed to create donation', 500);
-    }
-  }
-);
 
 // @desc    Update donation
 // @route   PUT /api/donations/:id
@@ -236,54 +462,144 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
-// @desc    Get user's donations
-// @route   GET /api/donations/user/:userId
-// @access  Private (Owner or Admin)
-router.get('/user/:userId', protect, adminOrOwner('userId'), async (req, res) => {
+// @desc    Transition donation state
+// @route   PUT /api/donations/:id/transition
+// @access  Private (Admin or Owner)
+router.put('/:id/transition', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { toState, metadata } = req.body;
     
-    let query = { donor: req.params.userId };
-    if (status) query.status = status;
+    if (!toState) {
+      return fail(res, 'Target state is required', 400);
+    }
 
-    const donations = await Donation.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    const donation = await Donation.findById(req.params.id);
+    
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
 
-    const total = await Donation.countDocuments(query);
+    // Check permissions
+    const isOwner = donation.donor._id.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isOwner && !isAdmin) {
+      return fail(res, 'Not authorized', 403);
+    }
 
-    return paginated(res, donations, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total
-    }, 'User donations retrieved successfully');
+    // Execute transition
+    const result = await donationFSM.transition(
+      donation,
+      toState,
+      {
+        id: req.user.id,
+        name: req.user.name,
+        role: req.user.role
+      },
+      metadata || {}
+    );
+
+    // Save donation
+    await donation.save();
+
+    return ok(res, {
+      donation,
+      transition: result
+    }, `Donation transitioned to ${toState}`);
+
   } catch (error) {
-    console.error('Get user donations error:', error);
-    return fail(res, 'Failed to get user donations', 500);
+    console.error('Transition error:', error);
+    return fail(res, error.message, 400);
   }
 });
 
-// Helper function to get AI analysis (without images)
-async function getAIAnalysis(donationData) {
+// @desc    Get valid transitions for donation
+// @route   GET /api/donations/:id/transitions
+// @access  Private
+router.get('/:id/transitions', protect, async (req, res) => {
   try {
-    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const donation = await Donation.findById(req.params.id);
     
-    const response = await axios.post(`${aiServiceUrl}/analyze-donation`, {
-      title: donationData.title,
-      description: donationData.description,
-      category: donationData.category,
-      condition: donationData.condition
-    }, {
-      timeout: 10000 // 10 second timeout
-    });
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
 
-    return response.data;
+    const validTransitions = donationFSM.getValidTransitions(donation.status);
+    
+    return ok(res, {
+      current_state: donation.status,
+      valid_transitions: validTransitions,
+      is_terminal: donationFSM.isTerminalState(donation.status)
+    }, 'Valid transitions retrieved');
+
   } catch (error) {
-    // This will be caught by the route handler
-    console.error('AI service error:', error.message);
-    throw error;
+    console.error('Get transitions error:', error);
+    return fail(res, 'Failed to get transitions', 500);
   }
-}
+});
+
+// @desc    Get donation lifecycle stats
+// @route   GET /api/donations/:id/lifecycle
+// @access  Private
+router.get('/:id/lifecycle', protect, async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
+
+    const stats = donationFSM.getLifecycleStats(donation.state_history);
+    
+    return ok(res, {
+      donation_id: donation._id,
+      current_state: donation.status,
+      stats: stats,
+      state_history: donation.state_history
+    }, 'Lifecycle stats retrieved');
+
+  } catch (error) {
+    console.error('Get lifecycle error:', error);
+    return fail(res, 'Failed to get lifecycle stats', 500);
+  }
+});
+
+// @desc    Unflag donation (approve after review)
+// @route   PUT /api/donations/:id/unflag
+// @access  Private (Admin)
+router.put('/:id/unflag', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Unflag and transition to pending
+    donation.isFlagged = false;
+    donation.flagReason = '';
+    
+    await donationFSM.transition(
+      donation,
+      'pending',
+      {
+        id: req.user.id,
+        name: req.user.name,
+        role: req.user.role
+      },
+      {
+        action: 'unflagged',
+        notes: req.body.notes || 'Reviewed and unflagged by admin'
+      }
+    );
+
+    await donation.save();
+
+    return ok(res, { donation }, 'Donation unflagged successfully');
+  } catch (error) {
+    console.error('Unflag donation error:', error);
+    return fail(res, error.message, 400);
+  }
+});
 
 export default router;

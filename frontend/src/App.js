@@ -4,7 +4,10 @@ import "./App.css";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { Toaster } from './components/ui/toaster';
+import { Toaster as HotToaster } from 'react-hot-toast';
+
 
 // Create a screen reader announcer element
 const ScreenReaderAnnouncer = () => {
@@ -262,6 +265,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
+      <NotificationProvider>
       <AppProvider>
         <div className="App">
           <BrowserRouter>
@@ -272,9 +276,22 @@ function App() {
               </ErrorBoundary>
             </div>
             <Toaster />
+           <HotToaster 
+  position="top-right"
+  reverseOrder={false}
+  toastOptions={{
+    duration: 5000,
+    style: {
+      background: '#fff',
+      color: '#333',
+    },
+  }}
+/>
+
           </BrowserRouter>
         </div>
       </AppProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

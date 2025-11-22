@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext'; // ✨ ADDED
 import { notificationService } from '../../services';
 import { Button } from '../ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import RewearifyLogo from '../../components/Layout/RewearifyLogo';
+import NotificationBell from './NotificationBell'; // ✨ ADDED
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,30 +31,13 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    try {
-      const response = await notificationService.getNotifications();
-      if (response.success) {
-        const userNotifications = response.data.notifications || [];
-        setNotifications(userNotifications);
-        setUnreadCount(userNotifications.filter(n => n.status === 'unread').length);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      // Fallback to empty array if API fails
-      setNotifications([]);
-      setUnreadCount(0);
-    }
-  };
+  
+  // ✨ UPDATED: Use real-time notification context
+  const { 
+    notifications, 
+    unreadCount, 
+    isConnected  // Socket connection status
+  } = useNotifications();
 
   const handleLogout = () => {
     logout();
@@ -170,64 +155,8 @@ const Navbar = () => {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                {/* Notifications */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="relative">
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <Badge 
-                          className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 hover:bg-red-600"
-                        >
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </Badge>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-80" align="end">
-                    <div className="p-2">
-                      <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
-                    </div>
-                    <DropdownMenuSeparator />
-                    {notifications.length > 0 ? (
-                      <>
-                        {notifications.slice(0, 5).map((notification) => (
-                          <DropdownMenuItem key={notification._id} className="flex-col items-start p-3">
-                            <div className="flex w-full justify-between items-start">
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">
-                                  {notification.title}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {notification.message}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  {formatNotificationTime(notification.createdAt)}
-                                </p>
-                              </div>
-                              {notification.status === 'unread' && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
-                              )}
-                            </div>
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="justify-center">
-                          <Link 
-                            to={getNotificationsPath()} 
-                            className="text-sm text-green-600 hover:text-green-700"
-                          >
-                            View all notifications
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    ) : (
-                      <DropdownMenuItem className="justify-center py-4">
-                        <p className="text-sm text-gray-500">No notifications yet</p>
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* ✨ REPLACED OLD NOTIFICATION DROPDOWN WITH NEW NOTIFICATION BELL */}
+                <NotificationBell />
 
                 {/* User Menu */}
                 <DropdownMenu>

@@ -1,0 +1,401 @@
+NGO_ID,Name,City,Latitude,Longitude,Cause,Special_Focus,Urgent_Need,Capacity_per_week,Acceptance_Rate,Contact,trust_score
+NGO0001,NGO Elderly 1,Kolkata,22.555932,88.353248,Elderly Care,"Winter Wear, Men's Wear",False,320,0.85,ngo1@example.org,75
+NGO0002,NGO Homeless 2,Mumbai,19.084235,72.8905,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,51,0.79,ngo2@example.org,75
+NGO0003,NGO Women 3,Surat,21.128088,72.838466,Women Empowerment,"Women's Wear, Accessories",False,85,0.69,ngo3@example.org,75
+NGO0004,NGO Homeless 4,Pune,18.489315,73.876276,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,248,0.68,ngo4@example.org,75
+NGO0005,NGO Women 5,Delhi,28.708304,77.089599,Women Empowerment,"Women's Wear, Accessories",False,201,0.91,ngo5@example.org,75
+NGO0006,NGO Women 6,Kolkata,22.538357,88.380975,Women Empowerment,"Women's Wear, Accessories",False,67,0.9,ngo6@example.org,75
+NGO0007,NGO Women 7,Delhi,28.683376,77.079012,Women Empowerment,"Women's Wear, Accessories",False,385,0.64,ngo7@example.org,75
+NGO0008,NGO Disaster 8,Delhi,28.699176,77.110445,Disaster Relief,All types,False,429,0.84,ngo8@example.org,75
+NGO0009,NGO Disaster 9,Chennai,13.086727,80.223502,Disaster Relief,All types,False,455,0.92,ngo9@example.org,75
+NGO0010,NGO Elderly 10,Hyderabad,17.424719,78.493608,Elderly Care,"Winter Wear, Men's Wear",True,245,0.86,ngo10@example.org,75
+NGO0011,NGO Rural 11,Mumbai,19.106472,72.836667,Rural Development,All types,False,299,0.75,ngo11@example.org,75
+NGO0012,NGO Elderly 12,Mumbai,19.05235,72.927055,Elderly Care,"Winter Wear, Men's Wear",True,156,0.89,ngo12@example.org,75
+NGO0013,NGO Elderly 13,Mumbai,19.079656,72.906838,Elderly Care,"Winter Wear, Men's Wear",False,74,0.66,ngo13@example.org,75
+NGO0014,NGO Elderly 14,Bengaluru,12.955434,77.589446,Elderly Care,"Winter Wear, Men's Wear",False,423,0.91,ngo14@example.org,75
+NGO0015,NGO Disaster 15,Mumbai,19.039348,72.927102,Disaster Relief,All types,False,456,0.68,ngo15@example.org,75
+NGO0016,NGO Children 16,Mumbai,19.059019,72.885062,Children Education,"Kids Wear, Footwear",True,160,0.67,ngo16@example.org,75
+NGO0017,NGO Homeless 17,Delhi,28.676046,77.077864,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,275,0.62,ngo17@example.org,75
+NGO0018,NGO Children 18,Hyderabad,17.377778,78.482329,Children Education,"Kids Wear, Footwear",False,274,0.9,ngo18@example.org,75
+NGO0019,NGO Elderly 19,Chennai,13.093667,80.255437,Elderly Care,"Winter Wear, Men's Wear",True,177,0.91,ngo19@example.org,75
+NGO0020,NGO Children 20,Mumbai,19.090175,72.848761,Children Education,"Kids Wear, Footwear",False,138,0.92,ngo20@example.org,75
+NGO0021,NGO Elderly 21,Kolkata,22.539663,88.316804,Elderly Care,"Winter Wear, Men's Wear",False,416,0.92,ngo21@example.org,75
+NGO0022,NGO Disaster 22,Mumbai,19.080018,72.873545,Disaster Relief,All types,True,464,0.86,ngo22@example.org,75
+NGO0023,NGO Rural 23,Mumbai,19.09777,72.923461,Rural Development,All types,True,458,0.65,ngo23@example.org,75
+NGO0024,NGO Rural 24,Ahmedabad,22.978349,72.602832,Rural Development,All types,False,261,0.92,ngo24@example.org,75
+NGO0025,NGO Children 25,Hyderabad,17.389646,78.509665,Children Education,"Kids Wear, Footwear",False,475,0.92,ngo25@example.org,75
+NGO0026,NGO Disaster 26,Delhi,28.680145,77.063087,Disaster Relief,All types,False,491,0.66,ngo26@example.org,75
+NGO0027,NGO Disaster 27,Mumbai,19.061976,72.881862,Disaster Relief,All types,False,496,0.92,ngo27@example.org,75
+NGO0028,NGO Disaster 28,Chennai,13.079616,80.235534,Disaster Relief,All types,False,496,0.93,ngo28@example.org,75
+NGO0029,NGO Disaster 29,Mumbai,19.08588,72.907966,Disaster Relief,All types,False,450,0.84,ngo29@example.org,75
+NGO0030,NGO Disaster 30,Delhi,28.707478,77.123761,Disaster Relief,All types,False,421,0.86,ngo30@example.org,75
+NGO0031,NGO Children 31,Bengaluru,12.98432,77.589737,Children Education,"Kids Wear, Footwear",False,456,0.67,ngo31@example.org,75
+NGO0032,NGO Homeless 32,Mumbai,19.123933,72.839623,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,312,0.61,ngo32@example.org,75
+NGO0033,NGO Rural 33,Surat,21.17548,72.861834,Rural Development,All types,True,364,0.62,ngo33@example.org,75
+NGO0034,NGO Elderly 34,Bengaluru,12.926548,77.627038,Elderly Care,"Winter Wear, Men's Wear",False,405,0.61,ngo34@example.org,75
+NGO0035,NGO Disaster 35,Pune,18.505652,73.865476,Disaster Relief,All types,False,366,0.69,ngo35@example.org,75
+NGO0036,NGO Children 36,Mumbai,19.057834,72.916275,Children Education,"Kids Wear, Footwear",False,302,0.64,ngo36@example.org,75
+NGO0037,NGO Elderly 37,Mumbai,19.075223,72.866481,Elderly Care,"Winter Wear, Men's Wear",False,177,0.68,ngo37@example.org,75
+NGO0038,NGO Women 38,Mumbai,19.028146,72.913416,Women Empowerment,"Women's Wear, Accessories",False,123,0.64,ngo38@example.org,75
+NGO0039,NGO Disaster 39,Delhi,28.68615,77.133591,Disaster Relief,All types,False,500,0.83,ngo39@example.org,75
+NGO0040,NGO Disaster 40,Ahmedabad,23.046504,72.521551,Disaster Relief,All types,False,468,0.67,ngo40@example.org,75
+NGO0041,NGO Children 41,Delhi,28.698382,77.142984,Children Education,"Kids Wear, Footwear",False,206,0.78,ngo41@example.org,75
+NGO0042,NGO Elderly 42,Bengaluru,12.979611,77.577659,Elderly Care,"Winter Wear, Men's Wear",False,287,0.61,ngo42@example.org,75
+NGO0043,NGO Disaster 43,Mumbai,19.063419,72.896012,Disaster Relief,All types,False,400,0.72,ngo43@example.org,75
+NGO0044,NGO Disaster 44,Mumbai,19.094187,72.877384,Disaster Relief,All types,False,409,0.92,ngo44@example.org,75
+NGO0045,NGO Disaster 45,Bengaluru,12.987393,77.560596,Disaster Relief,All types,False,429,0.71,ngo45@example.org,75
+NGO0046,NGO Elderly 46,Delhi,28.699335,77.102301,Elderly Care,"Winter Wear, Men's Wear",False,456,0.66,ngo46@example.org,75
+NGO0047,NGO Homeless 47,Pune,18.472154,73.814755,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,228,0.79,ngo47@example.org,75
+NGO0048,NGO Disaster 48,Chennai,13.046082,80.286112,Disaster Relief,All types,False,421,0.92,ngo48@example.org,75
+NGO0049,NGO Homeless 49,Pune,18.482103,73.838958,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,161,0.61,ngo49@example.org,75
+NGO0050,NGO Women 50,Delhi,28.720584,77.110657,Women Empowerment,"Women's Wear, Accessories",False,273,0.69,ngo50@example.org,75
+NGO0051,NGO Elderly 51,Pune,18.487636,73.868942,Elderly Care,"Winter Wear, Men's Wear",False,390,0.87,ngo51@example.org,75
+NGO0052,NGO Elderly 52,Mumbai,19.063698,72.861222,Elderly Care,"Winter Wear, Men's Wear",False,369,0.78,ngo52@example.org,75
+NGO0053,NGO Rural 53,Mumbai,19.046476,72.838397,Rural Development,All types,True,325,0.87,ngo53@example.org,75
+NGO0054,NGO Women 54,Mumbai,19.08339,72.912867,Women Empowerment,"Women's Wear, Accessories",True,410,0.9,ngo54@example.org,75
+NGO0055,NGO Children 55,Kolkata,22.530971,88.39895,Children Education,"Kids Wear, Footwear",True,474,0.66,ngo55@example.org,75
+NGO0056,NGO Children 56,Delhi,28.683707,77.118775,Children Education,"Kids Wear, Footwear",False,414,0.73,ngo56@example.org,75
+NGO0057,NGO Homeless 57,Kolkata,22.576944,88.367479,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,202,0.91,ngo57@example.org,75
+NGO0058,NGO Disaster 58,Chennai,13.043674,80.253372,Disaster Relief,All types,False,325,0.62,ngo58@example.org,75
+NGO0059,NGO Rural 59,Surat,21.195208,72.864817,Rural Development,All types,False,50,0.61,ngo59@example.org,75
+NGO0060,NGO Homeless 60,Mumbai,19.118807,72.919257,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,276,0.82,ngo60@example.org,75
+NGO0061,NGO Rural 61,Delhi,28.685468,77.085229,Rural Development,All types,False,248,0.82,ngo61@example.org,75
+NGO0062,NGO Rural 62,Jaipur,26.90233,75.768379,Rural Development,All types,False,110,0.81,ngo62@example.org,75
+NGO0063,NGO Women 63,Delhi,28.71995,77.063679,Women Empowerment,"Women's Wear, Accessories",False,416,0.93,ngo63@example.org,75
+NGO0064,NGO Rural 64,Mumbai,19.045331,72.829411,Rural Development,All types,False,82,0.62,ngo64@example.org,75
+NGO0065,NGO Children 65,Pune,18.52359,73.886284,Children Education,"Kids Wear, Footwear",True,194,0.86,ngo65@example.org,75
+NGO0066,NGO Homeless 66,Mumbai,19.11227,72.872351,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,351,0.81,ngo66@example.org,75
+NGO0067,NGO Disaster 67,Pune,18.523085,73.871869,Disaster Relief,All types,True,407,0.67,ngo67@example.org,75
+NGO0068,NGO Children 68,Mumbai,19.113518,72.869925,Children Education,"Kids Wear, Footwear",False,427,0.84,ngo68@example.org,75
+NGO0069,NGO Women 69,Hyderabad,17.341239,78.471484,Women Empowerment,"Women's Wear, Accessories",False,432,0.66,ngo69@example.org,75
+NGO0070,NGO Children 70,Mumbai,19.065603,72.914997,Children Education,"Kids Wear, Footwear",False,214,0.82,ngo70@example.org,75
+NGO0071,NGO Women 71,Chennai,13.059715,80.30933,Women Empowerment,"Women's Wear, Accessories",False,331,0.85,ngo71@example.org,75
+NGO0072,NGO Disaster 72,Pune,18.486584,73.848493,Disaster Relief,All types,True,137,0.83,ngo72@example.org,75
+NGO0073,NGO Women 73,Mumbai,19.065811,72.897451,Women Empowerment,"Women's Wear, Accessories",False,471,0.76,ngo73@example.org,75
+NGO0074,NGO Disaster 74,Jaipur,26.948179,75.755031,Disaster Relief,All types,False,155,0.91,ngo74@example.org,75
+NGO0075,NGO Homeless 75,Hyderabad,17.423276,78.457085,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,258,0.92,ngo75@example.org,75
+NGO0076,NGO Disaster 76,Bengaluru,12.9851,77.632927,Disaster Relief,All types,False,465,0.86,ngo76@example.org,75
+NGO0077,NGO Disaster 77,Mumbai,19.071488,72.852483,Disaster Relief,All types,True,206,0.94,ngo77@example.org,75
+NGO0078,NGO Disaster 78,Mumbai,19.033439,72.843205,Disaster Relief,All types,False,455,0.65,ngo78@example.org,75
+NGO0079,NGO Disaster 79,Hyderabad,17.350235,78.504003,Disaster Relief,All types,False,424,0.94,ngo79@example.org,75
+NGO0080,NGO Children 80,Ahmedabad,23.018609,72.581409,Children Education,"Kids Wear, Footwear",True,320,0.77,ngo80@example.org,75
+NGO0081,NGO Children 81,Bengaluru,13.011165,77.593901,Children Education,"Kids Wear, Footwear",False,383,0.62,ngo81@example.org,75
+NGO0082,NGO Disaster 82,Kolkata,22.539305,88.37738,Disaster Relief,All types,False,317,0.64,ngo82@example.org,75
+NGO0083,NGO Disaster 83,Delhi,28.661606,77.065244,Disaster Relief,All types,True,277,0.93,ngo83@example.org,75
+NGO0084,NGO Disaster 84,Bengaluru,12.971917,77.555667,Disaster Relief,All types,False,264,0.8,ngo84@example.org,75
+NGO0085,NGO Women 85,Bengaluru,12.951491,77.610674,Women Empowerment,"Women's Wear, Accessories",False,426,0.84,ngo85@example.org,75
+NGO0086,NGO Homeless 86,Hyderabad,17.372687,78.506293,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,323,0.73,ngo86@example.org,75
+NGO0087,NGO Women 87,Pune,18.50579,73.889643,Women Empowerment,"Women's Wear, Accessories",False,215,0.76,ngo87@example.org,75
+NGO0088,NGO Women 88,Pune,18.529718,73.895811,Women Empowerment,"Women's Wear, Accessories",False,225,0.71,ngo88@example.org,75
+NGO0089,NGO Homeless 89,Hyderabad,17.397827,78.437603,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,427,0.7,ngo89@example.org,75
+NGO0090,NGO Rural 90,Pune,18.531183,73.851205,Rural Development,All types,False,293,0.65,ngo90@example.org,75
+NGO0091,NGO Homeless 91,Bengaluru,13.020446,77.575051,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,343,0.82,ngo91@example.org,75
+NGO0092,NGO Homeless 92,Mumbai,19.026385,72.905885,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,207,0.84,ngo92@example.org,75
+NGO0093,NGO Disaster 93,Delhi,28.689294,77.114281,Disaster Relief,All types,True,195,0.74,ngo93@example.org,75
+NGO0094,NGO Disaster 94,Jaipur,26.881754,75.798126,Disaster Relief,All types,False,483,0.71,ngo94@example.org,75
+NGO0095,NGO Rural 95,Bengaluru,12.950498,77.590434,Rural Development,All types,True,225,0.67,ngo95@example.org,75
+NGO0096,NGO Children 96,Surat,21.149497,72.839528,Children Education,"Kids Wear, Footwear",True,185,0.7,ngo96@example.org,75
+NGO0097,NGO Homeless 97,Chennai,13.049367,80.284701,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,498,0.6,ngo97@example.org,75
+NGO0098,NGO Homeless 98,Mumbai,19.114763,72.83084,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,121,0.94,ngo98@example.org,75
+NGO0099,NGO Children 99,Delhi,28.683088,77.112683,Children Education,"Kids Wear, Footwear",False,59,0.89,ngo99@example.org,75
+NGO0100,NGO Children 100,Delhi,28.737456,77.088357,Children Education,"Kids Wear, Footwear",False,444,0.68,ngo100@example.org,75
+NGO0101,NGO Elderly 101,Kolkata,22.60305,88.346888,Elderly Care,"Winter Wear, Men's Wear",False,391,0.89,ngo101@example.org,75
+NGO0102,NGO Rural 102,Pune,18.544089,73.832891,Rural Development,All types,False,104,0.79,ngo102@example.org,75
+NGO0103,NGO Homeless 103,Surat,21.143856,72.796038,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,453,0.73,ngo103@example.org,75
+NGO0104,NGO Rural 104,Mumbai,19.047285,72.895666,Rural Development,All types,False,249,0.87,ngo104@example.org,75
+NGO0105,NGO Elderly 105,Mumbai,19.11486,72.905555,Elderly Care,"Winter Wear, Men's Wear",False,380,0.67,ngo105@example.org,75
+NGO0106,NGO Disaster 106,Delhi,28.663809,77.078606,Disaster Relief,All types,False,148,0.89,ngo106@example.org,75
+NGO0107,NGO Homeless 107,Bengaluru,12.978548,77.594865,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,419,0.92,ngo107@example.org,75
+NGO0108,NGO Children 108,Bengaluru,12.9378,77.632419,Children Education,"Kids Wear, Footwear",False,65,0.64,ngo108@example.org,75
+NGO0109,NGO Women 109,Bengaluru,13.010456,77.556888,Women Empowerment,"Women's Wear, Accessories",False,188,0.92,ngo109@example.org,75
+NGO0110,NGO Children 110,Jaipur,26.887607,75.797445,Children Education,"Kids Wear, Footwear",False,251,0.77,ngo110@example.org,75
+NGO0111,NGO Elderly 111,Jaipur,26.918263,75.830213,Elderly Care,"Winter Wear, Men's Wear",True,134,0.71,ngo111@example.org,75
+NGO0112,NGO Elderly 112,Delhi,28.73284,77.065105,Elderly Care,"Winter Wear, Men's Wear",False,226,0.81,ngo112@example.org,75
+NGO0113,NGO Women 113,Kolkata,22.536293,88.407144,Women Empowerment,"Women's Wear, Accessories",False,144,0.93,ngo113@example.org,75
+NGO0114,NGO Rural 114,Mumbai,19.026791,72.851291,Rural Development,All types,False,381,0.83,ngo114@example.org,75
+NGO0115,NGO Homeless 115,Chennai,13.058562,80.25143,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,205,0.79,ngo115@example.org,75
+NGO0116,NGO Women 116,Delhi,28.676384,77.096207,Women Empowerment,"Women's Wear, Accessories",False,99,0.9,ngo116@example.org,75
+NGO0117,NGO Children 117,Bengaluru,12.952854,77.59351,Children Education,"Kids Wear, Footwear",False,120,0.7,ngo117@example.org,75
+NGO0118,NGO Disaster 118,Delhi,28.670722,77.13539,Disaster Relief,All types,False,78,0.6,ngo118@example.org,75
+NGO0119,NGO Children 119,Delhi,28.719941,77.14715,Children Education,"Kids Wear, Footwear",False,417,0.87,ngo119@example.org,75
+NGO0120,NGO Homeless 120,Ahmedabad,23.036509,72.584731,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,303,0.65,ngo120@example.org,75
+NGO0121,NGO Elderly 121,Bengaluru,12.976158,77.569238,Elderly Care,"Winter Wear, Men's Wear",False,334,0.71,ngo121@example.org,75
+NGO0122,NGO Elderly 122,Pune,18.487497,73.865146,Elderly Care,"Winter Wear, Men's Wear",False,137,0.84,ngo122@example.org,75
+NGO0123,NGO Children 123,Mumbai,19.111922,72.83784,Children Education,"Kids Wear, Footwear",False,307,0.71,ngo123@example.org,75
+NGO0124,NGO Children 124,Pune,18.515263,73.812174,Children Education,"Kids Wear, Footwear",True,320,0.9,ngo124@example.org,75
+NGO0125,NGO Homeless 125,Delhi,28.714029,77.078333,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,207,0.69,ngo125@example.org,75
+NGO0126,NGO Women 126,Chennai,13.096563,80.256362,Women Empowerment,"Women's Wear, Accessories",False,202,0.75,ngo126@example.org,75
+NGO0127,NGO Elderly 127,Mumbai,19.104947,72.873824,Elderly Care,"Winter Wear, Men's Wear",False,347,0.71,ngo127@example.org,75
+NGO0128,NGO Women 128,Mumbai,19.054938,72.91783,Women Empowerment,"Women's Wear, Accessories",False,68,0.72,ngo128@example.org,75
+NGO0129,NGO Disaster 129,Bengaluru,12.924629,77.564124,Disaster Relief,All types,True,161,0.75,ngo129@example.org,75
+NGO0130,NGO Disaster 130,Hyderabad,17.358965,78.501131,Disaster Relief,All types,True,143,0.75,ngo130@example.org,75
+NGO0131,NGO Disaster 131,Bengaluru,12.972203,77.633562,Disaster Relief,All types,False,84,0.72,ngo131@example.org,75
+NGO0132,NGO Disaster 132,Bengaluru,12.969122,77.545564,Disaster Relief,All types,True,272,0.66,ngo132@example.org,75
+NGO0133,NGO Homeless 133,Delhi,28.666323,77.121651,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,217,0.89,ngo133@example.org,75
+NGO0134,NGO Disaster 134,Ahmedabad,23.045394,72.569663,Disaster Relief,All types,True,75,0.64,ngo134@example.org,75
+NGO0135,NGO Elderly 135,Delhi,28.722656,77.071299,Elderly Care,"Winter Wear, Men's Wear",True,495,0.73,ngo135@example.org,75
+NGO0136,NGO Women 136,Chennai,13.076969,80.25859,Women Empowerment,"Women's Wear, Accessories",True,353,0.88,ngo136@example.org,75
+NGO0137,NGO Women 137,Surat,21.142648,72.862463,Women Empowerment,"Women's Wear, Accessories",False,350,0.81,ngo137@example.org,75
+NGO0138,NGO Elderly 138,Ahmedabad,23.03541,72.564401,Elderly Care,"Winter Wear, Men's Wear",True,76,0.81,ngo138@example.org,75
+NGO0139,NGO Disaster 139,Hyderabad,17.346217,78.489927,Disaster Relief,All types,True,224,0.77,ngo139@example.org,75
+NGO0140,NGO Rural 140,Bengaluru,12.944995,77.637712,Rural Development,All types,True,224,0.66,ngo140@example.org,75
+NGO0141,NGO Elderly 141,Bengaluru,12.96256,77.596807,Elderly Care,"Winter Wear, Men's Wear",False,137,0.83,ngo141@example.org,75
+NGO0142,NGO Elderly 142,Delhi,28.747888,77.130148,Elderly Care,"Winter Wear, Men's Wear",False,367,0.86,ngo142@example.org,75
+NGO0143,NGO Elderly 143,Pune,18.514204,73.862804,Elderly Care,"Winter Wear, Men's Wear",False,471,0.87,ngo143@example.org,75
+NGO0144,NGO Disaster 144,Delhi,28.725098,77.087353,Disaster Relief,All types,True,114,0.93,ngo144@example.org,75
+NGO0145,NGO Homeless 145,Kolkata,22.527734,88.328246,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,431,0.8,ngo145@example.org,75
+NGO0146,NGO Rural 146,Kolkata,22.552524,88.367945,Rural Development,All types,False,361,0.92,ngo146@example.org,75
+NGO0147,NGO Disaster 147,Ahmedabad,23.018712,72.614023,Disaster Relief,All types,False,320,0.7,ngo147@example.org,75
+NGO0148,NGO Women 148,Ahmedabad,23.053589,72.600391,Women Empowerment,"Women's Wear, Accessories",False,267,0.77,ngo148@example.org,75
+NGO0149,NGO Children 149,Bengaluru,12.960722,77.596937,Children Education,"Kids Wear, Footwear",True,143,0.85,ngo149@example.org,75
+NGO0150,NGO Disaster 150,Delhi,28.704378,77.127699,Disaster Relief,All types,False,108,0.87,ngo150@example.org,75
+NGO0151,NGO Children 151,Pune,18.568984,73.890129,Children Education,"Kids Wear, Footwear",False,190,0.93,ngo151@example.org,75
+NGO0152,NGO Disaster 152,Pune,18.559151,73.808966,Disaster Relief,All types,False,386,0.92,ngo152@example.org,75
+NGO0153,NGO Elderly 153,Kolkata,22.567129,88.371609,Elderly Care,"Winter Wear, Men's Wear",False,211,0.65,ngo153@example.org,75
+NGO0154,NGO Elderly 154,Ahmedabad,23.03102,72.543501,Elderly Care,"Winter Wear, Men's Wear",False,95,0.82,ngo154@example.org,75
+NGO0155,NGO Rural 155,Chennai,13.086546,80.222767,Rural Development,All types,True,287,0.94,ngo155@example.org,75
+NGO0156,NGO Rural 156,Chennai,13.099594,80.240216,Rural Development,All types,True,252,0.61,ngo156@example.org,75
+NGO0157,NGO Children 157,Mumbai,19.050113,72.886149,Children Education,"Kids Wear, Footwear",False,177,0.94,ngo157@example.org,75
+NGO0158,NGO Rural 158,Kolkata,22.621076,88.344637,Rural Development,All types,True,493,0.71,ngo158@example.org,75
+NGO0159,NGO Rural 159,Delhi,28.696759,77.109897,Rural Development,All types,True,321,0.71,ngo159@example.org,75
+NGO0160,NGO Elderly 160,Kolkata,22.594318,88.318172,Elderly Care,"Winter Wear, Men's Wear",False,81,0.91,ngo160@example.org,75
+NGO0161,NGO Elderly 161,Delhi,28.700204,77.092546,Elderly Care,"Winter Wear, Men's Wear",False,406,0.88,ngo161@example.org,75
+NGO0162,NGO Homeless 162,Delhi,28.729853,77.066486,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,90,0.68,ngo162@example.org,75
+NGO0163,NGO Women 163,Bengaluru,12.981558,77.601435,Women Empowerment,"Women's Wear, Accessories",True,230,0.68,ngo163@example.org,75
+NGO0164,NGO Homeless 164,Hyderabad,17.397663,78.491155,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,96,0.73,ngo164@example.org,75
+NGO0165,NGO Homeless 165,Bengaluru,12.946231,77.609666,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,470,0.73,ngo165@example.org,75
+NGO0166,NGO Children 166,Pune,18.506107,73.885685,Children Education,"Kids Wear, Footwear",False,101,0.73,ngo166@example.org,75
+NGO0167,NGO Women 167,Delhi,28.721984,77.056759,Women Empowerment,"Women's Wear, Accessories",False,479,0.78,ngo167@example.org,75
+NGO0168,NGO Women 168,Bengaluru,12.939771,77.547417,Women Empowerment,"Women's Wear, Accessories",False,328,0.81,ngo168@example.org,75
+NGO0169,NGO Women 169,Bengaluru,12.955912,77.569537,Women Empowerment,"Women's Wear, Accessories",False,316,0.63,ngo169@example.org,75
+NGO0170,NGO Children 170,Delhi,28.7358,77.120796,Children Education,"Kids Wear, Footwear",False,67,0.91,ngo170@example.org,75
+NGO0171,NGO Elderly 171,Jaipur,26.894733,75.826464,Elderly Care,"Winter Wear, Men's Wear",False,324,0.91,ngo171@example.org,75
+NGO0172,NGO Children 172,Bengaluru,12.94816,77.642131,Children Education,"Kids Wear, Footwear",True,69,0.67,ngo172@example.org,75
+NGO0173,NGO Women 173,Mumbai,19.124013,72.828527,Women Empowerment,"Women's Wear, Accessories",False,299,0.75,ngo173@example.org,75
+NGO0174,NGO Elderly 174,Mumbai,19.111722,72.914936,Elderly Care,"Winter Wear, Men's Wear",False,374,0.69,ngo174@example.org,75
+NGO0175,NGO Disaster 175,Bengaluru,12.974487,77.602501,Disaster Relief,All types,True,212,0.88,ngo175@example.org,75
+NGO0176,NGO Homeless 176,Pune,18.527913,73.81119,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,255,0.69,ngo176@example.org,75
+NGO0177,NGO Elderly 177,Pune,18.487713,73.860358,Elderly Care,"Winter Wear, Men's Wear",False,364,0.78,ngo177@example.org,75
+NGO0178,NGO Rural 178,Kolkata,22.59804,88.34896,Rural Development,All types,False,171,0.89,ngo178@example.org,75
+NGO0179,NGO Homeless 179,Bengaluru,13.010876,77.558178,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,113,0.76,ngo179@example.org,75
+NGO0180,NGO Disaster 180,Mumbai,19.122784,72.908304,Disaster Relief,All types,False,111,0.88,ngo180@example.org,75
+NGO0181,NGO Children 181,Kolkata,22.604676,88.391466,Children Education,"Kids Wear, Footwear",False,153,0.71,ngo181@example.org,75
+NGO0182,NGO Disaster 182,Pune,18.546401,73.896815,Disaster Relief,All types,False,302,0.67,ngo182@example.org,75
+NGO0183,NGO Women 183,Bengaluru,12.996341,77.64078,Women Empowerment,"Women's Wear, Accessories",False,424,0.68,ngo183@example.org,75
+NGO0184,NGO Elderly 184,Delhi,28.70159,77.053892,Elderly Care,"Winter Wear, Men's Wear",True,98,0.68,ngo184@example.org,75
+NGO0185,NGO Elderly 185,Pune,18.532669,73.817972,Elderly Care,"Winter Wear, Men's Wear",False,148,0.78,ngo185@example.org,75
+NGO0186,NGO Women 186,Jaipur,26.881029,75.750072,Women Empowerment,"Women's Wear, Accessories",False,228,0.69,ngo186@example.org,75
+NGO0187,NGO Women 187,Jaipur,26.954783,75.744082,Women Empowerment,"Women's Wear, Accessories",True,491,0.9,ngo187@example.org,75
+NGO0188,NGO Homeless 188,Pune,18.542816,73.84231,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,118,0.6,ngo188@example.org,75
+NGO0189,NGO Rural 189,Mumbai,19.03166,72.896714,Rural Development,All types,False,352,0.89,ngo189@example.org,75
+NGO0190,NGO Women 190,Mumbai,19.047509,72.854772,Women Empowerment,"Women's Wear, Accessories",True,480,0.79,ngo190@example.org,75
+NGO0191,NGO Children 191,Mumbai,19.074272,72.889313,Children Education,"Kids Wear, Footwear",False,374,0.92,ngo191@example.org,75
+NGO0192,NGO Disaster 192,Chennai,13.087099,80.267262,Disaster Relief,All types,False,423,0.86,ngo192@example.org,75
+NGO0193,NGO Disaster 193,Mumbai,19.064977,72.853276,Disaster Relief,All types,False,258,0.67,ngo193@example.org,75
+NGO0194,NGO Women 194,Delhi,28.753286,77.136698,Women Empowerment,"Women's Wear, Accessories",False,144,0.7,ngo194@example.org,75
+NGO0195,NGO Women 195,Kolkata,22.59199,88.381245,Women Empowerment,"Women's Wear, Accessories",True,264,0.63,ngo195@example.org,75
+NGO0196,NGO Children 196,Mumbai,19.056548,72.880284,Children Education,"Kids Wear, Footwear",True,402,0.73,ngo196@example.org,75
+NGO0197,NGO Rural 197,Bengaluru,12.936531,77.584536,Rural Development,All types,False,384,0.66,ngo197@example.org,75
+NGO0198,NGO Women 198,Chennai,13.03588,80.254222,Women Empowerment,"Women's Wear, Accessories",False,250,0.91,ngo198@example.org,75
+NGO0199,NGO Homeless 199,Hyderabad,17.342008,78.472739,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,328,0.8,ngo199@example.org,75
+NGO0200,NGO Children 200,Delhi,28.70168,77.083799,Children Education,"Kids Wear, Footwear",False,99,0.77,ngo200@example.org,75
+NGO0201,NGO Children 201,Delhi,28.733894,77.14907,Children Education,"Kids Wear, Footwear",False,458,0.76,ngo201@example.org,75
+NGO0202,NGO Homeless 202,Mumbai,19.101264,72.831161,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,137,0.66,ngo202@example.org,75
+NGO0203,NGO Rural 203,Delhi,28.7354,77.109137,Rural Development,All types,True,310,0.77,ngo203@example.org,75
+NGO0204,NGO Children 204,Hyderabad,17.384561,78.455264,Children Education,"Kids Wear, Footwear",False,461,0.89,ngo204@example.org,75
+NGO0205,NGO Homeless 205,Kolkata,22.593595,88.341833,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,455,0.64,ngo205@example.org,75
+NGO0206,NGO Children 206,Mumbai,19.042718,72.908474,Children Education,"Kids Wear, Footwear",False,292,0.89,ngo206@example.org,75
+NGO0207,NGO Women 207,Delhi,28.678588,77.057879,Women Empowerment,"Women's Wear, Accessories",False,472,0.68,ngo207@example.org,75
+NGO0208,NGO Women 208,Delhi,28.732752,77.142739,Women Empowerment,"Women's Wear, Accessories",False,234,0.65,ngo208@example.org,75
+NGO0209,NGO Disaster 209,Mumbai,19.060232,72.849167,Disaster Relief,All types,False,188,0.86,ngo209@example.org,75
+NGO0210,NGO Children 210,Jaipur,26.953786,75.803732,Children Education,"Kids Wear, Footwear",False,348,0.7,ngo210@example.org,75
+NGO0211,NGO Disaster 211,Chennai,13.080146,80.238729,Disaster Relief,All types,False,61,0.67,ngo211@example.org,75
+NGO0212,NGO Women 212,Bengaluru,12.984151,77.576181,Women Empowerment,"Women's Wear, Accessories",True,116,0.76,ngo212@example.org,75
+NGO0213,NGO Disaster 213,Hyderabad,17.395268,78.466711,Disaster Relief,All types,False,62,0.94,ngo213@example.org,75
+NGO0214,NGO Disaster 214,Delhi,28.688595,77.121704,Disaster Relief,All types,False,326,0.72,ngo214@example.org,75
+NGO0215,NGO Children 215,Mumbai,19.036577,72.885197,Children Education,"Kids Wear, Footwear",True,213,0.93,ngo215@example.org,75
+NGO0216,NGO Rural 216,Mumbai,19.068987,72.915784,Rural Development,All types,False,196,0.86,ngo216@example.org,75
+NGO0217,NGO Disaster 217,Delhi,28.7097,77.131616,Disaster Relief,All types,False,395,0.75,ngo217@example.org,75
+NGO0218,NGO Disaster 218,Bengaluru,13.021513,77.635385,Disaster Relief,All types,False,319,0.69,ngo218@example.org,75
+NGO0219,NGO Rural 219,Delhi,28.705217,77.075572,Rural Development,All types,True,335,0.94,ngo219@example.org,75
+NGO0220,NGO Disaster 220,Pune,18.51947,73.868671,Disaster Relief,All types,False,116,0.63,ngo220@example.org,75
+NGO0221,NGO Disaster 221,Mumbai,19.066366,72.901398,Disaster Relief,All types,False,471,0.87,ngo221@example.org,75
+NGO0222,NGO Women 222,Delhi,28.750295,77.115033,Women Empowerment,"Women's Wear, Accessories",False,452,0.71,ngo222@example.org,75
+NGO0223,NGO Homeless 223,Delhi,28.681002,77.096205,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,70,0.78,ngo223@example.org,75
+NGO0224,NGO Elderly 224,Delhi,28.750646,77.093522,Elderly Care,"Winter Wear, Men's Wear",True,271,0.67,ngo224@example.org,75
+NGO0225,NGO Rural 225,Mumbai,19.125787,72.84763,Rural Development,All types,False,301,0.84,ngo225@example.org,75
+NGO0226,NGO Women 226,Kolkata,22.558528,88.346785,Women Empowerment,"Women's Wear, Accessories",True,439,0.68,ngo226@example.org,75
+NGO0227,NGO Elderly 227,Mumbai,19.080854,72.86539,Elderly Care,"Winter Wear, Men's Wear",False,430,0.85,ngo227@example.org,75
+NGO0228,NGO Children 228,Bengaluru,12.980974,77.605819,Children Education,"Kids Wear, Footwear",True,314,0.78,ngo228@example.org,75
+NGO0229,NGO Children 229,Mumbai,19.037911,72.907532,Children Education,"Kids Wear, Footwear",True,346,0.93,ngo229@example.org,75
+NGO0230,NGO Women 230,Delhi,28.729397,77.115278,Women Empowerment,"Women's Wear, Accessories",False,121,0.84,ngo230@example.org,75
+NGO0231,NGO Disaster 231,Jaipur,26.936616,75.795497,Disaster Relief,All types,False,445,0.8,ngo231@example.org,75
+NGO0232,NGO Disaster 232,Chennai,13.094478,80.25952,Disaster Relief,All types,False,457,0.86,ngo232@example.org,75
+NGO0233,NGO Disaster 233,Bengaluru,13.005865,77.55282,Disaster Relief,All types,False,267,0.77,ngo233@example.org,75
+NGO0234,NGO Disaster 234,Delhi,28.658163,77.054806,Disaster Relief,All types,False,467,0.89,ngo234@example.org,75
+NGO0235,NGO Children 235,Hyderabad,17.359904,78.448574,Children Education,"Kids Wear, Footwear",False,420,0.89,ngo235@example.org,75
+NGO0236,NGO Elderly 236,Mumbai,19.035612,72.915938,Elderly Care,"Winter Wear, Men's Wear",False,97,0.83,ngo236@example.org,75
+NGO0237,NGO Disaster 237,Hyderabad,17.367973,78.450852,Disaster Relief,All types,True,462,0.71,ngo237@example.org,75
+NGO0238,NGO Children 238,Mumbai,19.051977,72.912486,Children Education,"Kids Wear, Footwear",False,85,0.73,ngo238@example.org,75
+NGO0239,NGO Homeless 239,Chennai,13.060473,80.261812,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,214,0.73,ngo239@example.org,75
+NGO0240,NGO Homeless 240,Delhi,28.743157,77.079834,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,271,0.75,ngo240@example.org,75
+NGO0241,NGO Rural 241,Mumbai,19.081054,72.8544,Rural Development,All types,False,419,0.61,ngo241@example.org,75
+NGO0242,NGO Disaster 242,Hyderabad,17.388907,78.44586,Disaster Relief,All types,False,127,0.92,ngo242@example.org,75
+NGO0243,NGO Children 243,Bengaluru,12.981246,77.621306,Children Education,"Kids Wear, Footwear",False,126,0.94,ngo243@example.org,75
+NGO0244,NGO Children 244,Mumbai,19.079088,72.87778,Children Education,"Kids Wear, Footwear",False,304,0.69,ngo244@example.org,75
+NGO0245,NGO Elderly 245,Ahmedabad,23.019257,72.600367,Elderly Care,"Winter Wear, Men's Wear",False,376,0.94,ngo245@example.org,75
+NGO0246,NGO Homeless 246,Delhi,28.749203,77.074727,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,58,0.6,ngo246@example.org,75
+NGO0247,NGO Women 247,Mumbai,19.03547,72.904859,Women Empowerment,"Women's Wear, Accessories",True,332,0.85,ngo247@example.org,75
+NGO0248,NGO Rural 248,Bengaluru,12.990262,77.638427,Rural Development,All types,False,140,0.88,ngo248@example.org,75
+NGO0249,NGO Homeless 249,Delhi,28.65589,77.119056,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,108,0.91,ngo249@example.org,75
+NGO0250,NGO Homeless 250,Bengaluru,12.938889,77.550138,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,259,0.61,ngo250@example.org,75
+NGO0251,NGO Children 251,Mumbai,19.05023,72.842032,Children Education,"Kids Wear, Footwear",False,65,0.63,ngo251@example.org,75
+NGO0252,NGO Rural 252,Delhi,28.744508,77.10928,Rural Development,All types,True,268,0.62,ngo252@example.org,75
+NGO0253,NGO Disaster 253,Mumbai,19.091486,72.854149,Disaster Relief,All types,False,416,0.73,ngo253@example.org,75
+NGO0254,NGO Rural 254,Chennai,13.076223,80.25321,Rural Development,All types,False,436,0.69,ngo254@example.org,75
+NGO0255,NGO Women 255,Hyderabad,17.432065,78.467246,Women Empowerment,"Women's Wear, Accessories",False,123,0.94,ngo255@example.org,75
+NGO0256,NGO Children 256,Surat,21.205413,72.811085,Children Education,"Kids Wear, Footwear",False,104,0.82,ngo256@example.org,75
+NGO0257,NGO Rural 257,Delhi,28.690695,77.124418,Rural Development,All types,False,154,0.94,ngo257@example.org,75
+NGO0258,NGO Disaster 258,Bengaluru,12.93649,77.568088,Disaster Relief,All types,False,265,0.63,ngo258@example.org,75
+NGO0259,NGO Children 259,Bengaluru,12.937918,77.576385,Children Education,"Kids Wear, Footwear",False,433,0.84,ngo259@example.org,75
+NGO0260,NGO Children 260,Hyderabad,17.353327,78.482006,Children Education,"Kids Wear, Footwear",False,310,0.74,ngo260@example.org,75
+NGO0261,NGO Rural 261,Hyderabad,17.373743,78.471808,Rural Development,All types,False,450,0.74,ngo261@example.org,75
+NGO0262,NGO Disaster 262,Kolkata,22.550206,88.321559,Disaster Relief,All types,False,500,0.75,ngo262@example.org,75
+NGO0263,NGO Elderly 263,Kolkata,22.5668,88.399526,Elderly Care,"Winter Wear, Men's Wear",False,454,0.82,ngo263@example.org,75
+NGO0264,NGO Children 264,Bengaluru,12.929652,77.560564,Children Education,"Kids Wear, Footwear",True,377,0.67,ngo264@example.org,75
+NGO0265,NGO Disaster 265,Mumbai,19.123497,72.838585,Disaster Relief,All types,False,205,0.78,ngo265@example.org,75
+NGO0266,NGO Elderly 266,Surat,21.217555,72.793655,Elderly Care,"Winter Wear, Men's Wear",False,492,0.7,ngo266@example.org,75
+NGO0267,NGO Rural 267,Delhi,28.684824,77.094428,Rural Development,All types,False,435,0.73,ngo267@example.org,75
+NGO0268,NGO Rural 268,Jaipur,26.877482,75.770928,Rural Development,All types,False,271,0.9,ngo268@example.org,75
+NGO0269,NGO Children 269,Mumbai,19.051678,72.906265,Children Education,"Kids Wear, Footwear",False,254,0.83,ngo269@example.org,75
+NGO0270,NGO Children 270,Chennai,13.096982,80.229494,Children Education,"Kids Wear, Footwear",False,101,0.83,ngo270@example.org,75
+NGO0271,NGO Women 271,Chennai,13.08737,80.228731,Women Empowerment,"Women's Wear, Accessories",False,287,0.69,ngo271@example.org,75
+NGO0272,NGO Elderly 272,Delhi,28.676635,77.120217,Elderly Care,"Winter Wear, Men's Wear",False,306,0.91,ngo272@example.org,75
+NGO0273,NGO Homeless 273,Hyderabad,17.387824,78.464423,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,324,0.61,ngo273@example.org,75
+NGO0274,NGO Children 274,Bengaluru,13.008217,77.546429,Children Education,"Kids Wear, Footwear",True,468,0.64,ngo274@example.org,75
+NGO0275,NGO Elderly 275,Mumbai,19.0421,72.915516,Elderly Care,"Winter Wear, Men's Wear",False,150,0.83,ngo275@example.org,75
+NGO0276,NGO Children 276,Mumbai,19.098621,72.852413,Children Education,"Kids Wear, Footwear",True,110,0.85,ngo276@example.org,75
+NGO0277,NGO Children 277,Delhi,28.728497,77.105289,Children Education,"Kids Wear, Footwear",False,471,0.93,ngo277@example.org,75
+NGO0278,NGO Disaster 278,Mumbai,19.097353,72.891886,Disaster Relief,All types,True,247,0.62,ngo278@example.org,75
+NGO0279,NGO Children 279,Delhi,28.660348,77.122387,Children Education,"Kids Wear, Footwear",True,354,0.76,ngo279@example.org,75
+NGO0280,NGO Children 280,Mumbai,19.106759,72.830943,Children Education,"Kids Wear, Footwear",False,157,0.7,ngo280@example.org,75
+NGO0281,NGO Homeless 281,Kolkata,22.54667,88.388921,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,432,0.63,ngo281@example.org,75
+NGO0282,NGO Rural 282,Chennai,13.088178,80.225259,Rural Development,All types,False,103,0.91,ngo282@example.org,75
+NGO0283,NGO Elderly 283,Ahmedabad,22.988059,72.620169,Elderly Care,"Winter Wear, Men's Wear",True,400,0.85,ngo283@example.org,75
+NGO0284,NGO Elderly 284,Hyderabad,17.360837,78.494883,Elderly Care,"Winter Wear, Men's Wear",False,482,0.94,ngo284@example.org,75
+NGO0285,NGO Children 285,Kolkata,22.555466,88.350366,Children Education,"Kids Wear, Footwear",False,371,0.64,ngo285@example.org,75
+NGO0286,NGO Women 286,Jaipur,26.896473,75.77107,Women Empowerment,"Women's Wear, Accessories",False,411,0.64,ngo286@example.org,75
+NGO0287,NGO Homeless 287,Ahmedabad,23.028311,72.589,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,317,0.86,ngo287@example.org,75
+NGO0288,NGO Rural 288,Mumbai,19.072798,72.903745,Rural Development,All types,False,166,0.76,ngo288@example.org,75
+NGO0289,NGO Children 289,Mumbai,19.028749,72.896726,Children Education,"Kids Wear, Footwear",False,448,0.82,ngo289@example.org,75
+NGO0290,NGO Disaster 290,Mumbai,19.04628,72.887272,Disaster Relief,All types,False,374,0.95,ngo290@example.org,75
+NGO0291,NGO Homeless 291,Bengaluru,12.999089,77.598147,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,223,0.89,ngo291@example.org,75
+NGO0292,NGO Children 292,Bengaluru,12.963523,77.630929,Children Education,"Kids Wear, Footwear",True,143,0.88,ngo292@example.org,75
+NGO0293,NGO Elderly 293,Hyderabad,17.406632,78.473334,Elderly Care,"Winter Wear, Men's Wear",True,288,0.9,ngo293@example.org,75
+NGO0294,NGO Elderly 294,Mumbai,19.091133,72.894613,Elderly Care,"Winter Wear, Men's Wear",False,149,0.88,ngo294@example.org,75
+NGO0295,NGO Children 295,Delhi,28.693626,77.071122,Children Education,"Kids Wear, Footwear",False,250,0.8,ngo295@example.org,75
+NGO0296,NGO Homeless 296,Pune,18.546742,73.861849,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,182,0.74,ngo296@example.org,75
+NGO0297,NGO Elderly 297,Mumbai,19.106085,72.895924,Elderly Care,"Winter Wear, Men's Wear",True,83,0.75,ngo297@example.org,75
+NGO0298,NGO Elderly 298,Delhi,28.73907,77.143939,Elderly Care,"Winter Wear, Men's Wear",False,406,0.86,ngo298@example.org,75
+NGO0299,NGO Homeless 299,Mumbai,19.031492,72.839244,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,202,0.89,ngo299@example.org,75
+NGO0300,NGO Women 300,Mumbai,19.074034,72.828665,Women Empowerment,"Women's Wear, Accessories",False,236,0.62,ngo300@example.org,75
+NGO0301,NGO Rural 301,Ahmedabad,22.988154,72.606253,Rural Development,All types,False,433,0.84,ngo301@example.org,75
+NGO0302,NGO Disaster 302,Pune,18.499256,73.892228,Disaster Relief,All types,True,83,0.68,ngo302@example.org,75
+NGO0303,NGO Children 303,Delhi,28.664814,77.095009,Children Education,"Kids Wear, Footwear",False,466,0.61,ngo303@example.org,75
+NGO0304,NGO Homeless 304,Mumbai,19.036093,72.918859,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,293,0.85,ngo304@example.org,75
+NGO0305,NGO Women 305,Hyderabad,17.375428,78.516119,Women Empowerment,"Women's Wear, Accessories",False,391,0.9,ngo305@example.org,75
+NGO0306,NGO Elderly 306,Delhi,28.709095,77.061847,Elderly Care,"Winter Wear, Men's Wear",False,58,0.89,ngo306@example.org,75
+NGO0307,NGO Women 307,Ahmedabad,23.014561,72.598271,Women Empowerment,"Women's Wear, Accessories",False,301,0.78,ngo307@example.org,75
+NGO0308,NGO Disaster 308,Kolkata,22.534828,88.361146,Disaster Relief,All types,True,222,0.71,ngo308@example.org,75
+NGO0309,NGO Homeless 309,Mumbai,19.103043,72.918283,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,218,0.88,ngo309@example.org,75
+NGO0310,NGO Disaster 310,Delhi,28.691312,77.108779,Disaster Relief,All types,False,100,0.72,ngo310@example.org,75
+NGO0311,NGO Rural 311,Mumbai,19.111408,72.891649,Rural Development,All types,False,465,0.81,ngo311@example.org,75
+NGO0312,NGO Elderly 312,Delhi,28.692435,77.067851,Elderly Care,"Winter Wear, Men's Wear",False,272,0.87,ngo312@example.org,75
+NGO0313,NGO Women 313,Chennai,13.074985,80.266958,Women Empowerment,"Women's Wear, Accessories",False,68,0.73,ngo313@example.org,75
+NGO0314,NGO Disaster 314,Mumbai,19.072069,72.833815,Disaster Relief,All types,False,287,0.64,ngo314@example.org,75
+NGO0315,NGO Rural 315,Chennai,13.10817,80.268768,Rural Development,All types,True,435,0.68,ngo315@example.org,75
+NGO0316,NGO Women 316,Delhi,28.702768,77.08319,Women Empowerment,"Women's Wear, Accessories",False,321,0.61,ngo316@example.org,75
+NGO0317,NGO Elderly 317,Ahmedabad,23.002151,72.52869,Elderly Care,"Winter Wear, Men's Wear",False,307,0.9,ngo317@example.org,75
+NGO0318,NGO Women 318,Hyderabad,17.373332,78.4529,Women Empowerment,"Women's Wear, Accessories",False,220,0.69,ngo318@example.org,75
+NGO0319,NGO Homeless 319,Hyderabad,17.375283,78.45145,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,145,0.79,ngo319@example.org,75
+NGO0320,NGO Women 320,Surat,21.165069,72.823961,Women Empowerment,"Women's Wear, Accessories",False,55,0.76,ngo320@example.org,75
+NGO0321,NGO Rural 321,Hyderabad,17.349382,78.53126,Rural Development,All types,False,155,0.93,ngo321@example.org,75
+NGO0322,NGO Homeless 322,Hyderabad,17.43169,78.476789,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,404,0.65,ngo322@example.org,75
+NGO0323,NGO Homeless 323,Delhi,28.707001,77.124704,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,360,0.62,ngo323@example.org,75
+NGO0324,NGO Homeless 324,Chennai,13.084401,80.314313,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,352,0.84,ngo324@example.org,75
+NGO0325,NGO Women 325,Mumbai,19.059461,72.864752,Women Empowerment,"Women's Wear, Accessories",True,182,0.6,ngo325@example.org,75
+NGO0326,NGO Women 326,Hyderabad,17.429359,78.497098,Women Empowerment,"Women's Wear, Accessories",False,292,0.67,ngo326@example.org,75
+NGO0327,NGO Homeless 327,Chennai,13.128399,80.253437,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,269,0.93,ngo327@example.org,75
+NGO0328,NGO Homeless 328,Delhi,28.722281,77.126287,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,280,0.62,ngo328@example.org,75
+NGO0329,NGO Elderly 329,Bengaluru,13.009784,77.594581,Elderly Care,"Winter Wear, Men's Wear",False,226,0.69,ngo329@example.org,75
+NGO0330,NGO Women 330,Kolkata,22.58127,88.400166,Women Empowerment,"Women's Wear, Accessories",False,475,0.87,ngo330@example.org,75
+NGO0331,NGO Homeless 331,Mumbai,19.044093,72.848706,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,433,0.89,ngo331@example.org,75
+NGO0332,NGO Women 332,Hyderabad,17.353026,78.507317,Women Empowerment,"Women's Wear, Accessories",True,379,0.65,ngo332@example.org,75
+NGO0333,NGO Elderly 333,Mumbai,19.033501,72.874179,Elderly Care,"Winter Wear, Men's Wear",False,383,0.91,ngo333@example.org,75
+NGO0334,NGO Women 334,Pune,18.567271,73.817361,Women Empowerment,"Women's Wear, Accessories",False,79,0.87,ngo334@example.org,75
+NGO0335,NGO Elderly 335,Pune,18.52472,73.818102,Elderly Care,"Winter Wear, Men's Wear",False,478,0.79,ngo335@example.org,75
+NGO0336,NGO Homeless 336,Mumbai,19.043572,72.838057,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,346,0.6,ngo336@example.org,75
+NGO0337,NGO Disaster 337,Mumbai,19.115849,72.902388,Disaster Relief,All types,True,456,0.79,ngo337@example.org,75
+NGO0338,NGO Homeless 338,Surat,21.209248,72.799538,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,187,0.77,ngo338@example.org,75
+NGO0339,NGO Homeless 339,Mumbai,19.080637,72.914535,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,287,0.91,ngo339@example.org,75
+NGO0340,NGO Women 340,Ahmedabad,23.053122,72.529439,Women Empowerment,"Women's Wear, Accessories",True,278,0.91,ngo340@example.org,75
+NGO0341,NGO Elderly 341,Ahmedabad,23.041025,72.615536,Elderly Care,"Winter Wear, Men's Wear",False,348,0.67,ngo341@example.org,75
+NGO0342,NGO Elderly 342,Bengaluru,12.967484,77.569981,Elderly Care,"Winter Wear, Men's Wear",True,242,0.8,ngo342@example.org,75
+NGO0343,NGO Homeless 343,Kolkata,22.566657,88.37022,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,271,0.94,ngo343@example.org,75
+NGO0344,NGO Homeless 344,Bengaluru,13.01739,77.547851,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,437,0.93,ngo344@example.org,75
+NGO0345,NGO Disaster 345,Mumbai,19.114098,72.889278,Disaster Relief,All types,False,468,0.95,ngo345@example.org,75
+NGO0346,NGO Women 346,Mumbai,19.086362,72.901516,Women Empowerment,"Women's Wear, Accessories",False,115,0.76,ngo346@example.org,75
+NGO0347,NGO Children 347,Surat,21.169526,72.835192,Children Education,"Kids Wear, Footwear",True,131,0.91,ngo347@example.org,75
+NGO0348,NGO Elderly 348,Kolkata,22.544821,88.379122,Elderly Care,"Winter Wear, Men's Wear",False,445,0.8,ngo348@example.org,75
+NGO0349,NGO Homeless 349,Mumbai,19.109045,72.899553,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,252,0.83,ngo349@example.org,75
+NGO0350,NGO Elderly 350,Bengaluru,12.93822,77.609052,Elderly Care,"Winter Wear, Men's Wear",False,155,0.81,ngo350@example.org,75
+NGO0351,NGO Homeless 351,Pune,18.53306,73.844063,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,420,0.6,ngo351@example.org,75
+NGO0352,NGO Elderly 352,Delhi,28.654379,77.127318,Elderly Care,"Winter Wear, Men's Wear",True,435,0.74,ngo352@example.org,75
+NGO0353,NGO Children 353,Mumbai,19.080564,72.894211,Children Education,"Kids Wear, Footwear",False,339,0.94,ngo353@example.org,75
+NGO0354,NGO Elderly 354,Pune,18.48699,73.883865,Elderly Care,"Winter Wear, Men's Wear",False,447,0.89,ngo354@example.org,75
+NGO0355,NGO Elderly 355,Ahmedabad,22.99632,72.524657,Elderly Care,"Winter Wear, Men's Wear",True,327,0.8,ngo355@example.org,75
+NGO0356,NGO Women 356,Pune,18.487735,73.822388,Women Empowerment,"Women's Wear, Accessories",True,176,0.67,ngo356@example.org,75
+NGO0357,NGO Women 357,Jaipur,26.886868,75.744024,Women Empowerment,"Women's Wear, Accessories",False,464,0.73,ngo357@example.org,75
+NGO0358,NGO Rural 358,Delhi,28.751443,77.063852,Rural Development,All types,False,165,0.95,ngo358@example.org,75
+NGO0359,NGO Women 359,Delhi,28.725891,77.142246,Women Empowerment,"Women's Wear, Accessories",False,487,0.74,ngo359@example.org,75
+NGO0360,NGO Women 360,Hyderabad,17.355815,78.456064,Women Empowerment,"Women's Wear, Accessories",False,148,0.91,ngo360@example.org,75
+NGO0361,NGO Homeless 361,Kolkata,22.562011,88.330221,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,117,0.6,ngo361@example.org,75
+NGO0362,NGO Rural 362,Delhi,28.728762,77.106337,Rural Development,All types,False,168,0.64,ngo362@example.org,75
+NGO0363,NGO Children 363,Chennai,13.041747,80.30867,Children Education,"Kids Wear, Footwear",False,277,0.87,ngo363@example.org,75
+NGO0364,NGO Women 364,Delhi,28.741557,77.112614,Women Empowerment,"Women's Wear, Accessories",False,78,0.64,ngo364@example.org,75
+NGO0365,NGO Homeless 365,Jaipur,26.902549,75.744825,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,208,0.81,ngo365@example.org,75
+NGO0366,NGO Disaster 366,Mumbai,19.116641,72.866093,Disaster Relief,All types,True,446,0.9,ngo366@example.org,75
+NGO0367,NGO Children 367,Pune,18.560569,73.84089,Children Education,"Kids Wear, Footwear",False,350,0.65,ngo367@example.org,75
+NGO0368,NGO Elderly 368,Bengaluru,12.991899,77.554587,Elderly Care,"Winter Wear, Men's Wear",False,168,0.85,ngo368@example.org,75
+NGO0369,NGO Elderly 369,Jaipur,26.947897,75.764707,Elderly Care,"Winter Wear, Men's Wear",False,127,0.83,ngo369@example.org,75
+NGO0370,NGO Rural 370,Delhi,28.664389,77.143071,Rural Development,All types,False,63,0.91,ngo370@example.org,75
+NGO0371,NGO Children 371,Mumbai,19.106865,72.850557,Children Education,"Kids Wear, Footwear",False,342,0.81,ngo371@example.org,75
+NGO0372,NGO Women 372,Delhi,28.667843,77.058608,Women Empowerment,"Women's Wear, Accessories",False,411,0.64,ngo372@example.org,75
+NGO0373,NGO Elderly 373,Hyderabad,17.421006,78.472163,Elderly Care,"Winter Wear, Men's Wear",False,98,0.69,ngo373@example.org,75
+NGO0374,NGO Rural 374,Mumbai,19.089985,72.857651,Rural Development,All types,False,480,0.62,ngo374@example.org,75
+NGO0375,NGO Elderly 375,Bengaluru,12.980728,77.608371,Elderly Care,"Winter Wear, Men's Wear",False,288,0.81,ngo375@example.org,75
+NGO0376,NGO Women 376,Delhi,28.728225,77.138497,Women Empowerment,"Women's Wear, Accessories",False,97,0.78,ngo376@example.org,75
+NGO0377,NGO Elderly 377,Hyderabad,17.360437,78.51649,Elderly Care,"Winter Wear, Men's Wear",True,408,0.93,ngo377@example.org,75
+NGO0378,NGO Elderly 378,Pune,18.543995,73.903613,Elderly Care,"Winter Wear, Men's Wear",False,445,0.79,ngo378@example.org,75
+NGO0379,NGO Disaster 379,Mumbai,19.075271,72.86592,Disaster Relief,All types,False,151,0.94,ngo379@example.org,75
+NGO0380,NGO Homeless 380,Chennai,13.091591,80.319318,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",True,231,0.63,ngo380@example.org,75
+NGO0381,NGO Elderly 381,Mumbai,19.072727,72.88199,Elderly Care,"Winter Wear, Men's Wear",False,271,0.7,ngo381@example.org,75
+NGO0382,NGO Disaster 382,Pune,18.548961,73.842628,Disaster Relief,All types,False,321,0.67,ngo382@example.org,75
+NGO0383,NGO Homeless 383,Surat,21.152264,72.824824,Homeless Shelter,"Winter Wear, Men's Wear, Women's Wear",False,119,0.74,ngo383@example.org,75
+NGO0384,NGO Women 384,Mumbai,19.076792,72.86749,Women Empowerment,"Women's Wear, Accessories",False,387,0.8,ngo384@example.org,75
+NGO0385,NGO Rural 385,Delhi,28.746498,77.138726,Rural Development,All types,False,497,0.71,ngo385@example.org,75
+NGO0386,NGO Women 386,Mumbai,19.08456,72.844577,Women Empowerment,"Women's Wear, Accessories",False,138,0.66,ngo386@example.org,75
+NGO0387,NGO Rural 387,Mumbai,19.036629,72.846035,Rural Development,All types,False,457,0.83,ngo387@example.org,75
+NGO0388,NGO Women 388,Mumbai,19.114292,72.857688,Women Empowerment,"Women's Wear, Accessories",False,332,0.74,ngo388@example.org,75
+NGO0389,NGO Women 389,Ahmedabad,23.037112,72.530464,Women Empowerment,"Women's Wear, Accessories",False,455,0.66,ngo389@example.org,75
+NGO0390,NGO Children 390,Mumbai,19.082973,72.8452,Children Education,"Kids Wear, Footwear",False,453,0.6,ngo390@example.org,75
+NGO0391,NGO Women 391,Delhi,28.737248,77.096838,Women Empowerment,"Women's Wear, Accessories",False,259,0.74,ngo391@example.org,75
+NGO0392,NGO Children 392,Ahmedabad,23.061686,72.604203,Children Education,"Kids Wear, Footwear",False,347,0.73,ngo392@example.org,75
+NGO0393,NGO Children 393,Mumbai,19.073721,72.856204,Children Education,"Kids Wear, Footwear",True,59,0.85,ngo393@example.org,75
+NGO0394,NGO Women 394,Mumbai,19.102026,72.885192,Women Empowerment,"Women's Wear, Accessories",False,239,0.87,ngo394@example.org,75
+NGO0395,NGO Children 395,Mumbai,19.055788,72.874068,Children Education,"Kids Wear, Footwear",True,353,0.68,ngo395@example.org,75
+NGO0396,NGO Disaster 396,Hyderabad,17.376987,78.438827,Disaster Relief,All types,True,123,0.76,ngo396@example.org,75
+NGO0397,NGO Rural 397,Delhi,28.682199,77.06359,Rural Development,All types,True,433,0.75,ngo397@example.org,75
+NGO0398,NGO Elderly 398,Bengaluru,12.965193,77.55758,Elderly Care,"Winter Wear, Men's Wear",False,161,0.85,ngo398@example.org,75
+NGO0399,NGO Women 399,Mumbai,19.083244,72.850527,Women Empowerment,"Women's Wear, Accessories",True,152,0.69,ngo399@example.org,75
+NGO0400,NGO Women 400,Bengaluru,12.964161,77.559261,Women Empowerment,"Women's Wear, Accessories",False,394,0.64,ngo400@example.org,75

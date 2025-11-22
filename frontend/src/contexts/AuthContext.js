@@ -146,70 +146,19 @@ const login = async (email, password) => {
     }
   };
 
-  // --- Notification functions ---
-  const loadNotifications = async () => {
-    if (!user) return; 
-    try {
-      const response = await api.get(API_ENDPOINTS.NOTIFICATIONS.BASE); 
-      if (response.success) {
-        setNotifications(response.data.notifications || []);
-      }
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-      setNotifications([]);
-    }
-  };
-  
-  useEffect(() => {
-    if(user) {
-      loadNotifications();
-    }
-  }, [user]); 
 
-  const updateNotificationRead = async (notificationId) => {
-    try {
-      const response = await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(notificationId));
-      if (response.success) {
-        setNotifications(notifications.map(n =>
-          n._id === notificationId ? { ...n, status: 'read', 'delivery.inApp.readAt': new Date() } : n
-        ));
-      }
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-    }
-  };
-
-  const markAllNotificationsRead = async () => {
-    try {
-      const response = await api.patch(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
-      if (response.success) {
-        setNotifications(notifications.map(n => ({ ...n, status: 'read', 'delivery.inApp.readAt': new Date() })));
-      }
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-    }
-  };
-
-  const refreshNotifications = async () => {
-    if (user) {
-      await loadNotifications();
-    }
-  };
-  // --- End of Notification functions ---
 
   // Pass all values to children
   const value = {
     user,
-    notifications,
+   
     login,
     signup,
     logout,
     handleOAuthCallback,
     updateUserProfile,
     updateUserContext,
-    updateNotificationRead,
-    markAllNotificationsRead,
-    refreshNotifications,
+    
     loading,
     isAuthenticated: authService.isAuthenticated()
   };
