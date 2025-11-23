@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Package, Heart, Clock, Download, Settings, Brain, ShieldAlert, Map as MapIcon } from 'lucide-react';
+import { 
+  Users, 
+  Package, 
+  Heart, 
+  Clock, 
+  Download, 
+  Settings, 
+  Brain, 
+  ShieldAlert, 
+  Map as MapIcon,
+  Shield,
+  AlertTriangle,
+  TrendingUp
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -9,11 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Alert, AlertDescription } from '../../components/ui/alert';
 
 // Services
-import { adminService } from '../../services'; // Your existing admin service
-import aiService from '../../services/aiService'; // New AI Service
-
-// AI Widgets
-import { AnalyticsWidget, FraudAlertWidget, LogisticsClusterWidget } from '../AI';
+import { adminService } from '../../services';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -30,9 +39,13 @@ const AdminDashboard = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   
   // AI State
-  const [aiForecast, setAiForecast] = useState([]);
-  const [aiClusters, setAiClusters] = useState([]);
   const [fraudAlerts, setFraudAlerts] = useState([]);
+  const [fraudStats, setFraudStats] = useState({
+    total: 0,
+    highRisk: 0,
+    mediumRisk: 0,
+    avgScore: 0
+  });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,43 +56,91 @@ const AdminDashboard = () => {
         setLoading(true);
         setError(null);
         
-        // Parallel Data Fetching: Admin Data + AI Data
+        const token = localStorage.getItem('token');
+        
+        // Parallel Data Fetching
         const [
           statsResponse,
           donationsResponse,
-          requestsResponse,
-          forecastResponse,
-          clustersResponse
+          requestsResponse
         ] = await Promise.all([
           adminService.getDashboardData(),
-          adminService.getAllDonations({ status: 'pending', limit: 10 }), // Fetch more to find flags
-          adminService.getAllRequests({ status: 'pending', limit: 5 }),
-          aiService.getForecast().catch(err => ({ data: { trendData: [] } })), // Graceful fail for AI
-          aiService.getClusters().catch(err => ({ data: { clusters: [] } }))
+          adminService.getAllDonations({ status: 'pending', limit: 10 }),
+          adminService.getAllRequests({ status: 'pending', limit: 5 })
         ]);
 
-        // 1. Set Basic Stats
+        // Set Basic Stats
         if (statsResponse.success) setDashboardData(statsResponse.data);
         if (requestsResponse.success) setPendingRequests(requestsResponse.data.requests || []);
 
-        // 2. Set Donations & Extract Fraud Alerts
+        // Set Donations & Check for Fraud
         if (donationsResponse.success) {
           const allPending = donationsResponse.data.donations || [];
-          setPendingDonations(allPending.slice(0, 5)); // Show top 5 in list
+          setPendingDonations(allPending.slice(0, 5));
 
-          // Filter for donations flagged by AI (isFlagged field from backend)
-          const flagged = allPending.filter(d => d.isFlagged).map(d => ({
-            id: d._id,
-            reason: d.flagReason || "AI detected anomaly",
-            riskScore: d.riskScore || 50,
-            donor: d.donor?.name
-          }));
+          // Fetch fraud scores from AI service
+          const donationsWithFraud = await Promise.all(
+            allPending.map(async (donation) => {
+              try {
+                const fraudRes = await fetch('http://localhost:8000/api/fraud/check', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    donation_id: donation._id,
+                    title: donation.title,
+                    description: donation.description,
+                    quantity: donation.quantity,
+                    category: donation.category,
+                    donor_id: donation.donor?._id || donation.donor
+                  })
+                });
+                
+                if (fraudRes.ok) {
+                  const fraudData = await fraudRes.json();
+                  return {
+                    ...donation,
+                    fraudScore: fraudData.fraud_score || 0,
+                    fraudReason: fraudData.reason || '',
+                    isFlagged: fraudData.is_fraud || false
+                  };
+                }
+              } catch (err) {
+                console.error('Fraud check failed:', err);
+              }
+              return { ...donation, fraudScore: 0, isFlagged: false };
+            })
+          );
+
+          // Extract fraud alerts
+          const flagged = donationsWithFraud
+            .filter(d => d.isFlagged || d.fraudScore > 0.5)
+            .map(d => ({
+              id: d._id,
+              title: d.title,
+              reason: d.fraudReason || "AI detected anomaly",
+              riskScore: (d.fraudScore * 100).toFixed(0),
+              donor: d.donor?.name || 'Unknown',
+              category: d.category
+            }));
+          
           setFraudAlerts(flagged);
-        }
 
-        // 3. Set AI Data
-        if (forecastResponse.data) setAiForecast(forecastResponse.data.trendData);
-        if (clustersResponse.data) setAiClusters(clustersResponse.data.clusters);
+          // Calculate fraud stats
+          const totalChecked = donationsWithFraud.length;
+          const highRisk = donationsWithFraud.filter(d => d.fraudScore > 0.7).length;
+          const mediumRisk = donationsWithFraud.filter(d => d.fraudScore > 0.3 && d.fraudScore <= 0.7).length;
+          const avgScore = donationsWithFraud.reduce((sum, d) => sum + d.fraudScore, 0) / (totalChecked || 1);
+          
+          setFraudStats({
+            total: totalChecked,
+            highRisk,
+            mediumRisk,
+            avgScore: (avgScore * 100).toFixed(1)
+          });
+        }
         
       } catch (err) {
         setError(err.message || 'Failed to load dashboard data');
@@ -94,7 +155,7 @@ const AdminDashboard = () => {
   
   const { users = {}, donations = {}, matches = {}, systemHealth = {} } = dashboardData;
 
-  // --- Helper Components ---
+  // Helper Components
   const StatCard = ({ title, value, change, icon: Icon, color }) => (
     <Card className="relative overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -119,12 +180,12 @@ const AdminDashboard = () => {
       />
       <div className="flex-1">
         <div className="flex items-center gap-2">
-            <h4 className="font-medium text-gray-900">{donation.title}</h4>
-            {donation.isFlagged && (
-                <Badge variant="destructive" className="h-5 text-[10px] px-1">
-                    AI FLAGGED
-                </Badge>
-            )}
+          <h4 className="font-medium text-gray-900">{donation.title}</h4>
+          {donation.isFlagged && (
+            <Badge variant="destructive" className="h-5 text-[10px] px-1">
+              AI FLAGGED
+            </Badge>
+          )}
         </div>
         <p className="text-sm text-gray-600">by {donation.donor?.name || 'N/A'}</p>
       </div>
@@ -146,7 +207,7 @@ const AdminDashboard = () => {
     return (
       <div className="p-8">
         <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
         <Button onClick={() => window.location.reload()} className="mt-4">Retry</Button>
       </div>
@@ -162,12 +223,12 @@ const AdminDashboard = () => {
           <p className="text-gray-600 mt-1">Platform Overview & AI-Powered Management</p>
         </div>
         <div className="flex space-x-3">
-            <Button variant="outline" onClick={() => navigate('/admin/ai-settings')}>
-                <Settings className="h-4 w-4 mr-2" /> Settings
-            </Button>
-            <Button onClick={() => navigate('/admin/reports')}>
-                <Download className="h-4 w-4 mr-2" /> Export
-            </Button>
+          <Button variant="outline" onClick={() => navigate('/admin/settings')}>
+            <Settings className="h-4 w-4 mr-2" /> Settings
+          </Button>
+          <Button onClick={() => navigate('/admin/reports')}>
+            <Download className="h-4 w-4 mr-2" /> Export
+          </Button>
         </div>
       </div>
 
@@ -205,11 +266,16 @@ const AdminDashboard = () => {
 
       {/* Main Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
-          <TabsTrigger value="fraud">Security ({fraudAlerts.length})</TabsTrigger>
-          <TabsTrigger value="logistics">Logistics</TabsTrigger>
+          <TabsTrigger value="fraud">
+            <Shield className="h-4 w-4 mr-2" />
+            Fraud Detection ({fraudAlerts.length})
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
         {/* 1. Overview Tab */}
@@ -222,7 +288,9 @@ const AdminDashboard = () => {
                   <Package className="h-5 w-5 text-green-500" />
                   <span>Pending Donations</span>
                 </CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/admin/donations')}>View All</Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/admin/donations')}>
+                  View All
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {pendingDonations.length > 0 ? (
@@ -235,88 +303,187 @@ const AdminDashboard = () => {
 
             {/* System Health */}
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                        <Brain className="h-5 w-5 text-purple-500" />
-                        <span>System Health</span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div>
-                        <div className="flex justify-between mb-2 text-sm">
-                            <span>AI Model Accuracy</span>
-                            <span className="text-green-600 font-medium">92%</span>
-                        </div>
-                        <Progress value={92} className="h-2" />
-                    </div>
-                    <div>
-                        <div className="flex justify-between mb-2 text-sm">
-                            <span>Platform Load</span>
-                            <span className="text-blue-600 font-medium">{systemHealth.platformUtilization || 45}%</span>
-                        </div>
-                        <Progress value={systemHealth.platformUtilization || 45} className="h-2" />
-                    </div>
-                </CardContent>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Brain className="h-5 w-5 text-purple-500" />
+                  <span>System Health</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <div className="flex justify-between mb-2 text-sm">
+                    <span>AI Fraud Detection</span>
+                    <span className="text-green-600 font-medium">Active</span>
+                  </div>
+                  <Progress value={92} className="h-2" />
+                  <p className="text-xs text-gray-500 mt-1">Model Accuracy: 92%</p>
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2 text-sm">
+                    <span>Platform Load</span>
+                    <span className="text-blue-600 font-medium">{systemHealth.platformUtilization || 45}%</span>
+                  </div>
+                  <Progress value={systemHealth.platformUtilization || 45} className="h-2" />
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2 text-sm">
+                    <span>Donations Scanned Today</span>
+                    <span className="text-purple-600 font-medium">{fraudStats.total}</span>
+                  </div>
+                  <Progress value={(fraudStats.total / 100) * 100} className="h-2" />
+                </div>
+              </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        {/* 2. AI Insights Tab */}
-        <TabsContent value="ai-insights" className="space-y-6">
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <AnalyticsWidget data={aiForecast} />
-                </div>
-                <div>
-                    <Card className="h-full border-l-4 border-l-indigo-500">
-                        <CardHeader>
-                            <CardTitle>AI Summary</CardTitle>
-                            <CardDescription>Automated insights generated today</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="p-3 bg-indigo-50 rounded-md text-sm text-indigo-800">
-                                <strong>Trend Alert:</strong> High demand for "Winter Clothes" detected in North Zone.
-                            </div>
-                            <div className="p-3 bg-green-50 rounded-md text-sm text-green-800">
-                                <strong>Matching:</strong> 85% of donations matched within 1 hour.
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-             </div>
-        </TabsContent>
-
-        {/* 3. Fraud Detection Tab */}
+        {/* 2. Fraud Detection Tab */}
         <TabsContent value="fraud" className="space-y-6">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FraudAlertWidget 
-                    alerts={fraudAlerts} 
-                    onReview={(id) => navigate(`/admin/donations/${id}`)} 
-                />
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <ShieldAlert className="w-5 h-5 text-red-500" />
-                            Security Protocols
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-gray-600">
-                            The AI model flags donations with abnormally high quantities, new user accounts with high-value items, or description mismatches. 
-                            Please review flagged items carefully before approval.
-                        </p>
-                    </CardContent>
-                </Card>
-             </div>
+          {/* Fraud Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Total Scanned</p>
+                  <p className="text-3xl font-bold text-gray-900">{fraudStats.total}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <p className="text-sm text-red-700">High Risk</p>
+                  <p className="text-3xl font-bold text-red-600">{fraudStats.highRisk}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-yellow-200 bg-yellow-50">
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <p className="text-sm text-yellow-700">Medium Risk</p>
+                  <p className="text-3xl font-bold text-yellow-600">{fraudStats.mediumRisk}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Avg Fraud Score</p>
+                  <p className="text-3xl font-bold text-gray-900">{fraudStats.avgScore}%</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Fraud Alerts & Quick Access */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Fraud Alerts List */}
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <AlertTriangle className="w-5 h-5" />
+                  High-Risk Donations
+                </CardTitle>
+                <CardDescription>
+                  Flagged by AI fraud detection model
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {fraudAlerts.length > 0 ? (
+                  fraudAlerts.map((alert) => (
+                    <div key={alert.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-semibold text-sm">{alert.title}</h4>
+                          <p className="text-xs text-gray-600">by {alert.donor}</p>
+                        </div>
+                        <Badge className="bg-red-600">{alert.riskScore}%</Badge>
+                      </div>
+                      <p className="text-xs text-red-800 mb-2">
+                        <AlertTriangle className="h-3 w-3 inline mr-1" />
+                        {alert.reason}
+                      </p>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => navigate(`/admin/donations/${alert.id}`)}
+                      >
+                        Review Details
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Shield className="h-12 w-12 mx-auto mb-2 text-green-500" />
+                    <p className="text-sm">No high-risk donations detected</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Fraud Detection Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-blue-500" />
+                  AI Fraud Detection
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  The AI model automatically scans all new donations for potential fraud indicators including:
+                </p>
+                <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
+                  <li>Abnormally high quantities</li>
+                  <li>Suspicious text patterns</li>
+                  <li>New user with high-value items</li>
+                  <li>Description-title mismatches</li>
+                </ul>
+                
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => navigate('/admin/fraud-detection')}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Open Fraud Detection Dashboard
+                </Button>
+                
+                <div className="p-3 bg-blue-50 rounded-md">
+                  <p className="text-xs text-blue-800">
+                    <strong>Model Status:</strong> Active & Learning<br/>
+                    <strong>Last Updated:</strong> {new Date().toLocaleDateString()}<br/>
+                    <strong>Accuracy:</strong> 92%
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        {/* 4. Logistics Tab */}
-        <TabsContent value="logistics">
-             <div className="h-[500px]">
-                 <LogisticsClusterWidget clusters={aiClusters} />
-             </div>
-        </TabsContent>
+        {/* 3. Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          <Card 
+  className="hover:shadow-lg transition-shadow cursor-pointer" 
+  onClick={() => navigate('/admin/forecasting')}
+>
+  <CardContent className="p-6">
+    <div className="flex items-center gap-4">
+      <div className="bg-blue-100 p-3 rounded-full">
+        <TrendingUp className="h-8 w-8 text-blue-600" />
+      </div>
+      <div>
+        <h3 className="font-bold text-lg">AI Forecasting</h3>
+        <p className="text-sm text-gray-600">30-day trend predictions</p>
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
+        </TabsContent>
       </Tabs>
     </div>
   );

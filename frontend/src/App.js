@@ -77,6 +77,9 @@ import ErrorBoundary from './components/Layout/ErrorBoundary';
 import AuthCallback from "./pages/auth/AuthCallback";
 import VerifyEmail from "./pages/auth/VerifyEmail";
 import SelectRole from "./pages/auth/SelectRole"; 
+import FraudDetection from './pages/admin/FraudDetection';
+import Forecasting from './pages/admin/Forecasting';
+
 
 
 
@@ -237,6 +240,18 @@ function AppContent() {
               <Notifications />
             </ProtectedRoute>
           } />
+
+          <Route path="/admin/fraud-detection" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <FraudDetection />
+            </ProtectedRoute> } />
+
+            <Route path="/admin/forecasting" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+              <Forecasting />
+            </ProtectedRoute> } />
+
+
 
           {/* Catch all */}
           <Route path="*" element={

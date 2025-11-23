@@ -31,6 +31,8 @@ export const getDonorTrends = () => {
   return api.get('/ai/trends');
 };
 
+
+
 const aiService = {
   getSubtypeSuggestions,
   getMatches,
