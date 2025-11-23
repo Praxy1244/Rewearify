@@ -11,13 +11,19 @@ import { Badge } from '../../components/ui/badge';
 import { useToast } from '../../hooks/use-toast';
 import { User, Mail, Phone, MapPin, Building, Save, Edit, X, Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Brain, TrendingUp, BarChart } from 'lucide-react';
 
 const DonorProfile = () => {
-  const { user, updateUserContext } = useAuth(); // Get user and the context updater
+  const { user, updateUserContext } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
   const [isEditing, setIsEditing] = useState(false);
+  
+  // AI Profile states - NEW
+  const [aiProfile, setAIProfile] = useState(null);
+  const [loadingAI, setLoadingAI] = useState(true);
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -46,6 +52,30 @@ const DonorProfile = () => {
     }
   }, [user]);
 
+  // Fetch AI Profile - NEW
+  useEffect(() => {
+    fetchAIProfile();
+  }, []);
+
+  const fetchAIProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/recommendations/profile', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAIProfile(data.profile);
+        console.log('AI Profile:', data.profile);
+      }
+    } catch (error) {
+      console.error('Failed to fetch AI profile:', error);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -56,8 +86,6 @@ const DonorProfile = () => {
   const handleSave = async () => {
     setLoading(true);
     
-    // --- THIS IS THE FIX ---
-    // Use the ID whether it has an underscore or not
     const userId = user._id || user.id;
     if (!userId) {
       toast({
@@ -68,9 +96,7 @@ const DonorProfile = () => {
       setLoading(false);
       return;
     }
-    // --- END OF FIX ---
 
-    // Format data for the backend
     const profileData = {
       name: formData.name,
       contact: {
@@ -80,7 +106,7 @@ const DonorProfile = () => {
         address: formData.locationAddress,
         city: formData.locationCity,
         state: formData.locationState,
-        country: user.location?.country || 'USA' // Keep existing country
+        country: user.location?.country || 'USA'
       },
       profile: {
         bio: formData.bio
@@ -91,11 +117,10 @@ const DonorProfile = () => {
     };
 
     try {
-      // Pass the corrected userId
       const response = await userService.updateUserProfile(userId, profileData);
       
       if (response.success) {
-        updateUserContext(response.data.user); // Update global user state
+        updateUserContext(response.data.user);
         toast({
           title: "Profile Updated",
           description: "Your profile has been saved successfully.",
@@ -120,7 +145,6 @@ const DonorProfile = () => {
   };
 
   const handleCancel = () => {
-    // Reset form data to original user state
     if (user) {
       setFormData({
         name: user.name || '',
@@ -306,6 +330,100 @@ const DonorProfile = () => {
           </Card>
         </div>
       </div>
+
+      {/* AI DONOR PROFILE CARD - NEW */}
+      {!loadingAI && aiProfile && (
+        <Card className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-6 w-6 text-purple-600" />
+              Your AI Donor Profile
+            </CardTitle>
+            <CardDescription>
+              Generated from your donation patterns and preferences
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                <div className="text-3xl font-bold text-purple-600 mb-1">
+                  {aiProfile.donation_frequency || 0}
+                </div>
+                <div className="text-sm text-gray-600">Total Donations</div>
+              </div>
+
+              <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                <div className="text-3xl font-bold text-blue-600 mb-1">
+                  {aiProfile.activity_level || 'New'}
+                </div>
+                <div className="text-sm text-gray-600">Activity Level</div>
+              </div>
+
+              <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                <div className="text-2xl font-bold text-green-600 mb-1">
+                  {aiProfile.preferred_categories?.[0] || 'None'}
+                </div>
+                <div className="text-sm text-gray-600">Top Category</div>
+              </div>
+
+              <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                <div className="text-2xl font-bold text-orange-600 mb-1">
+                  {aiProfile.avg_items_per_donation || 0}
+                </div>
+                <div className="text-sm text-gray-600">Avg Items/Donation</div>
+              </div>
+            </div>
+
+            {aiProfile.preferred_categories && aiProfile.preferred_categories.length > 0 && (
+              <div className="mt-4 p-4 bg-white rounded-lg">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-purple-600" />
+                  Your Donation Preferences
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {aiProfile.preferred_categories.map((cat, idx) => (
+                    <Badge key={idx} variant="secondary">{cat}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiProfile.insights && (
+              <div className="mt-4 p-4 bg-purple-100 rounded-lg">
+                <p className="text-sm text-purple-900">
+                  <strong>💡 AI Insight:</strong> {aiProfile.insights}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => navigate('/donor/ai-insights')}
+              >
+                <BarChart className="h-4 w-4 mr-2" />
+                View Full AI Analytics
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Message for new users - NEW */}
+      {!loadingAI && !aiProfile && (
+        <Card className="mt-8 border-2 border-blue-200 bg-blue-50">
+          <CardContent className="p-6 text-center">
+            <Brain className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+            <p className="text-gray-700 mb-2 font-semibold">
+              Unlock Your AI Donor Profile
+            </p>
+            <p className="text-gray-600 text-sm">
+              Make a few donations to get personalized insights and recommendations!
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

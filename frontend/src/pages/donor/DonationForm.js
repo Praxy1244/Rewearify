@@ -57,6 +57,8 @@ const DonationForm = () => {
   const navigate = useNavigate();
   
   const [step, setStep] = useState(1);
+  const [recommendedNGOs, setRecommendedNGOs] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -161,6 +163,37 @@ const DonationForm = () => {
   ];
 
   const colorOptions = ['Black', 'White', 'Gray', 'Navy', 'Brown', 'Red', 'Blue', 'Green', 'Pink', 'Purple', 'Yellow', 'Orange', 'Multi-color'];
+  // Fetch AI-recommended NGOs
+const fetchRecommendations = async () => {
+  setLoadingRecommendations(true);
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:5000/api/recommendations/for-donation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        clothing_type: formData.category,
+        subcategory: formData.subcategory,
+        quantity: formData.quantity,
+        location: formData.location,
+        condition: formData.condition,
+        urgentNeeded: formData.urgentNeeded
+      })
+    });
+    
+    const data = await response.json();
+    setRecommendedNGOs(data.recommendations || []);
+  } catch (error) {
+    console.error('Failed to fetch recommendations:', error);
+    toast.error('Could not load recommendations. You can still submit.');
+  } finally {
+    setLoadingRecommendations(false);
+  }
+};
+
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({
@@ -196,12 +229,17 @@ const DonationForm = () => {
   };
 
   const handleNext = () => {
-    if (validateStep(step)) {
-      setStep(step + 1);
-    } else {
-      toast.error("Please complete all required fields");
+  if (validateStep(step)) {
+    // When moving from step 4 to 5, fetch AI recommendations
+    if (step === 4) {
+      fetchRecommendations();
     }
-  };
+    setStep(step + 1);
+  } else {
+    toast.error("Please complete all required fields");
+  }
+};
+
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -367,14 +405,15 @@ const DonationForm = () => {
   };
 
   const renderProgressBar = () => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium">Step {step} of 4</span>
-        <span className="text-sm text-gray-600">{Math.round((step / 4) * 100)}% Complete</span>
-      </div>
-      <Progress value={(step / 4) * 100} className="h-2" />
+  <div className="mb-8">
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-sm font-medium">Step {step} of 5</span>
+      <span className="text-sm text-gray-600">{Math.round((step / 5) * 100)}% Complete</span>
     </div>
-  );
+    <Progress value={(step / 5) * 100} className="h-2" />
+  </div>
+);
+
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -643,6 +682,82 @@ const DonationForm = () => {
     </div>
   );
 
+    const renderStep5 = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
+          <Sparkles className="text-purple-600" />
+          AI-Recommended NGOs
+        </h2>
+        <p className="text-gray-600">Based on your donation, these NGOs are the best match</p>
+      </div>
+
+      {loadingRecommendations ? (
+        <div className="text-center py-12">
+          <Clock className="h-12 w-12 animate-spin mx-auto text-blue-600 mb-4" />
+          <p className="text-gray-600">Finding the perfect NGOs for your donation...</p>
+        </div>
+      ) : recommendedNGOs.length > 0 ? (
+        <div className="space-y-4">
+          {recommendedNGOs.slice(0, 5).map((ngo, idx) => (
+            <Card key={idx} className="hover:shadow-lg transition-shadow border-2 border-transparent hover:border-blue-300">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+                    <p className="text-sm text-gray-600">{ngo.location}</p>
+                  </div>
+                  <Badge variant="default" className="bg-green-600">
+                    {(ngo.score * 100).toFixed(0)}% Match
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
+                  <div>
+                    <span className="font-medium">Trust Score:</span>
+                    <p className="text-gray-700">{ngo.trust_score}/5 ⭐</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Impact Score:</span>
+                    <p className="text-gray-700">{ngo.impact_score}/5</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Distance:</span>
+                    <p className="text-gray-700">{ngo.distance ? `${ngo.distance.toFixed(1)}km` : 'N/A'}</p>
+                  </div>
+                </div>
+
+                {ngo.reason && (
+                  <div className="bg-blue-50 p-3 rounded-md">
+                    <p className="text-sm text-blue-900">
+                      <strong>Why recommended:</strong> {ngo.reason}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          
+          <Alert className="bg-purple-50 border-purple-200">
+            <Sparkles className="h-4 w-4 text-purple-600" />
+            <AlertDescription>
+              <strong>AI Insight:</strong> These NGOs were selected based on their location, 
+              past acceptance of similar items, and community impact scores.
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            No specific recommendations available. Your donation will be visible to all NGOs.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -667,6 +782,8 @@ const DonationForm = () => {
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
             {step === 4 && renderStep4()}
+            {step === 5 && renderStep5()}
+
 
             <div className="flex justify-between mt-8 pt-6 border-t">
               {step > 1 ? (
@@ -679,7 +796,7 @@ const DonationForm = () => {
               )}
               
               <div className="ml-auto">
-                {step < 4 ? (
+                {step < 5 ? (
                   <Button onClick={handleNext} disabled={!validateStep(step)}>
                     Next
                     <ArrowRight className="h-4 w-4 ml-2" />

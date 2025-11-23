@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Sparkles, Search, Filter, Building2, Package, TrendingUp, MapPin } from 'lucide-react';
+import { Sparkles, Search, Filter, Building2, Package, TrendingUp, MapPin, Users, Loader2 } from 'lucide-react';
 import NGOCard from '../../components/NGOCard';
 import DonationCard from '../../components/DonationCard';
 import aiService from '../../services/aiService';
@@ -26,86 +26,109 @@ const BrowseNeeds = () => {
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [matches, setMatches] = useState([]);
   
+  // AI Filter states - NEW
+  const [showAIRecommended, setShowAIRecommended] = useState(false);
+  const [aiRecommendedIds, setAIRecommendedIds] = useState([]);
+  
   // Loading states
   const [loadingNGOs, setLoadingNGOs] = useState(true);
   const [loadingDonations, setLoadingDonations] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
+  
+  // Stats state - FIXED
+  const [stats, setStats] = useState({
+    totalNGOs: 0,
+    totalItems: 0,
+    smartMatches: 0
+  });
 
-  // Fetch NGOs (mock data for now - replace with real API)
-  useEffect(() => {
-    const fetchNGOs = async () => {
-      setLoadingNGOs(true);
-      try {
-        // Mock NGO data - Replace with real API call
-        const mockNGOs = [
-          {
-            id: 'ngo001',
-            name: 'Hope Foundation',
-            city: 'Delhi',
-            state: 'Delhi',
-            categories: ['outerwear', 'casual', 'children'],
-            capacity: 100,
-            urgentNeed: true
-          },
-          {
-            id: 'ngo002',
-            name: 'Helping Hands',
-            city: 'Mumbai',
-            state: 'Maharashtra',
-            categories: ['formal', 'shoes', 'accessories'],
-            capacity: 150,
-            urgentNeed: false
-          },
-          {
-            id: 'ngo003',
-            name: 'Community Care',
-            city: 'Bengaluru',
-            state: 'Karnataka',
-            categories: ['children', 'household', 'casual'],
-            capacity: 80,
-            urgentNeed: true
-          },
-          {
-            id: 'ngo004',
-            name: 'Care & Share',
-            city: 'Delhi',
-            state: 'Delhi',
-            categories: ['traditional', 'formal', 'accessories'],
-            capacity: 120,
-            urgentNeed: false
-          },
-          {
-            id: 'ngo005',
-            name: 'Seva Trust',
-            city: 'Chennai',
-            state: 'Tamil Nadu',
-            categories: ['activewear', 'shoes', 'casual'],
-            capacity: 90,
-            urgentNeed: true
-          }
-        ];
-        setNgos(mockNGOs);
-      } catch (error) {
-        console.error('Error fetching NGOs:', error);
+  // Calculate stats - NEW FUNCTION
+  const calculateStats = (ngoData, donationData, matchData) => {
+  const totalNGOs = Array.isArray(ngoData) ? ngoData.length : 0;
+  const totalItems = Array.isArray(donationData) 
+    ? donationData.reduce((sum, d) => sum + (d.quantity || 0), 0) 
+    : 0;
+  const smartMatches = Array.isArray(matchData) ? matchData.length : 0;
+  
+  setStats({
+    totalNGOs,
+    totalItems,
+    smartMatches
+  });
+  
+  console.log('Stats calculated:', { totalNGOs, totalItems, smartMatches });
+};
+
+
+  // Fetch NGOs
+ // Fetch real NGOs from backend
+useEffect(() => {
+  const fetchNGOs = async () => {
+    setLoadingNGOs(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Fetch from real backend API
+      const response = await fetch('http://localhost:5000/api/ngos', {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Handle different response formats
+        const ngoData = data.ngos || data.data || data || [];
+        
+        // Format NGOs for consistency
+        const formattedNGOs = ngoData.map(ngo => ({
+          id: ngo._id || ngo.id,
+          name: ngo.name || ngo.organizationName,
+          city: ngo.location?.city || ngo.city || 'Unknown',
+          state: ngo.location?.state || ngo.state || '',
+          categories: ngo.acceptedCategories || ngo.categories || [],
+          capacity: ngo.capacity || 100,
+          urgentNeed: ngo.urgentNeed || false,
+          description: ngo.description || '',
+          contact: ngo.contact || {},
+          // Keep original object for NGOCard component
+          ...ngo
+        }));
+        
+        setNgos(formattedNGOs);
+        console.log('Real NGOs loaded:', formattedNGOs.length);
+      } else {
+        console.error('Failed to fetch NGOs:', response.status);
         toast.error('Failed to load NGOs');
-      } finally {
-        setLoadingNGOs(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching NGOs:', error);
+      toast.error('Could not connect to server');
+    } finally {
+      setLoadingNGOs(false);
+    }
+  };
 
-    fetchNGOs();
-  }, []);
+  fetchNGOs();
+}, []);
+
 
   // Fetch approved donations
   useEffect(() => {
     const fetchDonations = async () => {
-      if (activeTab !== 'donations') return;
+      
       
       setLoadingDonations(true);
       try {
         const response = await donationService.getDonations({ status: 'approved', limit: 50 });
         if (response.success) {
-          setDonations(response.data || []);
+          const donationData = response.data || [];
+          setDonations(donationData);
+          
+          // Recalculate stats - FIXED
+          calculateStats(ngos, donationData, matches);
         }
       } catch (error) {
         console.error('Error fetching donations:', error);
@@ -116,24 +139,58 @@ const BrowseNeeds = () => {
     };
 
     fetchDonations();
-  }, [activeTab]);
+  }, []);
 
-  // Fetch AI recommendations
+  // Recalculate stats whenever data changes - ADD THIS NEW
+useEffect(() => {
+  calculateStats(ngos, donations, matches);
+}, [ngos, donations, matches]); // ✅ Runs whenever any data updates
+
+  // Fetch AI recommendations from backend - UPDATED
   useEffect(() => {
     const fetchAIRecommendations = async () => {
       if (!user) return;
       
       setLoadingAI(true);
       try {
-        // Get recommendations based on user's donation history
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:5000/api/recommendations', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const recommendations = data.recommendations || [];
+          
+          // Set AI recommendations for display
+          setAiRecommendations(recommendations.slice(0, 3));
+          
+          // Extract NGO IDs for filtering - NEW
+          const ids = recommendations.map(ngo => ngo.id || ngo._id);
+          setAIRecommendedIds(ids);
+          
+          console.log('AI Recommendations loaded:', recommendations.length);
+          console.log('AI NGO IDs:', ids);
+        } else {
+          // Fallback to mock if API not ready
+          const mockRecommendations = ngos.slice(0, 3).map(ngo => ({
+            ...ngo,
+            matchScore: Math.random() * 0.4 + 0.6,
+            reason: `Based on your ${Math.random() > 0.5 ? 'previous donations' : 'location'}`
+          }));
+          setAiRecommendations(mockRecommendations);
+          setAIRecommendedIds(mockRecommendations.map(n => n.id));
+        }
+      } catch (error) {
+        console.error('Error fetching AI recommendations:', error);
+        // Fallback to mock
         const mockRecommendations = ngos.slice(0, 3).map(ngo => ({
           ...ngo,
-          matchScore: Math.random() * 0.4 + 0.6, // 0.6-1.0
+          matchScore: Math.random() * 0.4 + 0.6,
           reason: `Based on your ${Math.random() > 0.5 ? 'previous donations' : 'location'}`
         }));
         setAiRecommendations(mockRecommendations);
-      } catch (error) {
-        console.error('Error fetching AI recommendations:', error);
+        setAIRecommendedIds(mockRecommendations.map(n => n.id));
       } finally {
         setLoadingAI(false);
       }
@@ -143,39 +200,112 @@ const BrowseNeeds = () => {
   }, [user, ngos]);
 
   // Generate smart matches
-  useEffect(() => {
-    const generateMatches = async () => {
-      if (activeTab !== 'matches' || donations.length === 0 || ngos.length === 0) return;
+ // Generate smart matches from real data
+useEffect(() => {
+  const generateMatches = async () => {
+    // Wait for both NGOs and donations to load
+    if (donations.length === 0 || ngos.length === 0) {
+      console.log('Waiting for data...', { donations: donations.length, ngos: ngos.length });
+      return;
+    }
 
-      try {
-        // Create matches between donations and NGOs
-        const generatedMatches = donations.slice(0, 10).map(donation => {
+    try {
+      console.log('Generating matches from real data...');
+      
+      const generatedMatches = donations
+        .filter(donation => donation.status === 'approved') // Only approved donations
+        .map(donation => {
           // Find NGOs that accept this donation category
-          const matchingNGOs = ngos.filter(ngo => 
-            ngo.categories.some(cat => cat === donation.category)
-          );
+          const matchingNGOs = ngos.filter(ngo => {
+            const ngoCategories = ngo.categories || ngo.acceptedCategories || [];
+            return ngoCategories.some(cat => 
+              cat.toLowerCase() === donation.category?.toLowerCase()
+            );
+          });
           
           if (matchingNGOs.length === 0) return null;
           
-          const bestNGO = matchingNGOs[0];
+          // Calculate match scores based on multiple factors
+          const scoredNGOs = matchingNGOs.map(ngo => {
+            let score = 0.5; // Base score
+            
+            // Same city bonus
+            if (ngo.city?.toLowerCase() === donation.location?.city?.toLowerCase()) {
+              score += 0.2;
+            }
+            
+            // Same state bonus
+            if (ngo.state?.toLowerCase() === donation.location?.state?.toLowerCase()) {
+              score += 0.1;
+            }
+            
+            // Urgent need bonus
+            if (ngo.urgentNeed && donation.urgentNeeded) {
+              score += 0.15;
+            }
+            
+            // Capacity check
+            if (ngo.capacity && ngo.capacity >= donation.quantity) {
+              score += 0.05;
+            }
+            
+            return { ngo, score: Math.min(score, 1.0) };
+          });
+          
+          // Sort by score and pick the best match
+          scoredNGOs.sort((a, b) => b.score - a.score);
+          const bestMatch = scoredNGOs[0];
+          
           return {
             donation,
-            ngo: bestNGO,
-            matchScore: Math.random() * 0.3 + 0.7, // 0.7-1.0
-            reason: `${bestNGO.name} accepts ${donation.category} and has capacity`
+            ngo: bestMatch.ngo,
+            matchScore: bestMatch.score,
+            reason: generateMatchReason(donation, bestMatch.ngo, bestMatch.score)
           };
-        }).filter(Boolean);
+        })
+        .filter(Boolean); // Remove null matches
 
-        setMatches(generatedMatches);
-      } catch (error) {
-        console.error('Error generating matches:', error);
-      }
-    };
+      setMatches(generatedMatches);
+      console.log('Matches generated:', generatedMatches.length);
+      
+      // Update stats
+      calculateStats(ngos, donations, generatedMatches);
+    } catch (error) {
+      console.error('Error generating matches:', error);
+    }
+  };
 
-    generateMatches();
-  }, [activeTab, donations, ngos]);
+  generateMatches();
+}, [donations, ngos]); // ✅ Changed: Run whenever data updates, not just on tab change
 
-  // Filter NGOs
+// Helper function to generate match reason
+const generateMatchReason = (donation, ngo, score) => {
+  const reasons = [];
+  
+  if (ngo.city?.toLowerCase() === donation.location?.city?.toLowerCase()) {
+    reasons.push('same city');
+  }
+  
+  if (ngo.urgentNeed && donation.urgentNeeded) {
+    reasons.push('urgent need');
+  }
+  
+  if (ngo.capacity >= donation.quantity) {
+    reasons.push('sufficient capacity');
+  }
+  
+  const categoryName = donation.category || 'items';
+  reasons.push(`accepts ${categoryName}`);
+  
+  if (reasons.length > 0) {
+    return `${ngo.name} is a great match: ${reasons.join(', ')}`;
+  }
+  
+  return `${ngo.name} accepts ${categoryName} donations`;
+};
+
+
+  // Filter NGOs - UPDATED WITH AI FILTER
   const filteredNGOs = ngos.filter(ngo => {
     const matchesSearch = !searchQuery || 
       ngo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,8 +316,11 @@ const BrowseNeeds = () => {
     
     const matchesLocation = !locationFilter || 
       ngo.city.toLowerCase() === locationFilter.toLowerCase();
+    
+    // AI Filter - NEW
+    const matchesAI = !showAIRecommended || aiRecommendedIds.includes(ngo.id);
 
-    return matchesSearch && matchesCategory && matchesLocation;
+    return matchesSearch && matchesCategory && matchesLocation && matchesAI;
   });
 
   // Filter donations
@@ -213,8 +346,75 @@ const BrowseNeeds = () => {
         <p className="text-gray-600">Discover NGOs, available items, and AI-powered matches</p>
       </div>
 
+      {/* Stats Cards - FIXED */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total NGOs</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalNGOs}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Available Items</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalItems}</p>
+              </div>
+              <Package className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Smart Matches</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.smartMatches}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* AI Filter Button - NEW */}
+        <Card className={showAIRecommended ? 'border-2 border-purple-500 bg-purple-50' : ''}>
+          <CardContent className="p-6">
+            <Button
+              variant={showAIRecommended ? "default" : "outline"}
+              onClick={() => setShowAIRecommended(!showAIRecommended)}
+              className="w-full h-full flex flex-col items-center justify-center gap-2"
+              disabled={loadingAI}
+            >
+              {loadingAI ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                <>
+                  <Sparkles className="h-6 w-6" />
+                  <span className="text-sm text-center">
+                    {showAIRecommended ? 'Showing AI Matches' : 'Show AI Matches'}
+                  </span>
+                  {aiRecommendedIds.length > 0 && (
+                    <Badge variant="secondary" className="mt-1">
+                      {aiRecommendedIds.length} matches
+                    </Badge>
+                  )}
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* AI Recommendations Section */}
-      {aiRecommendations.length > 0 && (
+      {aiRecommendations.length > 0 && !showAIRecommended && (
         <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -238,76 +438,81 @@ const BrowseNeeds = () => {
       )}
 
       {/* Search and Filters */}
-<Card className="mb-6">
-  <CardContent className="pt-6">
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div className="md:col-span-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search by name, location..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-      
-      <Select value={categoryFilter || "all"} onValueChange={(val) => setCategoryFilter(val === "all" ? "" : val)}>
-        <SelectTrigger>
-          <SelectValue placeholder="All Categories" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
-          {categories.map(cat => (
-            <SelectItem key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name, location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <Select value={categoryFilter || "all"} onValueChange={(val) => setCategoryFilter(val === "all" ? "" : val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-      <Input
-        placeholder="Filter by city"
-        value={locationFilter}
-        onChange={(e) => setLocationFilter(e.target.value)}
-      />
-    </div>
+            <Input
+              placeholder="Filter by city"
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+            />
+          </div>
 
-    {(searchQuery || categoryFilter || locationFilter) && (
-      <div className="mt-4 flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-gray-500">Active filters:</span>
-        {searchQuery && (
-          <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery('')}>
-            Search: {searchQuery} ×
-          </Badge>
-        )}
-        {categoryFilter && (
-          <Badge variant="secondary" className="cursor-pointer" onClick={() => setCategoryFilter('')}>
-            Category: {categoryFilter} ×
-          </Badge>
-        )}
-        {locationFilter && (
-          <Badge variant="secondary" className="cursor-pointer" onClick={() => setLocationFilter('')}>
-            Location: {locationFilter} ×
-          </Badge>
-        )}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => {
-            setSearchQuery('');
-            setCategoryFilter('');
-            setLocationFilter('');
-          }}
-        >
-          Clear all
-        </Button>
-      </div>
-    )}
-  </CardContent>
-</Card>
-
+          {(searchQuery || categoryFilter || locationFilter || showAIRecommended) && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500">Active filters:</span>
+              {searchQuery && (
+                <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery('')}>
+                  Search: {searchQuery} ×
+                </Badge>
+              )}
+              {categoryFilter && (
+                <Badge variant="secondary" className="cursor-pointer" onClick={() => setCategoryFilter('')}>
+                  Category: {categoryFilter} ×
+                </Badge>
+              )}
+              {locationFilter && (
+                <Badge variant="secondary" className="cursor-pointer" onClick={() => setLocationFilter('')}>
+                  Location: {locationFilter} ×
+                </Badge>
+              )}
+              {showAIRecommended && (
+                <Badge variant="default" className="cursor-pointer bg-purple-600" onClick={() => setShowAIRecommended(false)}>
+                  AI Recommended ×
+                </Badge>
+              )}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setSearchQuery('');
+                  setCategoryFilter('');
+                  setLocationFilter('');
+                  setShowAIRecommended(false);
+                }}
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -341,9 +546,20 @@ const BrowseNeeds = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredNGOs.map((ngo, idx) => (
-                <NGOCard key={idx} ngo={ngo} />
-              ))}
+              {filteredNGOs.map((ngo, idx) => {
+                const isAIRecommended = aiRecommendedIds.includes(ngo.id);
+                return (
+                  <div key={idx} className="relative">
+                    {isAIRecommended && (
+                      <Badge className="absolute top-2 right-2 z-10 bg-purple-600">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        AI Match
+                      </Badge>
+                    )}
+                    <NGOCard ngo={ngo} />
+                  </div>
+                );
+              })}
             </div>
           )}
         </TabsContent>

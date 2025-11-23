@@ -56,6 +56,7 @@ import DonationDetails from './pages/donor/DonationDetails';
 import DonationEdit from './pages/donor/DonationEdit';
 import BrowseNeeds from "./pages/donor/BrowseNeeds";
 import DonorProfile from "./pages/donor/DonorProfile";
+import AIInsights from './pages/donor/AIInsights';
 import Notifications from './pages/Notifications'; 
 import ResetPassword from "./pages/auth/ResetPassword";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -76,6 +77,7 @@ import ErrorBoundary from './components/Layout/ErrorBoundary';
 import AuthCallback from "./pages/auth/AuthCallback";
 import VerifyEmail from "./pages/auth/VerifyEmail";
 import SelectRole from "./pages/auth/SelectRole"; 
+
 
 
 
@@ -171,6 +173,12 @@ function AppContent() {
               <DonorSettings />
             </ProtectedRoute>
           } />
+
+          <Route path="/donor/ai-insights" element={
+             <ProtectedRoute allowedRoles={['donor']}>
+              <AIInsights />
+            </ProtectedRoute> } />
+
 
           {/* Recipient Routes */}
           <Route path="/recipient/browseItems" element={
