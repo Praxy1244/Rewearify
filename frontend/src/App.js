@@ -79,6 +79,7 @@ import VerifyEmail from "./pages/auth/VerifyEmail";
 import SelectRole from "./pages/auth/SelectRole"; 
 import FraudDetection from './pages/admin/FraudDetection';
 import Forecasting from './pages/admin/Forecasting';
+import LogisticsDashboard from './pages/admin/LogisticsDashboard'; // 1. Import the page
 
 
 
@@ -230,6 +231,12 @@ function AppContent() {
           <Route path="/admin/analytics" element={
             <ProtectedRoute allowedRoles={['admin']}>
             <Analytics/>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin/logistics" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <LogisticsDashboard />
             </ProtectedRoute>
           } />
 

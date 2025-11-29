@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowRight, Heart, Users, TrendingUp, CheckCircle, Star, Globe, Shirt, Gift, HandHeart, Leaf, Package, Bell, LayoutDashboard ,Clock} from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -69,45 +69,70 @@ const slideImages = [
   },
 ];
 
-// --- 💡 NEW: Logged-in Hero Component ---
+// --- 💡 UPDATED: Logged-in Hero Component with proper loading ---
 const LoggedInHero = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { donations, requests, loading } = useApp(); // Get live data from AppContext
+  const { donations, requests, loadingStates } = useApp(); // Accessing donations and loading states
 
-  let quickStats = [];
-  let dashboardPath = "/dashboard";
-  let primaryActionPath = "/";
-  let primaryActionText = "Task";
+  // Check if user-specific data is still loading
+  const isLoadingUserData = loadingStates?.userDonations || loadingStates?.userRequests;
 
-  if (user.role === 'donor') {
-    dashboardPath = "/donor-dashboard";
-    primaryActionPath = "/donor/donate";
-    primaryActionText = "Make a New Donation";
-    quickStats = [
-      { title: "Your Donations", value: donations?.length || 0, icon: Package, color: "text-green-500" },
-      { title: "Pending", value: donations?.filter(d => d.status === 'pending').length || 0, icon: Clock, color: "text-yellow-500" },
-      { title: "Approved", value: donations?.filter(d => d.status === 'approved').length || 0, icon: CheckCircle, color: "text-blue-500" },
-    ];
-  } else if (user.role === 'recipient') {
-    dashboardPath = "/recipient-dashboard";
-    primaryActionPath = "/recipient/browseItems";
-    primaryActionText = "Browse Donations";
-    quickStats = [
-      { title: "Your Requests", value: requests?.length || 0, icon: Heart, color: "text-red-500" },
-      { title: "Pending", value: requests?.filter(r => r.status === 'pending').length || 0, icon: Clock, color: "text-yellow-500" },
-      { title: "Approved", value: requests?.filter(r => r.status === 'approved').length || 0, icon: CheckCircle, color: "text-green-500" },
-    ];
-  } else if (user.role === 'admin') {
-    dashboardPath = "/admin-dashboard";
-    primaryActionPath = "/admin/donations";
-    primaryActionText = "Moderate Donations";
-     quickStats = [
-      { title: "Pending Donations", value: donations?.filter(d => d.status === 'pending').length || 0, icon: Package, color: "text-yellow-500" },
-      { title: "New Users", value: 'N/A', icon: Users, color: "text-blue-500" }, // This would require another API call
-      { title: "Alerts", value: '0', icon: Bell, color: "text-red-500" },
-    ];
-  }
+  // Use useMemo to calculate stats only when donations or requests change
+  const { quickStats, dashboardPath, primaryActionPath, primaryActionText } = useMemo(() => {
+    let qStats = [];
+    let dPath = "/dashboard";
+    let paPath = "/";
+    let paText = "Task";
+
+    if (user.role === 'donor') {
+      const userDonations = donations || [];
+      dPath = "/donor-dashboard";
+      paPath = "/donor/donate";
+      paText = "Make a New Donation";
+      
+      const pendingCount = userDonations.filter(d => d.status === 'pending').length;
+      // Include 'approved', 'matched', 'pickup_scheduled', 'in_transit' for active status
+      const activeCount = userDonations.filter(d => 
+        ['approved', 'matched', 'pickup_scheduled', 'in_transit'].includes(d.status)
+      ).length;
+
+      qStats = [
+        { title: "Your Donations", value: userDonations.length, icon: Package, color: "text-green-500" },
+        { title: "Pending", value: pendingCount, icon: Clock, color: "text-yellow-500" },
+        { title: "Active", value: activeCount, icon: CheckCircle, color: "text-blue-500" },
+      ];
+
+    } else if (user.role === 'recipient') {
+      const userRequests = requests || [];
+      dPath = "/recipient-dashboard";
+      paPath = "/recipient/browseItems";
+      paText = "Browse Donations";
+      
+      // 'active' is pending
+      const pendingCount = userRequests.filter(r => r.status === 'active').length; 
+      // 'matched' and 'fulfilled' are essentially approved/done
+      const approvedCount = userRequests.filter(r => r.status === 'matched' || r.status === 'fulfilled').length;
+
+      qStats = [
+        { title: "Your Requests", value: userRequests.length, icon: Heart, color: "text-red-500" },
+        { title: "Active Requests", value: pendingCount, icon: Clock, color: "text-yellow-500" },
+        { title: "Fulfilled", value: approvedCount, icon: CheckCircle, color: "text-green-500" },
+      ];
+
+    } else if (user.role === 'admin') {
+      dPath = "/admin-dashboard";
+      paPath = "/admin/donations";
+      paText = "Moderate Donations";
+       qStats = [
+        { title: "Pending Donations", value: donations?.filter(d => d.status === 'pending').length || 'N/A', icon: Package, color: "text-yellow-500" },
+        { title: "New Users", value: 'N/A', icon: Users, color: "text-blue-500" },
+        { title: "Alerts", value: '0', icon: Bell, color: "text-red-500" },
+      ];
+    }
+    
+    return { quickStats: qStats, dashboardPath: dPath, primaryActionPath: paPath, primaryActionText: paText };
+  }, [user.role, donations, requests]); // Recalculate if these dependencies change
 
   return (
     <section className="relative h-screen bg-gray-900 text-white overflow-hidden">
@@ -144,8 +169,9 @@ const LoggedInHero = () => {
             {/* Quick Stats for Logged-in User */}
             <div className="animate-slide-in-right">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {loading ? (
+                {isLoadingUserData ? (
                   <>
+                    {/* Show skeleton while data loads */}
                     <Skeleton className="h-28 bg-white/10 rounded-lg" />
                     <Skeleton className="h-28 bg-white/10 rounded-lg" />
                     <Skeleton className="h-28 bg-white/10 rounded-lg" />
@@ -172,8 +198,11 @@ const LoggedInHero = () => {
   );
 };
 
+
 // --- NEW: Logged-out Hero Component ---
 const LoggedOutHero = () => {
+// ... (Component contents remain the same as provided)
+// ...
   const { currentSlide, setCurrentSlide } = useSlideshow(slideImages);
   const { stats, loading: loadingStats } = usePlatformStats();
   const navigate = useNavigate();
@@ -306,7 +335,7 @@ const Landing = () => {
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard icon={<Shirt className="h-8 w-8 text-white" />} title="Easy Donation" description="Simply upload photos and details of your clothes. Our platform handles the rest." />
+            <FeatureCard icon={<Shirt className="h-8 w-8 text-white" />} title="Easy Donation" description="Simply upload photos and details of your clothes." />
             <FeatureCard icon={<TrendingUp className="h-8 w-8 text-white" />} title="Smart Matching" description="AI matches your donations with NGOs that need them most, maximizing impact." />
             <FeatureCard icon={<CheckCircle className="h-8 w-8 text-white" />} title="Track Impact" description="Follow your donation journey and see the real impact on communities." />
           </div>
@@ -382,4 +411,3 @@ const Landing = () => {
 };
 
 export default Landing;
-

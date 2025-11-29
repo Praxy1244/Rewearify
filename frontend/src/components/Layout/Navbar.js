@@ -76,6 +76,7 @@ const Navbar = () => {
           { path: '/admin-dashboard', label: 'Dashboard' },
           { path: '/admin/donations', label: 'Manage Donations' },
           { path: '/admin/users', label: 'Manage Users' },
+          { path: '/admin/logistics', label: 'Logistics' },
           { path: '/admin/analytics', label: 'Analytics' }
         ];
       default:

@@ -14,7 +14,7 @@ import { ArrowLeft, Save, Clock, CheckCircle, AlertTriangle, Loader2 } from 'luc
 import { useToast } from '../../hooks/use-toast';
 import { donationService } from '../../services';
 
-// --- Data maps (remain the same) ---
+// --- Data maps (same as DonationForm) ---
 const categoryMap = {
   outerwear: ['Jacket', 'Coat', 'Sweater', 'Vest'],
   formal: ['Suit', 'Dress Shirt', 'Blouse', 'Trousers', 'Skirt'],
@@ -49,7 +49,6 @@ const getSizingCategory = (category) => {
   if (['household', 'linens'].includes(category)) return 'household';
   return 'default';
 };
-// --- END: Data maps ---
 
 const DonationEdit = () => {
   const { id } = useParams();
@@ -68,7 +67,7 @@ const DonationEdit = () => {
     condition: '',
     quantity: 1,
     sizes: [], 
-    colors: [],
+    // 💡 REMOVED: colors
     location: '',
     pickupAvailable: true,
     deliveryRadius: 10,
@@ -79,7 +78,6 @@ const DonationEdit = () => {
   const [subcategoryOptions, setSubcategoryOptions] = useState([]);
   const [currentSizeOptions, setCurrentSizeOptions] = useState(sizeMap.default);
 
-  // --- Effect to fetch donation data on load ---
   useEffect(() => {
     const fetchDonation = async () => {
       try {
@@ -88,8 +86,6 @@ const DonationEdit = () => {
         if (response.success) {
           const donation = response.data.donation;
           
-          // --- THIS IS THE FIX ---
-          // Check for both user.id and user._id
           const userId = user._id || user.id;
           if (donation.donor._id !== userId) {
              toast({ 
@@ -101,7 +97,6 @@ const DonationEdit = () => {
              navigate('/donor/my-donations');
              return;
           }
-          // --- END OF FIX ---
 
           setFormData({
             title: donation.title,
@@ -111,7 +106,7 @@ const DonationEdit = () => {
             condition: donation.condition,
             quantity: donation.quantity,
             sizes: donation.sizes.map(s => s.size), 
-            colors: donation.colors || [],
+            // 💡 REMOVED: colors
             location: donation.location.address,
             pickupAvailable: donation.availability?.pickupAvailable || true,
             deliveryRadius: donation.availability?.deliveryRadius || 10,
@@ -143,7 +138,6 @@ const DonationEdit = () => {
     }
   }, [id, user, navigate, toast]);
 
-  // --- (Effects and helper functions remain the same) ---
   useEffect(() => {
     if (formData.category) {
       setSubcategoryOptions(categoryMap[formData.category] || []);
@@ -176,8 +170,6 @@ const DonationEdit = () => {
     { value: 'fair', label: 'Fair - Some wear but usable' }
   ];
 
-  const colorOptions = ['Black', 'White', 'Gray', 'Navy', 'Brown', 'Red', 'Blue', 'Green', 'Pink', 'Purple', 'Yellow', 'Orange', 'Multi-color'];
-
   const handleInputChange = (name, value) => {
     setFormData(prev => ({
       ...prev,
@@ -205,7 +197,7 @@ const DonationEdit = () => {
       address: formData.location, 
       city: city,
       state: state,
-      country: 'USA',
+      country: 'India',
       zipCode: ''
     };
 
@@ -226,7 +218,7 @@ const DonationEdit = () => {
       condition: formData.condition,
       quantity: formData.quantity,
       sizes: formattedSizes,
-      colors: formData.colors,
+      // 💡 REMOVED: colors
       location: formattedLocation,
       availability: {
         pickupAvailable: formData.pickupAvailable,
@@ -235,7 +227,7 @@ const DonationEdit = () => {
       preferences: {
         urgentNeeded: formData.urgentNeeded,
       },
-      tags: [formData.category, formData.subcategory, ...formData.colors] 
+      tags: [formData.category, formData.subcategory] // Removed colors from tags
     };
 
     try {
@@ -266,7 +258,6 @@ const DonationEdit = () => {
     }
   };
 
-  // --- (Rest of the JSX remains the same) ---
   if (pageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -423,24 +414,7 @@ const DonationEdit = () => {
                   ))}
                 </div>
               </div>
-
-              <div>
-                <Label className="text-base font-medium">Colors *</Label>
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-2">
-                  {colorOptions.map(color => (
-                    <Button
-                      key={color}
-                      type="button"
-                      variant={formData.colors.includes(color) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleMultiSelect('colors', color)}
-                      className="h-10"
-                    >
-                      {color}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+              {/* 💡 REMOVED: Colors Section */}
             </div>
 
             <div className="space-y-4">

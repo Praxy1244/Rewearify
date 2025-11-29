@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -11,10 +11,12 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { ArrowLeft, ArrowRight, Info, Clock, CheckCircle, Sparkles } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { ArrowLeft, ArrowRight, Info, Clock, CheckCircle, Sparkles, MapPin, Loader2, Heart, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { donationService } from '../../services';
+import { donationService, userService } from '../../services';
 import aiService from '../../services/aiService';
+import axios from 'axios';
 
 // Category to subcategory mapping
 const categoryMap = {
@@ -55,11 +57,25 @@ const getSizingCategory = (category) => {
 const DonationForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [step, setStep] = useState(1);
   const [recommendedNGOs, setRecommendedNGOs] = useState([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  
+  const [nearbyNGOs, setNearbyNGOs] = useState([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
+  const [selectedNgoId, setSelectedNgoId] = useState(null);
+
   const [loading, setLoading] = useState(false);
+  
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
+  const [targetNgo, setTargetNgo] = useState(null);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -68,15 +84,15 @@ const DonationForm = () => {
     condition: '',
     quantity: 1,
     sizes: [],
-    colors: [],
+    // 💡 REMOVED: colors state
     location: user?.location?.address || '',
+    coordinates: user?.location?.coordinates?.coordinates || null,
     pickupAvailable: true,
     deliveryRadius: 10,
     urgentNeeded: false,
     tags: []
   });
 
-  // AI suggestion states
   const [aiSuggestions, setAISuggestions] = useState({
     titles: [],
     descriptions: [],
@@ -89,7 +105,13 @@ const DonationForm = () => {
   const [subcategoryOptions, setSubcategoryOptions] = useState([]);
   const [currentSizeOptions, setCurrentSizeOptions] = useState(sizeMap.default);
 
-  // Update dynamic fields when category changes
+  useEffect(() => {
+    if (location.state?.targetNgo) {
+      setTargetNgo(location.state.targetNgo);
+      setSelectedNgoId(location.state.targetNgo.id);
+    }
+  }, [location.state]);
+
   useEffect(() => {
     if (formData.category && categoryMap[formData.category]) {
       setSubcategoryOptions(categoryMap[formData.category]);
@@ -103,7 +125,6 @@ const DonationForm = () => {
     handleInputChange('sizes', []);
   }, [formData.category]);
 
-  // Fetch AI suggestions
   useEffect(() => {
     const fetchAISuggestions = async () => {
       if (!formData.category) {
@@ -120,8 +141,8 @@ const DonationForm = () => {
           condition: formData.condition
         });
         
-        if (response && response.suggestions) {
-          setAISuggestions(response.suggestions);
+        if (response.success && response.data && response.data.suggestions) {
+          setAISuggestions(response.data.suggestions);
           setShowSuggestions(true);
         }
       } catch (error) {
@@ -137,6 +158,44 @@ const DonationForm = () => {
 
     return () => clearTimeout(timer);
   }, [formData.category, formData.condition]);
+
+  const handleLocationSearch = (query) => {
+    handleInputChange('location', query);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (!query || query.length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressDropdown(false);
+      return;
+    }
+
+    setIsSearchingAddress(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+          params: { q: query, format: 'json', addressdetails: 1, limit: 5, countrycodes: 'in' },
+          headers: { 'User-Agent': 'Rewearify App' }
+        });
+        setAddressSuggestions(response.data);
+        setShowAddressDropdown(true);
+      } catch (error) {
+        console.error('Address search failed:', error);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 500);
+  };
+
+  const selectAddress = (address) => {
+    handleInputChange('location', address.display_name);
+    setFormData(prev => ({
+      ...prev,
+      location: address.display_name,
+      coordinates: [parseFloat(address.lon), parseFloat(address.lat)]
+    }));
+    setAddressSuggestions([]);
+    setShowAddressDropdown(false);
+  };
 
   const categories = [
     { value: 'outerwear', label: 'Outerwear & Coats' },
@@ -162,44 +221,53 @@ const DonationForm = () => {
     { value: 'fair', label: 'Fair - Some wear but usable' }
   ];
 
-  const colorOptions = ['Black', 'White', 'Gray', 'Navy', 'Brown', 'Red', 'Blue', 'Green', 'Pink', 'Purple', 'Yellow', 'Orange', 'Multi-color'];
-  // Fetch AI-recommended NGOs
-const fetchRecommendations = async () => {
-  setLoadingRecommendations(true);
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch('http://localhost:5000/api/recommendations/for-donation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        clothing_type: formData.category,
-        subcategory: formData.subcategory,
-        quantity: formData.quantity,
-        location: formData.location,
-        condition: formData.condition,
-        urgentNeeded: formData.urgentNeeded
-      })
-    });
-    
-    const data = await response.json();
-    setRecommendedNGOs(data.recommendations || []);
-  } catch (error) {
-    console.error('Failed to fetch recommendations:', error);
-    toast.error('Could not load recommendations. You can still submit.');
-  } finally {
-    setLoadingRecommendations(false);
-  }
-};
+  const fetchRecommendations = async () => {
+    setLoadingRecommendations(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/recommendations/for-donation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          clothing_type: formData.category,
+          subcategory: formData.subcategory,
+          quantity: formData.quantity,
+          location: formData.location,
+          condition: formData.condition,
+          urgentNeeded: formData.urgentNeeded
+        })
+      });
+      
+      const data = await response.json();
+      setRecommendedNGOs(data.recommendations || []);
+    } catch (error) {
+      console.error('Failed to fetch recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
 
+  const fetchNearbyNGOs = async () => {
+    if (!formData.coordinates) return;
+    setLoadingNearby(true);
+    try {
+      const [lng, lat] = formData.coordinates;
+      const response = await userService.getNearbyUsers(lat, lng, Math.max(25, formData.deliveryRadius), 'recipient');
+      if (response.success) {
+        setNearbyNGOs(response.data.users || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch nearby NGOs:", error);
+    } finally {
+      setLoadingNearby(false);
+    }
+  };
 
   const handleInputChange = (name, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleMultiSelect = (name, value) => {
@@ -220,31 +288,32 @@ const fetchRecommendations = async () => {
                formData.subcategory && 
                formData.condition;
       case 2:
-        return formData.sizes.length > 0 && formData.colors.length > 0;
+        // 💡 REMOVED: Color check
+        return formData.sizes.length > 0;
       case 3:
-        return formData.location.trim();
+        return formData.location.trim().length > 3;
       default:
         return true;
     }
   };
 
   const handleNext = () => {
-  if (validateStep(step)) {
-    // When moving from step 4 to 5, fetch AI recommendations
-    if (step === 4) {
-      fetchRecommendations();
+    if (validateStep(step)) {
+      if (step === 4) {
+        fetchRecommendations();
+        if (formData.coordinates) {
+          fetchNearbyNGOs();
+        }
+      }
+      setStep(step + 1);
+    } else {
+      toast.error("Please complete all required fields");
     }
-    setStep(step + 1);
-  } else {
-    toast.error("Please complete all required fields");
-  }
-};
-
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
 
-    // Parse location
     const locationParts = formData.location.split(',').map(s => s.trim());
     const city = locationParts[0] || formData.location;
     const state = locationParts[1] || 'Unknown';
@@ -254,16 +323,15 @@ const fetchRecommendations = async () => {
       city: city,
       state: state,
       country: 'India',
-      zipCode: ''
+      zipCode: '',
+      coordinates: formData.coordinates ? { type: 'Point', coordinates: formData.coordinates } : undefined
     };
 
-    // Format sizes properly
     const formattedSizes = formData.sizes.map(size => ({
       size: size,
       quantity: Math.floor(formData.quantity / formData.sizes.length) || 1
     }));
     
-    // If no sizes selected, use a default
     if (formattedSizes.length === 0) {
       formattedSizes.push({ 
         size: 'One Size', 
@@ -271,7 +339,6 @@ const fetchRecommendations = async () => {
       });
     }
 
-    // Create clean payload
     const donationPayload = {
       title: formData.title.trim(),
       description: formData.description.trim(),
@@ -280,7 +347,7 @@ const fetchRecommendations = async () => {
       condition: formData.condition,
       quantity: formData.quantity,
       sizes: formattedSizes,
-      colors: formData.colors,
+      // 💡 REMOVED: colors: formData.colors
       location: formattedLocation,
       availability: {
         pickupAvailable: formData.pickupAvailable,
@@ -288,12 +355,11 @@ const fetchRecommendations = async () => {
       },
       preferences: {
         urgentNeeded: formData.urgentNeeded,
+        preferredRecipients: selectedNgoId ? [selectedNgoId] : []
       },
-      tags: [formData.category, formData.subcategory, ...formData.colors],
+      tags: [formData.category, formData.subcategory], // Removed colors from tags
       images: []
     };
-
-    console.log('Submitting donation payload:', donationPayload);
 
     try {
       const response = await donationService.createDonation(donationPayload);
@@ -303,36 +369,30 @@ const fetchRecommendations = async () => {
         navigate('/donor/my-donations');
       } else {
         toast.error(response.message || "Failed to create donation");
-        console.error('Backend error:', response);
       }
     } catch (error) {
       console.error("Error creating donation:", error);
-      
       let errorMessage = "Please check your connection and try again.";
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
       toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // AI Suggestion UI Components
+  // ... (Render helper functions) ...
   const renderTitleSuggestions = () => {
     if (!showSuggestions || aiSuggestions.titles.length === 0) return null;
-    
     return (
       <div className="mt-2">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="h-3 w-3 text-blue-600" />
           <span className="text-xs text-blue-600 font-medium">AI Suggestions:</span>
-          {fetchingSuggestions && (
-            <span className="text-xs text-gray-500">(loading...)</span>
-          )}
+          {fetchingSuggestions && <span className="text-xs text-gray-500">(loading...)</span>}
         </div>
         <div className="flex flex-wrap gap-2">
           {aiSuggestions.titles.map((suggestion, idx) => (
@@ -354,7 +414,6 @@ const fetchRecommendations = async () => {
 
   const renderDescriptionSuggestions = () => {
     if (!showSuggestions || aiSuggestions.descriptions.length === 0) return null;
-    
     return (
       <div className="mt-2">
         <div className="flex items-center gap-2 mb-2">
@@ -381,7 +440,6 @@ const fetchRecommendations = async () => {
 
   const renderSubcategorySuggestions = () => {
     if (!showSuggestions || aiSuggestions.subcategories.length === 0) return null;
-    
     return (
       <div className="mt-2">
         <div className="flex items-center gap-2 mb-2">
@@ -405,15 +463,14 @@ const fetchRecommendations = async () => {
   };
 
   const renderProgressBar = () => (
-  <div className="mb-8">
-    <div className="flex items-center justify-between mb-2">
-      <span className="text-sm font-medium">Step {step} of 5</span>
-      <span className="text-sm text-gray-600">{Math.round((step / 5) * 100)}% Complete</span>
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium">Step {step} of 5</span>
+        <span className="text-sm text-gray-600">{Math.round((step / 5) * 100)}% Complete</span>
+      </div>
+      <Progress value={(step / 5) * 100} className="h-2" />
     </div>
-    <Progress value={(step / 5) * 100} className="h-2" />
-  </div>
-);
-
+  );
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -527,7 +584,7 @@ const fetchRecommendations = async () => {
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Item Details</h2>
-        <p className="text-gray-600">Specify sizes and colors</p>
+        <p className="text-gray-600">Specify sizes</p>
       </div>
 
       <div>
@@ -549,24 +606,7 @@ const fetchRecommendations = async () => {
         </div>
       </div>
 
-      <div>
-        <Label className="text-base font-medium">Colors *</Label>
-        <p className="text-sm text-gray-500 mb-2">Select all that apply. Select at least one.</p>
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-2">
-          {colorOptions.map(color => (
-            <Button
-              key={color}
-              type="button"
-              variant={formData.colors.includes(color) ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleMultiSelect('colors', color)}
-              className="h-10"
-            >
-              {color}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* 💡 REMOVED: Colors Section */}
     </div>
   );
 
@@ -578,15 +618,39 @@ const fetchRecommendations = async () => {
       </div>
 
       <div className="space-y-4">
-        <div>
+        <div className="relative">
           <Label htmlFor="location">Pickup Location *</Label>
-          <Input
-            id="location"
-            value={formData.location}
-            onChange={(e) => handleInputChange('location', e.target.value)}
-            placeholder="City, State (e.g., Delhi, Delhi)"
-            className="mt-1"
-          />
+          <div className="relative mt-1">
+            <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Input
+              id="location"
+              value={formData.location}
+              onChange={(e) => handleLocationSearch(e.target.value)}
+              placeholder="Start typing your address (India)..."
+              className="pl-10"
+              autoComplete="off"
+            />
+            {isSearchingAddress && (
+              <div className="absolute right-3 top-3">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>
+            )}
+          </div>
+
+          {showAddressDropdown && addressSuggestions.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {addressSuggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0 text-sm"
+                  onClick={() => selectAddress(suggestion)}
+                >
+                  <p className="font-medium text-gray-900">{suggestion.display_name.split(',')[0]}</p>
+                  <p className="text-gray-500 text-xs truncate">{suggestion.display_name}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-2">
@@ -609,9 +673,6 @@ const fetchRecommendations = async () => {
             onChange={(e) => handleInputChange('deliveryRadius', parseInt(e.target.value))}
             className="mt-1 max-w-32"
           />
-          <p className="text-sm text-gray-600 mt-1">
-            How far are you willing to deliver? (0 = pickup only)
-          </p>
         </div>
       </div>
     </div>
@@ -624,34 +685,28 @@ const fetchRecommendations = async () => {
         <p className="text-gray-600">Review your donation details before submitting</p>
       </div>
 
+      {targetNgo && (
+        <Alert className="bg-blue-50 border-blue-200 mb-4">
+          <Heart className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            You are donating directly to <strong>{targetNgo.name}</strong>. 
+            They will be notified immediately upon approval.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>{formData.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <strong>Category:</strong> {categories.find(c => c.value === formData.category)?.label}
-            </div>
-            <div>
-              <strong>Sub-Category:</strong> {formData.subcategory}
-            </div>
-            <div>
-              <strong>Condition:</strong> {conditions.find(c => c.value === formData.condition)?.label}
-            </div>
-            <div>
-              <strong>Quantity:</strong> {formData.quantity} items
-            </div>
-            <div>
-              <strong>Location:</strong> {formData.location}
-            </div>
+            <div><strong>Category:</strong> {categories.find(c => c.value === formData.category)?.label}</div>
+            <div><strong>Condition:</strong> {conditions.find(c => c.value === formData.condition)?.label}</div>
+            <div><strong>Quantity:</strong> {formData.quantity} items</div>
+            <div><strong>Location:</strong> {formData.location}</div>
           </div>
-          
-          <div>
-            <strong>Description:</strong>
-            <p className="text-gray-600 mt-1">{formData.description}</p>
-          </div>
-          
+          <div><strong>Description:</strong> <p className="text-gray-600 mt-1">{formData.description}</p></div>
           <div>
             <strong>Sizes:</strong>
             <div className="flex flex-wrap gap-1 mt-1">
@@ -660,103 +715,133 @@ const fetchRecommendations = async () => {
               )) : <Badge variant="outline">Various</Badge>}
             </div>
           </div>
-          
-          <div>
-            <strong>Colors:</strong>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {formData.colors.map(color => (
-                <Badge key={color} variant="secondary">{color}</Badge>
-              ))}
-            </div>
-          </div>
+          {/* 💡 REMOVED: Colors display */}
         </CardContent>
       </Card>
-
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          Your donation will be reviewed by our admin team and will be visible to recipients once approved. 
-          This usually takes 24-48 hours.
-        </AlertDescription>
-      </Alert>
     </div>
   );
 
-    const renderStep5 = () => (
+  const renderStep5 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
           <Sparkles className="text-purple-600" />
-          AI-Recommended NGOs
+          Select an NGO
         </h2>
-        <p className="text-gray-600">Based on your donation, these NGOs are the best match</p>
+        <p className="text-gray-600">Choose an NGO to notify directly (Optional)</p>
       </div>
 
-      {loadingRecommendations ? (
-        <div className="text-center py-12">
-          <Clock className="h-12 w-12 animate-spin mx-auto text-blue-600 mb-4" />
-          <p className="text-gray-600">Finding the perfect NGOs for your donation...</p>
-        </div>
-      ) : recommendedNGOs.length > 0 ? (
-        <div className="space-y-4">
-          {recommendedNGOs.slice(0, 5).map((ngo, idx) => (
-            <Card key={idx} className="hover:shadow-lg transition-shadow border-2 border-transparent hover:border-blue-300">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
-                    <p className="text-sm text-gray-600">{ngo.location}</p>
-                  </div>
-                  <Badge variant="default" className="bg-green-600">
-                    {(ngo.score * 100).toFixed(0)}% Match
-                  </Badge>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
-                  <div>
-                    <span className="font-medium">Trust Score:</span>
-                    <p className="text-gray-700">{ngo.trust_score}/5 ⭐</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Impact Score:</span>
-                    <p className="text-gray-700">{ngo.impact_score}/5</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Distance:</span>
-                    <p className="text-gray-700">{ngo.distance ? `${ngo.distance.toFixed(1)}km` : 'N/A'}</p>
-                  </div>
-                </div>
+      <Tabs defaultValue="recommended" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="recommended" className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            AI Recommended
+          </TabsTrigger>
+          <TabsTrigger value="nearby" className="flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            Browse Nearby
+          </TabsTrigger>
+        </TabsList>
 
-                {ngo.reason && (
-                  <div className="bg-blue-50 p-3 rounded-md">
-                    <p className="text-sm text-blue-900">
-                      <strong>Why recommended:</strong> {ngo.reason}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-          
-          <Alert className="bg-purple-50 border-purple-200">
-            <Sparkles className="h-4 w-4 text-purple-600" />
-            <AlertDescription>
-              <strong>AI Insight:</strong> These NGOs were selected based on their location, 
-              past acceptance of similar items, and community impact scores.
-            </AlertDescription>
-          </Alert>
-        </div>
-      ) : (
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            No specific recommendations available. Your donation will be visible to all NGOs.
-          </AlertDescription>
-        </Alert>
-      )}
+        <TabsContent value="recommended">
+          {loadingRecommendations ? (
+            <div className="text-center py-12">
+              <Clock className="h-12 w-12 animate-spin mx-auto text-blue-600 mb-4" />
+              <p className="text-gray-600">Finding the perfect NGOs for your donation...</p>
+            </div>
+          ) : recommendedNGOs.length > 0 ? (
+            <div className="space-y-4">
+              {recommendedNGOs.slice(0, 5).map((ngo, idx) => (
+                <Card 
+                  key={idx} 
+                  className={`cursor-pointer transition-all border-2 ${selectedNgoId === (ngo._id || ngo.id) ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
+                  onClick={() => setSelectedNgoId(ngo._id || ngo.id)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+                        <p className="text-sm text-gray-600">{ngo.location}</p>
+                      </div>
+                      {selectedNgoId === (ngo._id || ngo.id) ? (
+                         <Badge className="bg-green-600 flex gap-1"><CheckCircle className="h-3 w-3"/> Selected</Badge>
+                      ) : (
+                        <Badge variant="default" className="bg-green-600">{(ngo.score * 100).toFixed(0)}% Match</Badge>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 mb-2 text-sm">
+                      <div><span className="font-medium">Trust:</span> {ngo.trust_score}/5 ⭐</div>
+                      <div><span className="font-medium">Impact:</span> {ngo.impact_score}/5</div>
+                      <div><span className="font-medium">Distance:</span> {ngo.distance ? `${ngo.distance.toFixed(1)}km` : 'N/A'}</div>
+                    </div>
+
+                    {ngo.reason && (
+                      <div className="bg-white/50 p-2 rounded text-sm text-blue-900">
+                        <strong>Why:</strong> {ngo.reason}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>No specific AI matches found. Try the Nearby tab.</AlertDescription>
+            </Alert>
+          )}
+        </TabsContent>
+
+        <TabsContent value="nearby">
+          {loadingNearby ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600">Searching for NGOs in your area...</p>
+            </div>
+          ) : nearbyNGOs.length > 0 ? (
+            <div className="space-y-4">
+              {nearbyNGOs.map((ngo, idx) => (
+                 <Card 
+                  key={idx} 
+                  className={`cursor-pointer transition-all border-2 ${selectedNgoId === ngo._id ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
+                  onClick={() => setSelectedNgoId(ngo._id)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+                        <p className="text-sm text-gray-600">{ngo.location?.city}, {ngo.location?.state}</p>
+                      </div>
+                       {selectedNgoId === ngo._id && (
+                         <Badge className="bg-green-600 flex gap-1"><CheckCircle className="h-3 w-3"/> Selected</Badge>
+                      )}
+                    </div>
+                    {ngo.organization?.name && (
+                       <p className="text-sm text-gray-500 mb-2">{ngo.organization.name}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No registered NGOs found nearby.</p>
+              {!formData.coordinates && <p className="text-xs text-red-500 mt-2">Please select a valid address in Step 3 to enable this feature.</p>}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Alert className="bg-blue-50 border-blue-200 mt-4">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription>
+          Selecting an NGO is optional. If you don't select one, your donation will be visible to all verified NGOs.
+        </AlertDescription>
+      </Alert>
     </div>
   );
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -777,6 +862,15 @@ const fetchRecommendations = async () => {
         <Card className="shadow-lg">
           <CardContent className="p-8">
             {renderProgressBar()}
+            
+            {targetNgo && step === 1 && (
+               <Alert className="bg-blue-50 border-blue-200 mb-6">
+                <Heart className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  Donating to: <strong>{targetNgo.name}</strong>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
@@ -784,40 +878,23 @@ const fetchRecommendations = async () => {
             {step === 4 && renderStep4()}
             {step === 5 && renderStep5()}
 
-
             <div className="flex justify-between mt-8 pt-6 border-t">
               {step > 1 ? (
                 <Button variant="outline" onClick={() => setStep(step - 1)}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Previous
                 </Button>
-              ) : (
-                <div></div>
-              )}
+              ) : <div></div>}
               
               <div className="ml-auto">
                 {step < 5 ? (
                   <Button onClick={handleNext} disabled={!validateStep(step)}>
-                    Next
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                    Next <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {loading ? (
-                      <>
-                        <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        Creating Donation...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Submit Donation
-                      </>
-                    )}
+                  <Button onClick={handleSubmit} disabled={loading} className="bg-green-600 hover:bg-green-700">
+                    {loading ? <Clock className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                    Submit Donation
                   </Button>
                 )}
               </div>

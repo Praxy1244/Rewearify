@@ -147,6 +147,12 @@ class LegacyDonationRequest(BaseModel):
     description: Optional[str] = ""
     id: Optional[str] = "new"
 
+class AnalysisRequest(BaseModel):
+    category: str
+    condition: str
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+
 # --- Root Endpoint ---
 
 @app.get("/")
@@ -729,18 +735,34 @@ async def get_donor_profile(donor_id: str):
 
 # --- Legacy Endpoints ---
 
-@app.get("/suggest")
-def suggest_subtypes(type: str):
-    """Legacy endpoint: Get subtype suggestions"""
-    from services.suggestions import get_subtype_suggestions
-    return {"suggestions": get_subtype_suggestions(type)}
-
 @app.post("/match")
 def match_ngos_legacy(donation: LegacyDonationRequest):
     """Legacy endpoint: Simple NGO matching"""
     from services.matching import get_ngo_matches
     matches = get_ngo_matches(donation.type, donation.description or "")
     return {"matches": matches}
+
+@app.post("/analyze-donation")
+def analyze_donation(request: AnalysisRequest):
+    """Generate smart suggestions for donation form"""
+    try:
+        from services.suggestions import generate_smart_suggestions
+        
+        suggestions = generate_smart_suggestions(
+            request.category,
+            request.condition,
+            f"{request.title} {request.description}"
+        )
+        
+        return {
+            "success": True, 
+            "data": {
+                "suggestions": suggestions
+            }
+        }
+    except Exception as e:
+        print(f"Analysis error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Run the app ---
 

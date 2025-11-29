@@ -1,9 +1,6 @@
 import api from '../lib/api'; // Assuming you have an axios instance here
 
-// 1. Smart Form Suggestions (Donor)
-export const getSubtypeSuggestions = (type) => {
-  return api.get(`/ai/suggest?type=${type}`);
-};
+
 
 // 2. NGO Matching (Donor)
 export const getMatches = (donationData) => {
@@ -31,15 +28,20 @@ export const getDonorTrends = () => {
   return api.get('/ai/trends');
 };
 
+export const analyzeDonation = (data) => {
+  return api.post('/ai/analyze-donation', data);
+};
+
 
 
 const aiService = {
-  getSubtypeSuggestions,
+  
   getMatches,
   getForecast,
   getClusters,
   checkFraud,
-  getDonorTrends
+  getDonorTrends,
+  analyzeDonation
 };
 
 export default aiService;

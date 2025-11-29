@@ -117,13 +117,13 @@ export const AppProvider = ({ children }) => {
       ]);
 
       if (donationsResponse.success) {
-        dispatch({ type: 'SET_USER_DONATIONS', payload: donationsResponse.data.donations || [] });
+        dispatch({ type: 'SET_USER_DONATIONS', payload: donationsResponse.data || [] });
       } else {
         setError('userDonations', donationsResponse.message);
       }
 
       if (requestsResponse.success) {
-        dispatch({ type: 'SET_USER_REQUESTS', payload: requestsResponse.data.requests || [] });
+        dispatch({ type: 'SET_USER_REQUESTS', payload: requestsResponse.data || [] });
       } else {
         setError('userRequests', requestsResponse.message);
       }

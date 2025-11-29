@@ -1,46 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Check, X, Package, Calendar, User } from 'lucide-react';
+import { Search, Filter, Eye, Check, X, Package, Calendar, AlertTriangle, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle,DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { adminService } from '../../services';
-import { toast } from 'sonner'; // Use sonner
-import { useToast } from '../../hooks/use-toast';
+import { toast } from 'sonner';
 
 const ManageDonations = () => {
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending'); // Default to 'pending'
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  const { toast } = useToast();
-  
   useEffect(() => {
     fetchDonations();
-  }, []); // Load once on mount
+  }, []);
   
   const fetchDonations = async () => {
     try {
       setLoading(true);
-      // --- FIX: Call the correct service function ---
-      const response = await adminService.getAllDonations({
-        // We can add params here, like status, later
-      }); 
+      const response = await adminService.getAllDonations(); 
       
       if (response.success) {
-        // Data is at response.data (which is an array)
-        setDonations(response.data || []); 
+        // Sort by risk score (descending) then date
+        const sortedData = (response.data || []).sort((a, b) => {
+           // Prioritize flagged items
+           if (a.isFlagged !== b.isFlagged) return a.isFlagged ? -1 : 1;
+           // Then by date
+           return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        setDonations(sortedData); 
       } else {
         setError('Failed to fetch donations');
-        toast({ title: "Error", description: "Failed to load donations", variant: "destructive" });
+        toast.error("Failed to load donations");
       }
     } catch (err) {
       console.error('Error fetching donations:', err);
@@ -52,7 +52,6 @@ const ManageDonations = () => {
   };
 
   const filteredDonations = donations.filter(donation => {
-    // Safety check for donor object
     const donorName = donation.donor?.name || '';
     const donorEmail = donation.donor?.email || '';
 
@@ -63,59 +62,51 @@ const ManageDonations = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // --- FIX: Use the correct moderateDonation service ---
   const handleApprove = async (donationId) => {
     try {
-      // Call the unified moderation function
       const response = await adminService.moderateDonation(donationId, 'approve');
       
       if (response.success) {
-        // Update local state to reflect the change
         setDonations(prev => prev.map(donation => 
           donation._id === donationId 
-            ? { ...donation, status: 'approved' } // Use _id from MongoDB
+            ? { ...donation, status: 'approved', isFlagged: false } // Clear flag on approval
             : donation
         ));
-        toast({ title: "Donation Approved", description: "The donation is now visible to recipients." });
+        toast.success("Donation Approved & Published");
         setSelectedDonation(null);
       } else {
-        toast({ title: "Error", description: response.message || "Failed to approve donation", variant: "destructive" });
+        toast.error(response.message || "Failed to approve donation");
       }
     } catch (err) {
       console.error('Error approving donation:', err);
-      toast({ title: "Error", description: "Failed to approve donation", variant: "destructive" });
+      toast.error("Failed to approve donation");
     }
   };
 
-  // --- FIX: Use the correct moderateDonation service ---
   const handleReject = async (donationId) => {
     if (!rejectReason.trim()) {
-      toast({ title: "Error", description: "Please provide a reason for rejection.", variant: "destructive" });
+      toast.error("Please provide a reason for rejection.");
       return;
     }
     
     try {
-       // Call the unified moderation function
        const response = await adminService.moderateDonation(donationId, 'reject', rejectReason);
        
        if (response.success) {
-         // Update local state
          setDonations(prev => prev.map(donation => 
            donation._id === donationId 
-            ? { ...donation, status: 'rejected', moderation: { ...donation.moderation, rejectionReason } }
+            ? { ...donation, status: 'rejected', moderation: { ...donation.moderation, rejectionReason: rejectReason } }
             : donation
          ));
          setRejectReason('');
-         toast({ title: "Donation Rejected", description: "The donation has been rejected." });
-         setSelectedDonation(null); // Close modal
+         toast.success("Donation Rejected");
+         setSelectedDonation(null);
        } else {
-
-         toast({ title: "Error", description: response.message || "Failed to reject donation", variant: "destructive" });     
-
+         toast.error(response.message || "Failed to reject donation");     
        }
      } catch (err) {
        console.error('Error rejecting donation:', err);
-       toast({ title: "Error", description: "Failed to reject donation", variant: "destructive" });
+       toast.error("Failed to reject donation");
      }
   };
 
@@ -126,48 +117,61 @@ const ManageDonations = () => {
       case 'rejected': return 'bg-red-100 text-red-800';
       case 'matched': return 'bg-blue-100 text-blue-800';
       case 'completed': return 'bg-purple-100 text-purple-800';
+      case 'flagged': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
-  
-  // --- RENDER FUNCTIONS ---
+
+  // 💡 NEW: Risk Score Badge Helper
+  const getRiskBadge = (donation) => {
+    // Use AI analysis risk score if available, or fallback to 0
+    const score = donation.aiAnalysis?.fraudScore || donation.riskScore || 0;
+    const isFlagged = donation.isFlagged || donation.status === 'flagged';
+
+    if (isFlagged || score > 0.7) {
+      return <Badge variant="destructive" className="flex gap-1"><ShieldAlert className="w-3 h-3" /> High Risk</Badge>;
+    }
+    if (score > 0.4) {
+      return <Badge variant="secondary" className="bg-orange-100 text-orange-800 flex gap-1"><AlertTriangle className="w-3 h-3" /> Medium</Badge>;
+    }
+    return <Badge variant="outline" className="text-green-600 border-green-200 flex gap-1"><ShieldCheck className="w-3 h-3" /> Verified</Badge>;
+  };
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading donations...</p>
-          </div>
-        </div>
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Donations</h3>
-            <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={fetchDonations} variant="outline">
-              Try Again
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // This is the modal component
+  // Donation Details Modal Content
   const DonationDetailsModal = ({ donation, onClose }) => (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{donation.title}</DialogTitle>
+        <DialogTitle className="flex justify-between items-center pr-8">
+          <span>{donation.title}</span>
+          {getRiskBadge(donation)}
+        </DialogTitle>
       </DialogHeader>
       <div className="space-y-4">
+        
+        {/* 💡 NEW: Fraud/Risk Alert Box */}
+        {(donation.isFlagged || (donation.aiAnalysis?.fraudScore > 0.4)) && (
+           <div className="bg-red-50 border border-red-200 p-3 rounded-lg flex items-start gap-3">
+             <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+             <div>
+               <h4 className="font-semibold text-red-900 text-sm">AI Risk Alert</h4>
+               <p className="text-red-700 text-sm">
+                 {donation.flagReason || donation.aiAnalysis?.fraudScore > 0.7 ? "High probability of fraudulent activity." : "Potential anomalies detected."}
+               </p>
+               {donation.aiAnalysis?.fraudScore && (
+                 <p className="text-xs text-red-600 mt-1">Confidence Score: {(donation.aiAnalysis.fraudScore * 100).toFixed(0)}%</p>
+               )}
+             </div>
+           </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <img 
@@ -184,9 +188,11 @@ const ManageDonations = () => {
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Status</label>
-              <Badge className={getStatusColor(donation.status)}>
-                {donation.status}
-              </Badge>
+              <div className="flex gap-2 mt-1">
+                <Badge className={getStatusColor(donation.status)}>
+                  {donation.status}
+                </Badge>
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Location</label>
@@ -202,33 +208,24 @@ const ManageDonations = () => {
           </div>
           <div>
             <label className="text-sm font-medium text-gray-600">Condition</label>
-            <p>{donation.condition}</p>
+            <p className="capitalize">{donation.condition}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-600">Category</label>
-            <p className="capitalize">{donation.category} / {donation.subcategory}</p>
+            <p className="capitalize">{donation.category}</p>
           </div>
         </div>
 
         <div>
           <label className="text-sm font-medium text-gray-600">Description</label>
-          <p className="mt-1">{donation.description}</p>
+          <p className="mt-1 p-2 bg-gray-50 rounded text-sm">{donation.description}</p>
         </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-600">Sizes</label>
-          <div className="flex flex-wrap gap-2 mt-1">
-            {donation.sizes?.map((s, index) => (
-              <Badge key={index} variant="outline">{s.size} (Qty: {s.quantity})</Badge>
-            ))}
-          </div>
-        </div>
-
-        {donation.status === 'pending' && (
+        {(donation.status === 'pending' || donation.status === 'flagged') && (
           <div className="flex space-x-3 pt-4 border-t">
-            <Button onClick={() => handleApprove(donation._id)} className="flex-1">
+            <Button onClick={() => handleApprove(donation._id)} className="flex-1 bg-green-600 hover:bg-green-700">
               <Check className="h-4 w-4 mr-2" />
-              Approve
+              Approve & Publish
             </Button>
             <Dialog>
               <DialogTrigger asChild>
@@ -248,25 +245,16 @@ const ManageDonations = () => {
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                   />
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={() => handleReject(donation._id)} 
-                      variant="destructive"
-                      className="flex-1"
-                    >
-                      Confirm Rejection
-                    </Button>
-                  </div>
+                  <Button 
+                    onClick={() => handleReject(donation._id)} 
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    Confirm Rejection
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
-        )}
-
-        {donation.status === 'rejected' && donation.moderation?.rejectionReason && (
-          <div className="bg-red-50 p-3 rounded-lg">
-            <label className="text-sm font-medium text-red-800">Rejection Reason</label>
-            <p className="text-red-700 mt-1">{donation.moderation.rejectionReason}</p>
           </div>
         )}
       </div>
@@ -279,61 +267,16 @@ const ManageDonations = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manage Donations</h1>
-          <p className="text-gray-600 mt-1">Review and manage all donation submissions</p>
+          <p className="text-gray-600 mt-1">Review, approve, or reject incoming donations</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Badge variant="outline" className="text-yellow-600">
+          <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50">
             {donations.filter(d => d.status === 'pending').length} Pending Review
           </Badge>
+          <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+            {donations.filter(d => d.isFlagged).length} Flagged
+          </Badge>
         </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Package className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-bold">{donations.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Check className="h-5 w-5 text-green-500" />
-              <div>
-                <p className="text-sm text-gray-600">Approved</p>
-                <p className="text-2xl font-bold">{donations.filter(d => d.status === 'approved').length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5 text-yellow-500" />
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold">{donations.filter(d => d.status === 'pending').length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <X className="h-5 w-5 text-red-500" />
-              <div>
-                <p className="text-sm text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold">{donations.filter(d => d.status === 'rejected').length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filters */}
@@ -344,7 +287,7 @@ const ManageDonations = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by donor name, email, or item title..."
+                  placeholder="Search by donor, email, or title..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -359,10 +302,9 @@ const ManageDonations = () => {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="flagged">Flagged</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="matched">Matched</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -380,16 +322,16 @@ const ManageDonations = () => {
               <TableRow>
                 <TableHead>Item</TableHead>
                 <TableHead>Donor</TableHead>
+                <TableHead>Risk Level</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Date Submitted</TableHead>
-                <TableHead>Quantity</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredDonations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
+                  <TableCell colSpan={6} className="text-center h-32 text-gray-500">
                     No donations found matching your criteria.
                   </TableCell>
                 </TableRow>
@@ -398,46 +340,40 @@ const ManageDonations = () => {
                   <TableRow key={donation._id}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
-                        <img 
-                          src={donation.images?.[0]?.url || 'https://placehold.co/40x40/E2E8F0/4A5568?text=Img'} 
-                          alt={donation.title}
-                          className="w-10 h-10 rounded-lg object-cover"
-                        />
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden">
+                          <img 
+                            src={donation.images?.[0]?.url || 'https://placehold.co/40x40/E2E8F0/4A5568?text=Img'} 
+                            alt={donation.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                         <div>
-                          <p className="font-medium">{donation.title}</p>
-                          <p className="text-sm text-gray-500 capitalize">{donation.category}</p>
+                          <p className="font-medium text-sm">{donation.title}</p>
+                          <p className="text-xs text-gray-500 capitalize">{donation.category}</p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{donation.donor?.name || 'N/A'}</p>
-                        <p className="text-sm text-gray-500">{donation.donor?.email || 'N/A'}</p>
+                        <p className="font-medium text-sm">{donation.donor?.name || 'Unknown'}</p>
+                        <p className="text-xs text-gray-500">{donation.donor?.email}</p>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {getRiskBadge(donation)}
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(donation.status)}>
                         {donation.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(donation.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>{donation.quantity} items</TableCell>
+                    <TableCell className="text-sm text-gray-600">
+                      {new Date(donation.createdAt).toLocaleDateString()}
+                    </TableCell>
                     <TableCell>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => setSelectedDonation(donation)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {donation.status === 'pending' && (
-                          <>
-                            <Button size="sm" onClick={() => handleApprove(donation._id)} className="bg-green-600 hover:bg-green-700">
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => setSelectedDonation(donation)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => setSelectedDonation(donation)}>
+                        <Eye className="h-4 w-4 text-blue-600" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -451,7 +387,7 @@ const ManageDonations = () => {
       <Dialog open={!!selectedDonation} onOpenChange={(open) => {
         if (!open) {
           setSelectedDonation(null);
-          setRejectReason(''); // Clear reason on close
+          setRejectReason('');
         }
       }}>
         {selectedDonation && (

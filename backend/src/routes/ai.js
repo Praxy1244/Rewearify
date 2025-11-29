@@ -35,22 +35,7 @@ const fetchFromAI = async (method, endpoint, data = {}, params = {}) => {
 
 // ==================== EXISTING ROUTES ====================
 
-// @desc    Get clothing suggestions
-// @route   GET /api/ai/suggest
-// @access  Private
-router.get('/suggest', protect, async (req, res) => {
-  try {
-    const { type } = req.query;
-    const result = await fetchFromAI('GET', '/suggest', {}, { type });
-    
-    if (result.success) {
-      return ok(res, result.data, 'Suggestions retrieved successfully');
-    }
-    return fail(res, result.error, result.status);
-  } catch (error) {
-    return fail(res, 'Failed to get suggestions', 500);
-  }
-});
+
 
 // @desc    Match donation to NGOs
 // @route   POST /api/ai/match
@@ -251,6 +236,23 @@ router.post('/forecast-summary', protect, restrictTo('admin'), async (req, res) 
   } catch (error) {
     console.error('Forecast summary API error:', error.message);
     return fail(res, 'Failed to get forecast summary', 500);
+  }
+});
+
+router.post('/analyze-donation', protect, async (req, res) => {
+  try {
+    // Forward the request to the Python AI Service
+    const result = await fetchFromAI('POST', '/analyze-donation', req.body);
+    
+    if (result.success) {
+      // Handle potential data wrapping from AI service
+      const data = result.data.data || result.data;
+      return ok(res, data, 'Analysis complete');
+    }
+    return fail(res, result.error, result.status);
+  } catch (error) {
+    console.error('Analyze donation error:', error);
+    return fail(res, 'Failed to analyze donation', 500);
   }
 });
 
