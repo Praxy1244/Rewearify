@@ -164,7 +164,7 @@ const DonorDashboard = () => {
                   <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/my-donations')}>
                     <Package className="h-6 w-6" /><span>My Donations</span>
                   </Button>
-                  <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/browse-needs')}>
+                  <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/browseNeeds')}>
                     <Heart className="h-6 w-6" /><span>Browse Needs</span>
                   </Button>
                 </div>

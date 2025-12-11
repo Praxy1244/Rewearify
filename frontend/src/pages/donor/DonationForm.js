@@ -174,7 +174,7 @@ const DonationForm = () => {
       try {
         const response = await axios.get('https://nominatim.openstreetmap.org/search', {
           params: { q: query, format: 'json', addressdetails: 1, limit: 5, countrycodes: 'in' },
-          headers: { 'User-Agent': 'Rewearify App' }
+         
         });
         setAddressSuggestions(response.data);
         setShowAddressDropdown(true);

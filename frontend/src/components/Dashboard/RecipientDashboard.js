@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../contexts/AppContext';
 import { Button } from '../ui/button';
@@ -8,6 +8,11 @@ import { Badge } from '../ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Progress } from '../ui/progress';
 import { Spinner } from '../ui/spinner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Label } from '../ui/label';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { 
   Search, 
   Package, 
@@ -19,16 +24,18 @@ import {
   Building,
   Truck,
   Calendar,
-  TrendingUp // Added icon
+  TrendingUp
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // --- AI Feature Imports ---
 import { RequestSuggestions } from '../AI/RequestSuggestions';
 import { getDonorTrends } from '../../services/aiService';
+import { requestService } from '../../services'; // Import requestService
 
 const RecipientDashboard = () => {
   const { user } = useAuth();
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
 
   const { 
     allDonations,
@@ -44,7 +51,19 @@ const RecipientDashboard = () => {
   
   // --- AI State ---
   const [trends, setTrends] = useState([]);
-  // ----------------
+  
+  // --- Request Modal State ---
+  const [selectedDonation, setSelectedDonation] = useState(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [requestForm, setRequestForm] = useState({
+    title: '', 
+    quantity: 1,
+    urgency: 'medium',
+    justification: '',
+    deliveryAddress: ''
+  });
+
+  const [submitting, setSubmitting] = useState(false);
 
   // Main Dashboard Data Fetch
   useEffect(() => {
@@ -82,7 +101,91 @@ const RecipientDashboard = () => {
     };
     loadTrends();
   }, []);
-  // ----------------------------------------------------
+
+  // --- Request Modal Functions ---
+  const openRequestModal = (donation) => {
+    setSelectedDonation(donation);
+    setRequestForm({
+      title: `Request for ${donation.title}`,
+      quantity: 1,
+      urgency: 'medium',
+      justification: '',
+      deliveryAddress: user.location?.address || ''
+    });
+    setRequestModalOpen(true);
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedDonation) return;
+    
+    try {
+      setSubmitting(true);
+      
+      // Construct payload matching backend Schema
+      const requestData = {
+        requester: user._id,
+        donation: selectedDonation._id,
+        title: requestForm.title,
+        description: requestForm.justification, // Backend expects 'description'
+        category: selectedDonation.category,    // Required field
+        quantity: parseInt(requestForm.quantity),
+        urgency: requestForm.urgency,
+        status: 'pending',
+        
+        // Required Complex Objects
+        beneficiaries: {
+          count: parseInt(requestForm.quantity), // Defaulting to quantity
+          ageGroup: 'mixed',
+          gender: 'mixed'
+        },
+        location: {
+          address: requestForm.deliveryAddress || user.location?.address || "Not Provided",
+          city: user.location?.city || "Unknown",
+          state: user.location?.state || "Unknown",
+          country: user.location?.country || "India"
+        },
+        timeline: {
+          // Default needed by date to 14 days from now
+          neededBy: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          flexible: true
+        }
+      };
+      
+      console.log('Submitting request:', requestData);
+      
+      // Use the service which handles the token automatically
+      const response = await requestService.createRequest(requestData);
+      
+      if (response.success) {
+        // Success
+        toast.success('Request submitted successfully! 🎉');
+        setRequestModalOpen(false);
+        setRequestForm({
+          title: '',
+          quantity: 1,
+          urgency: 'medium',
+          justification: '',
+          deliveryAddress: ''
+        });
+        
+        // Refresh requests
+        await fetchUserRequests();
+      } else {
+        throw new Error(response.message || 'Failed to submit request');
+      }
+    } catch (error) {
+      console.error('Error submitting request:', error);
+      let errorMsg = error.message || 'Failed to submit request. Please try again.';
+      if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      }
+      toast.error(errorMsg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const availableDonations = allDonations || [];
   const myRequests = userRequests || [];
@@ -240,7 +343,7 @@ const RecipientDashboard = () => {
               <CardContent>
                 <div className="space-y-4">
                   {myRequests.slice(0, 3).map((request) => {
-                    const donation = availableDonations.find(d => d._id === request.donation);
+                    const donation = availableDonations.find(d => d._id === request.donation) || request.donation;
                     return (
                       <div key={request._id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                         <img 
@@ -249,7 +352,7 @@ const RecipientDashboard = () => {
                           className="w-16 h-16 object-cover rounded-lg"
                         />
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{donation?.title || 'Requested Item'}</h4>
+                          <h4 className="font-medium text-gray-900">{request.title || 'Requested Item'}</h4>
                           <p className="text-sm text-gray-600">
                             Requested {request.quantity} items
                           </p>
@@ -322,8 +425,12 @@ const RecipientDashboard = () => {
                             </Badge>
                             <span className="text-xs text-gray-500">{donation.location?.city}</span>
                           </div>
-                          <Button size="sm" variant="outline" asChild>
-                            <Link to={`/donations/${donation._id}`}>Request</Link>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openRequestModal(donation)}
+                          >
+                            Request
                           </Button>
                         </div>
                       </div>
@@ -351,9 +458,7 @@ const RecipientDashboard = () => {
           {/* Sidebar Area (Right Column) */}
           <div className="space-y-6">
 
-            {/* ----------------------------------- */}
-            {/* AI FEATURE: Smart Insights Widget  */}
-            {/* ----------------------------------- */}
+            {/* AI FEATURE: Smart Insights Widget */}
             {trends.length > 0 && (
               <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100 shadow-sm">
                 <CardHeader className="pb-3">
@@ -373,7 +478,6 @@ const RecipientDashboard = () => {
                 </CardContent>
               </Card>
             )}
-            {/* ----------------------------------- */}
 
             {/* Monthly Progress */}
             <Card>
@@ -455,7 +559,9 @@ const RecipientDashboard = () => {
                     </div>
                   )}
                 </div>
-                <Button variant="outline" size="sm" className="w-full mt-4" asChild><Link to="/notifications">View All Notifications</Link></Button>
+                <Button variant="outline" size="sm" className="w-full mt-4" asChild>
+                  <Link to="/notifications">View All Notifications</Link>
+                </Button>
               </CardContent>
             </Card>
 
@@ -492,6 +598,120 @@ const RecipientDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Request Modal */}
+      <Dialog open={requestModalOpen} onOpenChange={setRequestModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Request Item</DialogTitle>
+            <DialogDescription>
+              Submit a request for: <strong>{selectedDonation?.title}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleRequestSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="title">Request Title *</Label>
+              <Input
+                id="title"
+                type="text"
+                placeholder={`Request for ${selectedDonation?.title || 'item'}`}
+                value={requestForm.title}
+                onChange={(e) => setRequestForm({...requestForm, title: e.target.value})}
+                required
+                minLength={5}
+                maxLength={200}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                5-200 characters describing your request
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="quantity">Quantity Needed *</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                max={selectedDonation?.quantity || 999}
+                value={requestForm.quantity}
+                onChange={(e) => setRequestForm({...requestForm, quantity: e.target.value})}
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Available: {selectedDonation?.quantity || 0}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="urgency">Urgency Level *</Label>
+              <Select 
+                value={requestForm.urgency}
+                onValueChange={(value) => setRequestForm({...requestForm, urgency: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low - Can wait</SelectItem>
+                  <SelectItem value="medium">Medium - Needed soon</SelectItem>
+                  <SelectItem value="high">High - Urgent need</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="justification">Justification/Reason *</Label>
+              <Textarea
+                id="justification"
+                placeholder="Explain why you need this item and how it will be used..."
+                value={requestForm.justification}
+                onChange={(e) => setRequestForm({...requestForm, justification: e.target.value})}
+                required
+                rows={4}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="deliveryAddress">Delivery Address</Label>
+              <Input
+                id="deliveryAddress"
+                placeholder={user.location?.address || "Enter delivery address"}
+                value={requestForm.deliveryAddress}
+                onChange={(e) => setRequestForm({...requestForm, deliveryAddress: e.target.value})}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Leave blank to use your organization address
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => setRequestModalOpen(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                disabled={submitting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" className="mr-2" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Request'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

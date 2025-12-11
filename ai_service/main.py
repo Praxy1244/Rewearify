@@ -15,6 +15,7 @@ from services.fraud_detection import FraudDetector
 from services.clustering import NGOClusterer
 from services.forecasting import DemandForecaster
 from services.recommendations import initialize_recommendation_engine, recommendation_engine
+from services.trends import get_donor_trends
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
@@ -763,6 +764,27 @@ def analyze_donation(request: AnalysisRequest):
     except Exception as e:
         print(f"Analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/trends")
+def get_trends():
+    """Get current donation trends based on historical data"""
+    try:
+        trends = get_donor_trends()
+        return {
+            "success": True,
+            "data": {
+                "trending": trends
+            }
+        }
+    except Exception as e:
+        print(f"Error getting trends: {e}")
+        # Fallback if calculation fails
+        return {
+            "success": True,
+            "data": {
+                "trending": ["Winter Wear", "School Supplies", "Blankets"]
+            }
+        }
 
 # --- Run the app ---
 

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { useSocket } from '../hooks/useSocket';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner'; // Using 'sonner' for consistency with other components
+import { notificationService } from '../services'; // 💡 Import the service
 
 const NotificationContext = createContext();
 
@@ -47,102 +48,51 @@ export const NotificationProvider = ({ children }) => {
   }, [user]);
 
   const fetchNotifications = async () => {
-  if (!user) {
-    console.log('No user, skipping notification fetch');
-    return;
-  }
-  
-  try {
+    if (!user) return;
+    
     setLoading(true);
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      console.log('No token found');
-      setNotifications([]);
-      setUnreadCount(0);
-      return;
-    }
-
-    console.log('🔔 Fetching notifications...');
-    
-    const response = await fetch('http://localhost:5000/api/notifications', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log('Response status:', response.status);
-    console.log('Content-Type:', response.headers.get('content-type'));
-
-    if (!response.ok) {
-      console.error('Response not OK:', response.status);
-      const text = await response.text();
-      console.error('Response body:', text.substring(0, 200));
-      setNotifications([]);
-      setUnreadCount(0);
-      return;
-    }
-
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('Expected JSON but got:', contentType);
-      const text = await response.text();
-      console.error('Response body:', text.substring(0, 200));
-      setNotifications([]);
-      setUnreadCount(0);
-      return;
-    }
-
-    const data = await response.json();
-    console.log('✅ Notifications fetched:', data);
-    
-    if (data.success && Array.isArray(data.data)) {
-      const userNotifications = data.data;
-      setNotifications(userNotifications);
+    try {
+      // 💡 FIX: Use the service instead of manual fetch
+      const response = await notificationService.getNotifications();
       
-      if (data.pagination && data.pagination.unreadCount !== undefined) {
-        setUnreadCount(data.pagination.unreadCount);
-        console.log('📊 Unread count:', data.pagination.unreadCount);
-      } else {
-        const unread = userNotifications.filter(n => !n.read).length;
-        setUnreadCount(unread);
+      if (response.success) {
+        // Handle data wrapping (response.data might be the array or contain 'data')
+        const userNotifications = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+        setNotifications(userNotifications);
+        
+        // Calculate unread count
+        if (response.pagination && response.pagination.unreadCount !== undefined) {
+          setUnreadCount(response.pagination.unreadCount);
+        } else {
+          // Fallback calculation
+          // We check for !read OR status === 'unread' to be safe
+          const unread = userNotifications.filter(n => !n.read && n.status !== 'read').length;
+          setUnreadCount(unread);
+        }
       }
-    } else {
-      console.error('Unexpected data format:', data);
+    } catch (error) {
+      console.error('❌ Error fetching notifications:', error);
       setNotifications([]);
       setUnreadCount(0);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('❌ Error fetching notifications:', error);
-    setNotifications([]);
-    setUnreadCount(0);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/notifications/${notificationId}/read`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      // 💡 FIX: Use service
+      const response = await notificationService.markAsRead(notificationId);
 
-      if (response.ok) {
-        // Update local state
+      if (response.success) {
+        // Update local state immediately
         setNotifications(prev =>
           prev.map(n =>
-            n._id === notificationId ? { ...n, read: true } : n
+            n._id === notificationId 
+              // 💡 FIX: Explicitly update both 'read' (boolean) and 'status' (string)
+              ? { ...n, read: true, status: 'read' } 
+              : n
           )
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -155,23 +105,15 @@ export const NotificationProvider = ({ children }) => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/notifications/read-all`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      // 💡 FIX: Use service
+      const response = await notificationService.markAllAsRead();
 
-      if (response.ok) {
+      if (response.success) {
         setNotifications(prev =>
-          prev.map(n => ({ ...n, read: true }))
+          prev.map(n => ({ ...n, read: true, status: 'read' }))
         );
         setUnreadCount(0);
+        toast.success("All notifications marked as read");
       }
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -181,26 +123,17 @@ export const NotificationProvider = ({ children }) => {
   // Delete notification
   const deleteNotification = async (notificationId) => {
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/notifications/${notificationId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      // 💡 FIX: Use service
+      const response = await notificationService.deleteNotification(notificationId);
 
-      if (response.ok) {
+      if (response.success) {
         const notification = notifications.find(n => n._id === notificationId);
-        
         setNotifications(prev => prev.filter(n => n._id !== notificationId));
         
-        if (notification && !notification.read) {
+        if (notification && (!notification.read && notification.status !== 'read')) {
           setUnreadCount(prev => Math.max(0, prev - 1));
         }
+        toast.success("Notification deleted");
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -211,61 +144,30 @@ export const NotificationProvider = ({ children }) => {
   const showToastNotification = (notification) => {
     const { type, title, message } = notification;
 
-    const toastOptions = {
-      duration: 5000,
-      position: 'top-right',
-      style: {
-        background: '#fff',
-        color: '#333',
-        padding: '16px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-      }
-    };
-
     // Different toast styles based on notification type
     switch (type) {
       case 'new_donation_pending':
       case 'new_request':
-        toast.success(`${title}\n${message}`, {
-          ...toastOptions,
-          icon: '📦'
-        });
+        toast.success(title, { description: message, icon: '📦' });
         break;
 
       case 'match_found':
       case 'donation_approved':
-        toast.success(`${title}\n${message}`, {
-          ...toastOptions,
-          icon: '✅'
-        });
+        toast.success(title, { description: message, icon: '✅' });
         break;
 
       case 'fraud_alert':
       case 'donation_rejected':
-        toast.error(`${title}\n${message}`, {
-          ...toastOptions,
-          icon: '⚠️'
-        });
+        toast.error(title, { description: message, icon: '⚠️' });
         break;
 
       case 'pickup_scheduled':
       case 'donation_delivered':
-        toast.success(`${title}\n${message}`, {
-          ...toastOptions,
-          icon: '🚚'
-        });
-        break;
-
-      case 'message_received':
-        toast(`${title}\n${message}`, {
-          ...toastOptions,
-          icon: '💬'
-        });
+        toast.success(title, { description: message, icon: '🚚' });
         break;
 
       default:
-        toast(`${title}\n${message}`, toastOptions);
+        toast.info(title, { description: message });
     }
   };
 
@@ -275,10 +177,10 @@ export const NotificationProvider = ({ children }) => {
       const audio = new Audio('/notification-sound.mp3');
       audio.volume = 0.5;
       audio.play().catch(err => {
-        console.log('Could not play notification sound:', err);
+        // Silently fail if audio doesn't work (e.g. browser policy)
       });
     } catch (error) {
-      // Silently fail if audio doesn't work
+      // Silently fail
     }
   };
 

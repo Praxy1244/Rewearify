@@ -30,8 +30,8 @@ const notificationSchema = new mongoose.Schema({
       'reminder',
       'promotion',
       'feedback_request',
-      'new_donation_pending' ,
-       'fraud_alert'// <-- THIS IS THE FIX
+      'new_donation_pending',
+      'fraud_alert'
     ]
   },
   title: {
@@ -138,6 +138,12 @@ notificationSchema.index({ scheduledFor: 1 });
 notificationSchema.index({ expiresAt: 1 });
 notificationSchema.index({ priority: 1 });
 
+// 💡 THIS IS THE CRITICAL FIX
+// Virtual property 'read' to bridge the gap between frontend (boolean) and backend (status string)
+notificationSchema.virtual('read').get(function() {
+  return this.status === 'read';
+});
+
 // Virtual for formatted creation date
 notificationSchema.virtual('timeAgo').get(function() {
   const now = new Date();
@@ -179,8 +185,7 @@ notificationSchema.methods.archive = async function() {
 notificationSchema.statics.createAndSend = async function(notificationData) {
   const notification = await this.create(notificationData);
   
-  // Here you would integrate with your notification service
-  // For now, we'll just mark as delivered
+  // Mark as delivered immediately for simplicity
   notification.delivery.inApp.delivered = true;
   notification.delivery.inApp.deliveredAt = new Date();
   

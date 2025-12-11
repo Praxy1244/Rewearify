@@ -24,7 +24,8 @@ const requestSchema = new mongoose.Schema({
     enum: [
       'outerwear', 'formal', 'casual', 'children', 
       'accessories', 'shoes', 'activewear', 'undergarments',
-      'traditional', 'seasonal', 'maternity', 'plus-size'
+      'traditional', 'seasonal', 'maternity', 'plus-size',
+      'household', 'linens', 'other'
     ]
   },
   subcategory: {

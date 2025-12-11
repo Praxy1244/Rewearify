@@ -86,8 +86,10 @@ const Navbar = () => {
 
   const navLinks = getNavLinks();
   
+  // 💡 UPDATE: Simplified paths
   const getProfilePath = () => {
     if (!user) return "/login";
+    // All roles now go to the same profile page
     switch (user.role) {
       case "donor": return "/donor/profile";
       case "recipient": return "/recipient/profile";
@@ -180,11 +182,7 @@ const Navbar = () => {
                   <DropdownMenuContent className="w-56" align="end">
                     <DropdownMenuItem onClick={() => navigate(getProfilePath())}>
                       <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(getSettingsPath())}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
+                      <span>Profile & Settings</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout}>

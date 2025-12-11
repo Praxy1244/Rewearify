@@ -3,8 +3,68 @@ import User from '../models/User.js';
 import { ok, fail, paginated } from '../utils/response.js';
 import { protect, restrictTo, adminOrOwner } from '../middleware/auth.js';
 import { userValidations, handleValidationErrors } from '../utils/validation.js';
+import multer from 'multer'; // 💡 Import multer
+import fs from 'fs';
+import path from 'path';
 
 const router = express.Router();
+// --- 💡 CONFIGURE MULTER FOR IMAGE UPLOAD ---
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = 'public/uploads/profiles';
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)){
+        fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    // Rename: userId-timestamp.ext
+    cb(null, `${req.params.id}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image! Please upload an image.'), false);
+    }
+  }
+});
+
+// --- 💡 NEW ROUTE: Upload Profile Picture ---
+// @route   POST /api/users/:id/profile-picture
+// @access  Private (Owner)
+router.post('/:id/profile-picture', protect, adminOrOwner('id'), upload.single('profilePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return fail(res, 'No file uploaded', 400);
+    }
+
+    // Construct URL (Assuming you serve 'public' folder statically)
+    // If using React dev server, you might need to proxy this or use an absolute URL
+    const imageUrl = `/uploads/profiles/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { 'profile.profilePicture.url': imageUrl },
+      { new: true }
+    ).select('-password');
+
+    return ok(res, { 
+      user,
+      imageUrl 
+    }, 'Profile picture updated successfully');
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    return fail(res, 'Failed to upload image', 500);
+  }
+});
 
 // @desc    Get user profile
 // @route   GET /api/users/:id

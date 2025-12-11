@@ -55,7 +55,6 @@ import MyDonations from './pages/donor/MyDonations';
 import DonationDetails from './pages/donor/DonationDetails';
 import DonationEdit from './pages/donor/DonationEdit';
 import BrowseNeeds from "./pages/donor/BrowseNeeds";
-import DonorProfile from "./pages/donor/DonorProfile";
 import AIInsights from './pages/donor/AIInsights';
 import Notifications from './pages/Notifications'; 
 import ResetPassword from "./pages/auth/ResetPassword";
@@ -63,13 +62,12 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import BrowseItems from "./pages/recipient/BrowseItems";
 import MyRequests from "./pages/recipient/MyRequests";
 import Organizations from "./pages/recipient/Organizations";
+import RequestDetail from './pages/recipient/RequestDetail';
 import Dashboard from './pages/Dashboard';
 import DonorDashboard from './components/Dashboard/DonorDashboard';
-import DonorSettings from "./pages/donor/DonorSettings";
 import RecipientDashboard from './components/Dashboard/RecipientDashboard';
 import AdminDashboard from './components/Dashboard/AdminDashboard'; 
-import RecipientProfile from "./pages/recipient/RecipientProfile";
-import Profile from "./pages/admin/Profile";
+import Profile from "./pages/Profile";
 import ManageDonations from "./pages/admin/ManageDonations";
 import ManageUsers from "./pages/admin/ManageUsers";
 import Analytics from "./pages/admin/Analytics";
@@ -166,18 +164,6 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          <Route path="/donor/profile" element={
-            <ProtectedRoute allowedRoles={['donor']}>
-              <DonorProfile />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/donor/settings" element={
-            <ProtectedRoute allowedRoles={['donor']}>
-              <DonorSettings />
-            </ProtectedRoute>
-          } />
-
           <Route path="/donor/ai-insights" element={
              <ProtectedRoute allowedRoles={['donor']}>
               <AIInsights />
@@ -203,17 +189,13 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          <Route path="/recipient/profile" element={
+          <Route path="/requests/:id" element={
             <ProtectedRoute allowedRoles={['recipient']}>
-              <RecipientProfile />
-            </ProtectedRoute>
-          } />
+            <RequestDetail />
+                </ProtectedRoute> 
+          }/>
 
-          <Route path="/admin/profile" element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <Profile/>
-            </ProtectedRoute>
-          } />
+          
 
           {/* Admin Routes */}
           <Route path="/admin/donations" element={
@@ -257,6 +239,27 @@ function AppContent() {
               <ProtectedRoute allowedRoles={['admin']}>
               <Forecasting />
             </ProtectedRoute> } />
+
+
+          {/* 💡 UNIFIED PROFILE ROUTES */}
+          <Route path="/donor/profile" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <Profile />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/recipient/profile" element={
+            <ProtectedRoute allowedRoles={['recipient']}>
+              <Profile />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin/profile" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Profile />
+            </ProtectedRoute>
+          } />
+
 
 
 

@@ -231,9 +231,11 @@ router.get('/donations/pending', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 💡 THIS IS THE FIXED ROUTE
+// ------------------------------------------------------------------
 // @desc    Moderate donation (approve/reject)
 // @route   PUT /api/admin/donations/:donationId/moderate
-// @access  Private (Admin)
 router.put('/donations/:donationId/moderate', 
   adminValidations.moderateDonation, 
   handleValidationErrors, 
@@ -251,21 +253,30 @@ router.put('/donations/:donationId/moderate',
         return fail(res, 'Donation is not pending moderation', 400);
       }
 
+      // 💡 FIX: Retrieve the socket service instance
+      const socketService = req.app.get('socketService');
+
       if (action === 'approve') {
         await donation.approve(req.user.id, notes);
         
-        // Send approval notification
-        await Notification.createAndSend({
+        // 1. Create Notification in DB
+        const notification = await Notification.createAndSend({
           recipient: donation.donor._id,
           type: 'donation_approved',
           title: 'Donation Approved!',
           message: `Your donation "${donation.title}" has been approved and is now live`,
           data: {
             donationId: donation._id,
-            actionUrl: `/donor/my-donations/${donation._id}`
+            actionUrl: `/donor/donations/${donation._id}`
           },
           channels: { inApp: true, email: true }
         });
+
+        // 💡 FIX: 2. Send Real-time Socket Event
+        if (socketService) {
+          socketService.sendToUser(donation.donor._id.toString(), notification);
+          console.log(`📡 Notification sent to donor ${donation.donor.email}`);
+        }
 
         // Send approval email
         try {
@@ -281,8 +292,8 @@ router.put('/donations/:donationId/moderate',
       } else if (action === 'reject') {
         await donation.reject(req.user.id, reason, notes);
         
-        // Send rejection notification
-        await Notification.createAndSend({
+        // 1. Create Notification in DB
+        const notification = await Notification.createAndSend({
           recipient: donation.donor._id,
           type: 'donation_rejected',
           title: 'Donation Rejected',
@@ -290,10 +301,16 @@ router.put('/donations/:donationId/moderate',
           data: {
             donationId: donation._id,
             reason,
-            actionUrl: `/donor/my-donations/${donation._id}`
+            actionUrl: `/donor/donations/${donation._id}`
           },
           channels: { inApp: true, email: true }
         });
+
+        // 💡 FIX: 2. Send Real-time Socket Event
+        if (socketService) {
+          socketService.sendToUser(donation.donor._id.toString(), notification);
+          console.log(`📡 Notification sent to donor ${donation.donor.email}`);
+        }
       }
 
       return ok(res, { donation }, `Donation ${action}ed successfully`);
@@ -315,7 +332,7 @@ router.get('/donations', async (req, res) => {
       status, 
       category,
       search,
-      sortBy = 'createdAt',
+      sortBy = 'createdAt', 
       sortOrder = 'desc'
     } = req.query;
 
@@ -365,7 +382,7 @@ router.get('/requests', async (req, res) => {
       status, 
       urgency,
       search,
-      sortBy = 'createdAt',
+      sortBy = 'createdAt', 
       sortOrder = 'desc'
     } = req.query;
 
@@ -412,7 +429,7 @@ router.get('/matches', async (req, res) => {
       page = 1, 
       limit = 20, 
       status,
-      sortBy = 'createdAt',
+      sortBy = 'createdAt', 
       sortOrder = 'desc'
     } = req.query;
 
@@ -482,6 +499,16 @@ router.post('/notifications/broadcast', async (req, res) => {
 
     // Bulk create notifications
     await Notification.insertMany(notifications);
+
+    // 💡 Socket Broadcast (Optional but recommended for broadcast)
+    const socketService = req.app.get('socketService');
+    if (socketService) {
+      if (targetRole) {
+        socketService.sendToRole(targetRole, { type, title, message });
+      } else {
+        socketService.broadcast({ type, title, message });
+      }
+    }
 
     return ok(res, { 
       sent: notifications.length,

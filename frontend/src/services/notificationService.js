@@ -32,6 +32,17 @@ class NotificationService {
     }
   }
 
+  // 💡 NEW: Delete all notifications
+  async deleteAll() {
+    try {
+      // This calls DELETE /api/notifications/all
+      const response = await api.delete(`${API_ENDPOINTS.NOTIFICATIONS.BASE}/all`);
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Get unread notification count
   async getUnreadCount() {
     try {

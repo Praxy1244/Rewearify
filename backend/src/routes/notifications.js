@@ -1,6 +1,7 @@
 import express from 'express';
+import mongoose from 'mongoose'; // 💡 Added for ID validation
 import Notification from '../models/Notification.js';
-import { ok, fail, paginated } from '../utils/response.js';
+import { ok, fail } from '../utils/response.js';
 import { protect, restrictTo } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -13,8 +14,10 @@ router.get('/', protect, async (req, res) => {
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
     
     let query = { recipient: req.user.id };
+    
+    // 💡 FIX: Filter by 'status' instead of 'read'
     if (unreadOnly === 'true') {
-      query.read = false;
+      query.status = 'unread';
     }
 
     const notifications = await Notification.find(query)
@@ -23,15 +26,16 @@ router.get('/', protect, async (req, res) => {
       .skip((page - 1) * limit);
 
     const total = await Notification.countDocuments(query);
+    
+    // 💡 FIX: Count by 'status'
     const unreadCount = await Notification.countDocuments({
       recipient: req.user.id,
-      read: false
+      status: 'unread'
     });
 
-    // ✨ UPDATED: Return in expected format
     return res.json({
       success: true,
-      data: notifications,  // Array of notifications
+      data: notifications,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -49,54 +53,35 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
-
-// @desc    Mark notification as read
-// @route   PUT /api/notifications/:id/read
+// ==========================================
+// ⚠️ CRITICAL: THIS ROUTE MUST BE BEFORE /:id
+// ==========================================
+// @desc    Delete all notifications for the current user
+// @route   DELETE /api/notifications/all
 // @access  Private
-router.put('/:id/read', protect, async (req, res) => {
+router.delete('/all', protect, async (req, res) => {
   try {
-    const notification = await Notification.findOne({
-      _id: req.params.id,
+    const result = await Notification.deleteMany({
       recipient: req.user.id
     });
 
-    if (!notification) {
-      return fail(res, 'Notification not found', 404);
-    }
-
-    notification.read = true;
-    notification.readAt = new Date();
-    await notification.save();
-
-    return ok(res, { notification }, 'Notification marked as read');
+    return ok(res, { deletedCount: result.deletedCount }, 'All notifications deleted successfully');
   } catch (error) {
-    console.error('Mark notification read error:', error);
-    return fail(res, 'Failed to mark notification as read', 500);
+    console.error('Delete all notifications error:', error);
+    return fail(res, 'Failed to delete all notifications', 500);
   }
 });
 
-// @desc    Mark all notifications as read
-// @route   PUT /api/notifications/read-all
-// @access  Private
-router.put('/read-all', protect, async (req, res) => {
-  try {
-    await Notification.updateMany(
-      { recipient: req.user.id, read: false },
-      { read: true, readAt: new Date() }
-    );
-
-    return ok(res, null, 'All notifications marked as read');
-  } catch (error) {
-    console.error('Mark all notifications read error:', error);
-    return fail(res, 'Failed to mark all notifications as read', 500);
-  }
-});
-
-// @desc    Delete notification
+// @desc    Delete single notification
 // @route   DELETE /api/notifications/:id
 // @access  Private
 router.delete('/:id', protect, async (req, res) => {
   try {
+    // 💡 SAFETY CHECK: Prevent CastError if ID is invalid (like "all")
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+       return fail(res, 'Invalid Notification ID', 400);
+    }
+
     const notification = await Notification.findOne({
       _id: req.params.id,
       recipient: req.user.id
@@ -112,6 +97,63 @@ router.delete('/:id', protect, async (req, res) => {
   } catch (error) {
     console.error('Delete notification error:', error);
     return fail(res, 'Failed to delete notification', 500);
+  }
+});
+
+// @desc    Mark notification as read
+// @route   PATCH /api/notifications/:id/read
+// @access  Private
+router.patch('/:id/read', protect, async (req, res) => {
+  try {
+    // 💡 SAFETY CHECK
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+       return fail(res, 'Invalid Notification ID', 400);
+    }
+
+    const notification = await Notification.findOne({
+      _id: req.params.id,
+      recipient: req.user.id
+    });
+
+    if (!notification) {
+      return fail(res, 'Notification not found', 404);
+    }
+
+    // 💡 FIX: Update 'status' instead of 'read'
+    notification.status = 'read';
+    
+    // Ensure delivery object exists
+    if (!notification.delivery) notification.delivery = {};
+    if (!notification.delivery.inApp) notification.delivery.inApp = {};
+    
+    notification.delivery.inApp.readAt = new Date();
+    await notification.save();
+
+    return ok(res, { notification }, 'Notification marked as read');
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    return fail(res, 'Failed to mark notification as read', 500);
+  }
+});
+
+// @desc    Mark all notifications as read
+// @route   PATCH /api/notifications/mark-all-read
+// @access  Private
+router.patch('/mark-all-read', protect, async (req, res) => {
+  try {
+    // 💡 FIX: Update 'status' field from 'unread' to 'read'
+    await Notification.updateMany(
+      { recipient: req.user.id, status: 'unread' },
+      { 
+        status: 'read', 
+        'delivery.inApp.readAt': new Date() 
+      }
+    );
+
+    return ok(res, null, 'All notifications marked as read');
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
+    return fail(res, 'Failed to mark all notifications as read', 500);
   }
 });
 
@@ -167,14 +209,13 @@ router.post('/broadcast', protect, restrictTo('admin'), async (req, res) => {
       return fail(res, 'Title and message are required', 400);
     }
 
+    // Build user query
+    let userQuery = { status: 'active' };
+    if (targetRole) userQuery.role = targetRole;
+
     // Get target users
     const User = (await import('../models/User.js')).default;
-    let query = { status: 'active' };
-    if (targetRole) {
-      query.role = targetRole;
-    }
-
-    const users = await User.find(query).select('_id');
+    const users = await User.find(userQuery).select('_id');
     const userIds = users.map(user => user._id);
 
     // Create notifications for all target users
@@ -187,19 +228,6 @@ router.post('/broadcast', protect, restrictTo('admin'), async (req, res) => {
     }));
 
     await Notification.insertMany(notifications);
-
-    // Send real-time notifications via Socket.IO
-    const io = req.app.get('io');
-    if (io) {
-      userIds.forEach(userId => {
-        io.to(`user-${userId}`).emit('notification', {
-          type,
-          title,
-          message,
-          createdAt: new Date()
-        });
-      });
-    }
 
     return ok(res, { 
       sent: userIds.length,
