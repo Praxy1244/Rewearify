@@ -63,6 +63,7 @@ import BrowseItems from "./pages/recipient/BrowseItems";
 import MyRequests from "./pages/recipient/MyRequests";
 import Organizations from "./pages/recipient/Organizations";
 import RequestDetail from './pages/recipient/RequestDetail';
+import CreateRequest from './pages/recipient/CreateRequest';
 import Dashboard from './pages/Dashboard';
 import DonorDashboard from './components/Dashboard/DonorDashboard';
 import RecipientDashboard from './components/Dashboard/RecipientDashboard';
@@ -194,6 +195,13 @@ function AppContent() {
             <RequestDetail />
                 </ProtectedRoute> 
           }/>
+
+          <Route path="/recipient/create-request" element={
+  <ProtectedRoute allowedRoles={['recipient']}>
+    <CreateRequest />
+  </ProtectedRoute>
+} />
+
 
           
 

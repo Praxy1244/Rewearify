@@ -438,29 +438,43 @@ const DonationForm = () => {
     );
   };
 
-  const renderSubcategorySuggestions = () => {
-    if (!showSuggestions || aiSuggestions.subcategories.length === 0) return null;
-    return (
-      <div className="mt-2">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="h-3 w-3 text-blue-600" />
-          <span className="text-xs text-blue-600 font-medium">Suggested sub-categories:</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {aiSuggestions.subcategories.map((suggestion, idx) => (
-            <Badge
-              key={idx}
-              variant="secondary"
-              className="cursor-pointer hover:bg-blue-100"
-              onClick={() => handleInputChange('subcategory', suggestion)}
-            >
-              {suggestion}
-            </Badge>
-          ))}
-        </div>
+const renderSubcategorySuggestions = () => {
+  if (!showSuggestions || aiSuggestions.subcategories.length === 0) return null;
+  
+  // ✅ Filter suggestions to only show ones that exist in dropdown
+  const validSuggestions = aiSuggestions.subcategories.filter(suggestion =>
+    subcategoryOptions.includes(suggestion)
+  );
+  
+  if (validSuggestions.length === 0) return null;
+  
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2 mb-2">
+        <Sparkles className="h-3 w-3 text-blue-600" />
+        <span className="text-xs text-blue-600 font-medium">Suggested sub-categories:</span>
       </div>
-    );
-  };
+      <div className="flex flex-wrap gap-2">
+        {validSuggestions.map((suggestion, idx) => (
+          <Badge
+            key={idx}
+            variant="secondary"
+            className="cursor-pointer hover:bg-blue-100"
+            onClick={() => {
+              // ✅ Only set if suggestion exists in dropdown
+              if (subcategoryOptions.includes(suggestion)) {
+                handleInputChange('subcategory', suggestion);
+              }
+            }}
+          >
+            {suggestion}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 
   const renderProgressBar = () => (
     <div className="mb-8">

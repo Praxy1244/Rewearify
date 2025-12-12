@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { MapPin, Package, Calendar, Eye } from 'lucide-react';
+import { MapPin, Package, Calendar, Eye, AlertTriangle } from 'lucide-react'; // ✅ Add AlertTriangle
 import { useNavigate } from 'react-router-dom';
 
 const DonationCard = ({ donation }) => {
@@ -21,20 +21,64 @@ const DonationCard = ({ donation }) => {
     }
   };
 
+  // ✅ NEW: Get risk badge styling
+  const getRiskBadge = () => {
+    const riskScore = donation.riskScore || 0;
+    const riskLevel = donation.riskLevel || 'low';
+    
+    // High risk: score > 0.7 OR riskLevel === 'high'/'critical'
+    if (riskScore > 0.7 || ['high', 'critical'].includes(riskLevel)) {
+      return (
+        <Badge className="bg-red-600 text-white flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          High Risk
+        </Badge>
+      );
+    }
+    
+    // Medium risk: score > 0.3
+    if (riskScore > 0.3 || riskLevel === 'medium') {
+      return (
+        <Badge className="bg-yellow-500 text-white flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Medium Risk
+        </Badge>
+      );
+    }
+    
+    return null; // No badge for low risk
+  };
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg line-clamp-2">
             {donation.title}
           </CardTitle>
-          <Badge className={getConditionColor(donation.condition)}>
-            {donation.condition}
-          </Badge>
+          <div className="flex flex-col gap-1 items-end">
+            <Badge className={getConditionColor(donation.condition)}>
+              {donation.condition}
+            </Badge>
+            {/* ✅ NEW: Show risk badge */}
+            {getRiskBadge()}
+          </div>
         </div>
       </CardHeader>
       
       <CardContent className="space-y-3">
+        {/* ✅ NEW: Show fraud warning for high risk */}
+        {(donation.riskScore > 0.7 || ['high', 'critical'].includes(donation.riskLevel)) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-xs text-red-800 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>
+                <strong>AI Fraud Alert:</strong> Risk Score {(donation.riskScore * 100).toFixed(0)}%
+              </span>
+            </p>
+          </div>
+        )}
+
         {donation.images && donation.images.length > 0 && (
           <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
             <img

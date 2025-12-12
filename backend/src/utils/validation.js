@@ -196,8 +196,8 @@ export const donationValidations = {
       .isIn(['excellent', 'good', 'fair', 'poor'])
       .withMessage('Invalid condition'),
     body('quantity')
-      .isInt({ min: 1, max: 1000 })
-      .withMessage('Quantity must be between 1 and 1000'),
+      .isInt({ min: 1, max: 10000 })
+      .withMessage('Quantity must be between 1 and 10000'),
     body('sizes')
       .isArray({ min: 1 })
       .withMessage('At least one size must be provided'),

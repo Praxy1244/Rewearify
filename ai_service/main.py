@@ -457,87 +457,103 @@ async def get_forecast_categories():
         return {"success": False, "error": str(e)}
 
 @app.post("/fraud-check")
-async def fraud_check(request: Request):
-    """Check donation for potential fraud"""
+async def fraud_check(data: dict):
+    """
+    Simple fraud detection for new donations
+    Based on quantity, description quality, and basic patterns
+    """
     try:
-        data = await request.json()
-        
         category = data.get('category', '')
         condition = data.get('condition', '')
-        quantity = data.get('quantity', 0)
+        quantity = data.get('quantity', 1)
         description = data.get('description', '')
         location = data.get('location', {})
         
         fraud_score = 0.0
         fraud_flags = []
         
-        if quantity > 100:
+        # ✅ FIXED: Quantity-based detection
+        if quantity >= 5000:
+            fraud_score += 0.7  # Very high quantity = high risk
+            fraud_flags.append("extremely_high_quantity")
+        elif quantity >= 2000:
+            fraud_score += 0.5
+            fraud_flags.append("very_high_quantity")
+        elif quantity >= 1000:
             fraud_score += 0.3
-            fraud_flags.append('unusually_high_quantity')
-        
-        if condition == 'poor' and quantity > 50:
-            fraud_score += 0.2
-            fraud_flags.append('suspicious_quantity_condition_combo')
-        
-        if len(description) < 20:
+            fraud_flags.append("unusually_high_quantity")
+        elif quantity >= 500:
             fraud_score += 0.15
-            fraud_flags.append('insufficient_description')
+            fraud_flags.append("high_quantity")
         
-        if not location.get('city') or not location.get('state'):
+        # Check description quality
+        description_length = len(description) if description else 0
+        if description_length < 20:
+            fraud_score += 0.25
+            fraud_flags.append("insufficient_description")
+        elif description_length < 50:
             fraud_score += 0.1
-            fraud_flags.append('incomplete_location')
+            fraud_flags.append("short_description")
         
-        suspicious_keywords = ['free', 'urgent', 'immediately', 'bulk', 'wholesale']
-        description_lower = description.lower()
-        if any(keyword in description_lower for keyword in suspicious_keywords):
-            fraud_score += 0.15
-            fraud_flags.append('suspicious_keywords')
+        # Check for suspicious keywords
+        suspicious_keywords = ['urgent', 'quick cash', 'money', 'fake', 'pay', 'sell']
+        if description:
+            desc_lower = description.lower()
+            matched_keywords = [kw for kw in suspicious_keywords if kw in desc_lower]
+            if matched_keywords:
+                fraud_score += 0.3
+                fraud_flags.append(f"suspicious_keywords: {', '.join(matched_keywords)}")
         
+        # Check condition vs quantity mismatch
+        if condition in ['excellent', 'good'] and quantity > 1000:
+            fraud_score += 0.2
+            fraud_flags.append("unusual_condition_quantity_combo")
+        
+        # Cap fraud score at 1.0
         fraud_score = min(fraud_score, 1.0)
         
+        # ✅ FIXED: Risk level determination
         if fraud_score >= 0.7:
-            risk_level = 'high'
-            recommendation = 'reject'
+            risk_level = "high"
+            recommendation = "reject"
         elif fraud_score >= 0.4:
-            risk_level = 'medium'
-            recommendation = 'manual_review'
+            risk_level = "medium"
+            recommendation = "review"
         else:
-            risk_level = 'low'
-            recommendation = 'approve'
+            risk_level = "low"
+            recommendation = "approve"
         
-        quality_score = 1.0 - fraud_score
+        # ✅ FIXED: is_suspicious flag
+        is_suspicious = fraud_score >= 0.7
+        
+        # Calculate quality score (inverse of fraud)
+        quality_score = round(max(0, 1 - fraud_score), 2)
         
         return {
             "success": True,
             "data": {
-                "fraud_score": round(fraud_score, 3),
-                "quality_score": round(quality_score, 3),
+                "fraud_score": round(fraud_score, 2),
+                "quality_score": quality_score,
                 "risk_level": risk_level,
                 "recommendation": recommendation,
                 "fraud_flags": fraud_flags,
-                "is_suspicious": fraud_score >= 0.4,
-                "confidence": round(0.85, 2),
+                "is_suspicious": is_suspicious,
+                "confidence": 0.85,
                 "analysis": {
                     "category_risk": "normal",
-                    "quantity_risk": "high" if quantity > 100 else "normal",
+                    "quantity_risk": "critical" if quantity >= 5000 else "very_high" if quantity >= 2000 else "high" if quantity >= 1000 else "medium" if quantity >= 500 else "normal",
                     "condition_risk": "normal",
-                    "description_completeness": "good" if len(description) >= 50 else "poor"
+                    "description_completeness": "good" if description_length > 100 else "fair" if description_length > 50 else "poor" if description_length > 20 else "very_poor"
                 }
             }
         }
-        
     except Exception as e:
-        print(f"Fraud check error: {str(e)}")
+        logger.error(f"Fraud check error: {str(e)}")
         return {
             "success": False,
-            "error": str(e),
-            "data": {
-                "fraud_score": 0.0,
-                "quality_score": 1.0,
-                "risk_level": "low",
-                "recommendation": "approve"
-            }
+            "error": str(e)
         }
+
 
 # ==================== RECOMMENDATION ENDPOINTS ====================
 

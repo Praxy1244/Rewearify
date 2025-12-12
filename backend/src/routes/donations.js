@@ -89,9 +89,12 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
 // @desc    Create new donation
 // @route   POST /api/donations
 // @access  Private (Donor or Admin)
+// @desc    Create new donation
+// @route   POST /api/donations
+// @access  Private (Donor or Admin)
 router.post('/', 
   protect, 
-  restrictTo('donor', 'admin'),  // ✅ Allow both donor and admin
+  restrictTo('donor', 'admin'),
   donationValidations.create, 
   handleValidationErrors, 
   async (req, res) => {
@@ -102,10 +105,11 @@ router.post('/',
       };
 
       console.log('🔍 Running fraud detection...');
-      
+      console.log('📦 Checking quantity:', donationData.quantity);
+
       const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
       let fraudCheckResult = null;
-      
+
       try {
         const fraudResponse = await axios.post(`${AI_SERVICE_URL}/fraud-check`, {
           category: donationData.category,
@@ -115,36 +119,60 @@ router.post('/',
           location: donationData.location
         }, { timeout: 5000 });
 
+        console.log('✅ Fraud API Response:', JSON.stringify(fraudResponse.data, null, 2));
+
         if (fraudResponse.data.success) {
           fraudCheckResult = fraudResponse.data.data;
-          console.log(`📊 Fraud Score: ${fraudCheckResult.fraud_score} (${fraudCheckResult.risk_level})`);
+          console.log(`📊 Fraud Score: ${fraudCheckResult.fraud_score}`);
+          console.log(`📊 Risk Level: ${fraudCheckResult.risk_level}`);
+          console.log(`📊 Is Suspicious: ${fraudCheckResult.is_suspicious}`);
           
+          // ✅ Save riskScore AND riskLevel
           donationData.riskScore = fraudCheckResult.fraud_score;
+          donationData.riskLevel = fraudCheckResult.risk_level;
           donationData.aiAnalysis = {
             ...donationData.aiAnalysis,
             fraudScore: fraudCheckResult.fraud_score,
-            qualityScore: fraudCheckResult.quality_score
+            qualityScore: fraudCheckResult.quality_score || 0,
+            riskLevel: fraudCheckResult.risk_level
           };
+          
+          console.log('💾 Data to save:', {
+            riskScore: donationData.riskScore,
+            riskLevel: donationData.riskLevel
+          });
+        } else {
+          console.log('⚠️ Fraud check returned success:false');
         }
       } catch (aiError) {
         console.error('⚠️ Fraud check failed (non-blocking):', aiError.message);
+        if (aiError.response) {
+          console.error('Response data:', aiError.response.data);
+        }
       }
 
+      console.log('📝 Creating donation...');
       const donation = await Donation.create(donationData);
+
+      console.log('✅ Donation created:', {
+        id: donation._id,
+        riskScore: donation.riskScore,
+        riskLevel: donation.riskLevel
+      });
 
       // Auto-flag if suspicious
       if (fraudCheckResult && fraudCheckResult.is_suspicious) {
         console.log('🚨 High fraud risk detected - flagging donation');
         
         donation.isFlagged = true;
-        donation.flagReason = fraudCheckResult.fraud_flags.join(', ');
+        donation.flagReason = fraudCheckResult.fraud_flags ? fraudCheckResult.fraud_flags.join(', ') : '';
         
         try {
           await donationFSM.transition(
             donation,
             'flagged',
             {
-              id: null,  // ✅ Changed from 'system' to null
+              id: null,
               name: 'Fraud Detection AI',
               role: 'system'
             },
@@ -261,6 +289,7 @@ router.post('/',
     }
   }
 );
+
 
 // ==================== SPECIAL ROUTES (BEFORE /:id) ====================
 

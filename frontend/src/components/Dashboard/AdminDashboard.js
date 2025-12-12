@@ -171,29 +171,48 @@ const AdminDashboard = () => {
     </Card>
   );
 
-  const DonationCard = ({ donation }) => (
-    <div className="flex items-center space-x-4 p-4 border rounded-lg bg-white hover:shadow-md transition-shadow">
-      <img 
-        src={donation.images?.[0]?.url || 'https://placehold.co/60x60/E2E8F0/4A5568?text=Img'} 
-        alt={donation.title}
-        className="w-12 h-12 rounded-lg object-cover"
-      />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <h4 className="font-medium text-gray-900">{donation.title}</h4>
-          {donation.isFlagged && (
-            <Badge variant="destructive" className="h-5 text-[10px] px-1">
-              AI FLAGGED
-            </Badge>
-          )}
-        </div>
-        <p className="text-sm text-gray-600">by {donation.donor?.name || 'N/A'}</p>
+// ✅ FIXED: Show risk badge in admin dashboard
+const DonationCard = ({ donation }) => (
+  <div className="flex items-center space-x-4 p-4 border rounded-lg bg-white hover:shadow-md transition-shadow">
+    <img 
+      src={donation.images?.[0]?.url || 'https://placehold.co/60x60/E2E8F0/4A5568?text=Img'} 
+      alt={donation.title}
+      className="w-12 h-12 rounded-lg object-cover"
+    />
+    <div className="flex-1">
+      <div className="flex items-center gap-2">
+        <h4 className="font-medium text-gray-900">{donation.title}</h4>
+        
+        {/* ✅ FIXED: Show High Risk badge based on riskScore OR riskLevel */}
+        {(donation.riskScore > 0.7 || ['high', 'critical'].includes(donation.riskLevel) || donation.isFlagged) && (
+          <Badge variant="destructive" className="h-5 text-[10px] px-2 flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            High Risk
+          </Badge>
+        )}
+        
+        {/* ✅ NEW: Show medium risk badge */}
+        {(donation.riskScore > 0.3 && donation.riskScore <= 0.7) || donation.riskLevel === 'medium' && (
+          <Badge className="h-5 text-[10px] px-2 bg-yellow-500">
+            Medium Risk
+          </Badge>
+        )}
       </div>
-      <Button size="sm" variant="outline" onClick={() => navigate(`/admin/donations/${donation._id}`)}>
-        Review
-      </Button>
+      <p className="text-sm text-gray-600">
+        by {donation.donor?.name || 'N/A'}
+        {donation.riskScore > 0 && (
+          <span className="text-red-600 ml-2">
+            • Risk: {(donation.riskScore * 100).toFixed(0)}%
+          </span>
+        )}
+      </p>
     </div>
-  );
+    <Button size="sm" variant="outline" onClick={() => navigate(`/admin/donations/${donation._id}`)}>
+      Review
+    </Button>
+  </div>
+);
+
 
   if (loading) {
     return (

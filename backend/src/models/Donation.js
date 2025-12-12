@@ -84,7 +84,7 @@ const donationSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Quantity is required'],
     min: [1, 'Quantity must be at least 1'],
-    max: [1000, 'Quantity cannot exceed 1000']
+    max: [10000, 'Quantity cannot exceed 1000']
   },
   sizes: [{
     size: { type: String, required: true },
@@ -305,7 +305,12 @@ const donationSchema = new mongoose.Schema({
   riskScore: {
     type: Number,
     default: 0
-  }
+  },
+  riskLevel: {
+  type: String,
+  enum: ['low', 'medium', 'high', 'critical'],
+  default: 'low'
+}
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

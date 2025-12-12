@@ -1,151 +1,89 @@
 import api from '../lib/api';
-import { API_ENDPOINTS } from '../lib/constants';
 
-class RequestService {
-  // Get all requests with filters
-  async getRequests(params = {}) {
-    try {
-      const response = await api.get(API_ENDPOINTS.REQUESTS.BASE, { params });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Get single request by ID
-  async getRequestById(id) {
-    try {
-      const response = await api.get(API_ENDPOINTS.REQUESTS.BY_ID(id));
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
+const requestService = {
   // Create new request
-  async createRequest(requestData) {
+  createRequest: async (requestData) => {
     try {
-      const response = await api.post(API_ENDPOINTS.REQUESTS.BASE, requestData);
-      return response;
+      // api.js interceptor returns response.data automatically
+      return await api.post('/requests', requestData);
     } catch (error) {
+      console.error('Create request error:', error);
+      throw error; // api.js interceptor already formats the error
+    }
+  },
+
+  // Get NGO's requests
+  getMyRequests: async (ngoId) => {
+    try {
+      // ✅ Calls the correct endpoint: /user/:userId
+      // Returns { success: true, data: [...], pagination: {...} }
+      return await api.get(`/requests/user/${ngoId}`);
+    } catch (error) {
+      console.error('Get requests error:', error);
       throw error;
     }
-  }
+  },
+
+  // Get user requests (same as above)
+  getUserRequests: async (userId) => {
+    try {
+      return await api.get(`/requests/user/${userId}`);
+    } catch (error) {
+      console.error('Get user requests error:', error);
+      throw error;
+    }
+  },
+
+  // Get single request
+  getRequest: async (requestId) => {
+    try {
+      return await api.get(`/requests/${requestId}`);
+    } catch (error) {
+      console.error('Get request error:', error);
+      throw error;
+    }
+  },
 
   // Update request
-  async updateRequest(id, requestData) {
+  updateRequest: async (requestId, updates) => {
     try {
-      const response = await api.put(API_ENDPOINTS.REQUESTS.BY_ID(id), requestData);
-      return response;
+      return await api.put(`/requests/${requestId}`, updates);
     } catch (error) {
+      console.error('Update request error:', error);
       throw error;
     }
-  }
+  },
+
+  // Mark request as complete
+  completeRequest: async (requestId) => {
+    try {
+      return await api.patch(`/requests/${requestId}/complete`);
+    } catch (error) {
+      console.error('Complete request error:', error);
+      throw error;
+    }
+  },
 
   // Delete request
-  async deleteRequest(id) {
+  deleteRequest: async (requestId) => {
     try {
-      const response = await api.delete(API_ENDPOINTS.REQUESTS.BY_ID(id));
-      return response;
+      return await api.delete(`/requests/${requestId}`);
     } catch (error) {
+      console.error('Delete request error:', error);
+      throw error;
+    }
+  },
+
+  // Get all active requests
+  getActiveRequests: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams(filters);
+      return await api.get(`/requests?${params}`);
+    } catch (error) {
+      console.error('Get active requests error:', error);
       throw error;
     }
   }
+};
 
-  // Get user's requests
-  async getUserRequests(userId, params = {}) {
-    try {
-      const response = await api.get(API_ENDPOINTS.REQUESTS.BY_USER(userId), { params });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Search requests
-  async searchRequests(searchParams) {
-    try {
-      const response = await api.get(API_ENDPOINTS.REQUESTS.SEARCH, { 
-        params: searchParams 
-      });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Get nearby requests
-  async getNearbyRequests(lat, lng, radius = 25, filters = {}) {
-    try {
-      const params = {
-        lat,
-        lng,
-        radius,
-        ...filters
-      };
-      const response = await api.get(API_ENDPOINTS.REQUESTS.BASE, { params });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Get urgent requests
-  async getUrgentRequests(limit = 10) {
-    try {
-      const params = {
-        urgency: 'high,critical',
-        sortBy: 'urgency',
-        sortOrder: 'desc',
-        limit
-      };
-      const response = await api.get(API_ENDPOINTS.REQUESTS.BASE, { params });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Get requests by category
-  async getRequestsByCategory(category, params = {}) {
-    try {
-      const searchParams = {
-        category,
-        ...params
-      };
-      const response = await api.get(API_ENDPOINTS.REQUESTS.BASE, { 
-        params: searchParams 
-      });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Match request with donation
-  async matchRequest(requestId, donationId, matchScore = 0) {
-    try {
-      const response = await api.post(`${API_ENDPOINTS.REQUESTS.BY_ID(requestId)}/match`, {
-        donationId,
-        matchScore
-      });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Fulfill request
-  async fulfillRequest(requestId, fulfillmentData) {
-    try {
-      const response = await api.post(`${API_ENDPOINTS.REQUESTS.BY_ID(requestId)}/fulfill`, 
-        fulfillmentData
-      );
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
-}
-
-export default new RequestService();
+export default requestService;

@@ -24,7 +24,8 @@ import {
   Building,
   Truck,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -88,19 +89,61 @@ const RecipientDashboard = () => {
   }, [user, fetchAvailableDonations, fetchUserRequests, fetchNotifications]);
 
   // --- AI Feature: Fetch Trends (Independent Effect) ---
-  useEffect(() => {
-    const loadTrends = async () => {
-      try {
-        const response = await getDonorTrends();
-        if (response.trending) {
-            setTrends(response.trending);
+
+useEffect(() => {
+  const loadTrends = async () => {
+    try {
+      console.log('🔍 Fetching trends...');
+      const apiResponse = await getDonorTrends(); // ✅ Changed variable name
+      console.log('📊 Trends response:', apiResponse);
+      
+      // ✅ FIXED: Handle nested data structure
+      if (apiResponse.success && apiResponse.data) {
+        // The actual trends might be in apiResponse.data.data or apiResponse.data.trending
+        const dataObj = apiResponse.data;
+        
+        // Check if data has a nested data or trending property
+        const trendsData = dataObj.data?.trending || 
+                          dataObj.data?.trends || 
+                          dataObj.trending || 
+                          dataObj.trends || 
+                          [];
+        
+        if (Array.isArray(trendsData) && trendsData.length > 0) {
+          console.log('✅ Setting trends:', trendsData);
+          setTrends(trendsData);
+        } else {
+          console.log('⚠️ No trends array found, using fallback');
+          // Fallback to mock data
+          setTrends([
+            { category: "Winter Wear", demand: 85, trend: "up" },
+            { category: "School Supplies", demand: 72, trend: "up" },
+            { category: "Food Items", demand: 68, trend: "stable" }
+          ]);
         }
-      } catch (err) {
-        console.log("AI Trends service unavailable (non-critical)");
+      } else {
+        console.log('⚠️ No data in response');
+        // Use fallback
+        setTrends([
+          { category: "Winter Wear", demand: 85, trend: "up" },
+          { category: "School Supplies", demand: 72, trend: "up" }
+        ]);
       }
-    };
-    loadTrends();
-  }, []);
+    } catch (err) {
+      console.error('❌ Trends error:', err);
+      console.log("AI Trends service unavailable - using fallback");
+      // Fallback on error
+      setTrends([
+        { category: "Winter Wear", demand: 85, trend: "up" },
+        { category: "School Supplies", demand: 72, trend: "up" }
+      ]);
+    }
+  };
+  loadTrends();
+}, []);
+
+
+
 
   // --- Request Modal Functions ---
   const openRequestModal = (donation) => {
@@ -115,77 +158,115 @@ const RecipientDashboard = () => {
     setRequestModalOpen(true);
   };
 
-  const handleRequestSubmit = async (e) => {
-    e.preventDefault();
+const handleRequestSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!selectedDonation) {
+    toast.error('No donation selected');
+    return;
+  }
+  
+  if (!user?._id) {
+    toast.error('User not logged in');
+    return;
+  }
+  
+  try {
+    setSubmitting(true);
     
-    if (!selectedDonation) return;
-    
-    try {
-      setSubmitting(true);
+    // ✅ FIXED: Match CreateRequest payload structure (same as BrowseItems)
+    const requestPayload = {
+      title: requestForm.title.trim(),
+      description: requestForm.justification.trim(),
+      category: selectedDonation.category,
+      subcategory: selectedDonation.subcategory || 'Other', // ✅ ADD subcategory
+      urgency: requestForm.urgency,
+      quantity: parseInt(requestForm.quantity),
       
-      // Construct payload matching backend Schema
-      const requestData = {
-        requester: user._id,
-        donation: selectedDonation._id,
-        title: requestForm.title,
-        description: requestForm.justification, // Backend expects 'description'
-        category: selectedDonation.category,    // Required field
-        quantity: parseInt(requestForm.quantity),
-        urgency: requestForm.urgency,
-        status: 'pending',
-        
-        // Required Complex Objects
-        beneficiaries: {
-          count: parseInt(requestForm.quantity), // Defaulting to quantity
-          ageGroup: 'mixed',
-          gender: 'mixed'
-        },
-        location: {
-          address: requestForm.deliveryAddress || user.location?.address || "Not Provided",
-          city: user.location?.city || "Unknown",
-          state: user.location?.state || "Unknown",
-          country: user.location?.country || "India"
-        },
-        timeline: {
-          // Default needed by date to 14 days from now
-          neededBy: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          flexible: true
+      // ✅ ADD sizes (optional, default to Various)
+      sizes: selectedDonation.sizes || [{ size: 'Various', quantity: parseInt(requestForm.quantity) }],
+      
+      // ✅ ADD condition preferences
+      condition: {
+        acceptable: [selectedDonation.condition || 'good', 'fair'],
+        minimum: 'fair'
+      },
+      
+      beneficiaries: {
+        count: parseInt(requestForm.quantity),
+        ageGroup: 'mixed',
+        gender: 'mixed'
+      },
+      
+      location: {
+        address: requestForm.deliveryAddress || user.location?.address || 'Not specified',
+        city: user.location?.city || 'Not specified',
+        state: user.location?.state || 'Not specified',
+        country: user.location?.country || 'India',
+        coordinates: user.location?.coordinates || {
+          type: 'Point',
+          coordinates: [0, 0]
         }
-      };
+      },
       
-      console.log('Submitting request:', requestData);
+      timeline: {
+        neededBy: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        flexible: true
+      },
       
-      // Use the service which handles the token automatically
-      const response = await requestService.createRequest(requestData);
+      // ✅ ADD logistics
+      logistics: {
+        canPickup: true,
+        pickupRadius: 25,
+        needsDelivery: false,
+        hasTransport: false
+      },
       
-      if (response.success) {
-        // Success
-        toast.success('Request submitted successfully! 🎉');
-        setRequestModalOpen(false);
-        setRequestForm({
-          title: '',
-          quantity: 1,
-          urgency: 'medium',
-          justification: '',
-          deliveryAddress: ''
-        });
-        
-        // Refresh requests
-        await fetchUserRequests();
-      } else {
-        throw new Error(response.message || 'Failed to submit request');
-      }
-    } catch (error) {
-      console.error('Error submitting request:', error);
-      let errorMsg = error.message || 'Failed to submit request. Please try again.';
-      if (error.response?.data?.message) {
-        errorMsg = error.response.data.message;
-      }
-      toast.error(errorMsg);
-    } finally {
-      setSubmitting(false);
+      // ✅ OPTIONAL: Link to donation (if backend supports it)
+      relatedDonation: selectedDonation._id
+    };
+    
+    console.log('📦 Dashboard - Submitting request payload:', requestPayload);
+    
+    const response = await requestService.createRequest(requestPayload);
+    
+    if (response.success) {
+      toast.success('Request submitted successfully! 🎉');
+      setRequestModalOpen(false);
+      setSelectedDonation(null);
+      setRequestForm({
+        title: '',
+        quantity: 1,
+        urgency: 'medium',
+        justification: '',
+        deliveryAddress: ''
+      });
+      
+      // Refresh requests
+      await fetchUserRequests();
+    } else {
+      throw new Error(response.message || 'Failed to submit request');
     }
-  };
+  } catch (error) {
+    console.error('❌ Dashboard - Error submitting request:', error);
+    
+    let errorMsg = error.message || 'Failed to submit request.';
+    
+    if (error.errors && Array.isArray(error.errors)) {
+      error.errors.forEach(err => {
+        toast.error(`${err.field}: ${err.message}`);
+      });
+    } else if (error.response?.data?.message) {
+      errorMsg = error.response.data.message;
+    } else if (error.data?.message) {
+      errorMsg = error.data.message;
+    }
+    
+    toast.error(errorMsg);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const availableDonations = allDonations || [];
   const myRequests = userRequests || [];
@@ -534,6 +615,13 @@ const RecipientDashboard = () => {
                     Partner Organizations
                   </Link>
                 </Button>
+                <Button 
+  onClick={() => navigate('/recipient/create-request')}
+  className="bg-green-600 hover:bg-green-700"
+>
+  <Plus className="h-5 w-5 mr-2" />
+  Create Request
+</Button>
               </CardContent>
             </Card>
 

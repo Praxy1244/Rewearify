@@ -52,6 +52,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, trim: true },
     type: { type: String, enum: ['NGO', 'Charity', 'Community Group', 'School', 'Other'] },
     registrationNumber: { type: String, trim: true },
+    
   },
   profile: {
     bio: { type: String, default: '', maxlength: 500 },

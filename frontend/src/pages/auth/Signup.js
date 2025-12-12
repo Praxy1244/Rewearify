@@ -66,7 +66,7 @@ const Signup = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
-    if (!formData.password || formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!formData.password || formData.password.length < 8) newErrors.password = 'Password must be at least 6 characters';
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
     if (!formData.role) newErrors.role = 'Please select a role';
     if (formData.role === 'recipient' && !formData.organization.trim()) {

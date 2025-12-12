@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { adminService } from '../../services';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ const ManageDonations = () => {
   const [statusFilter, setStatusFilter] = useState('pending');
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDonations();
@@ -30,11 +31,8 @@ const ManageDonations = () => {
       const response = await adminService.getAllDonations(); 
       
       if (response.success) {
-        // Sort by risk score (descending) then date
         const sortedData = (response.data || []).sort((a, b) => {
-           // Prioritize flagged items
            if (a.isFlagged !== b.isFlagged) return a.isFlagged ? -1 : 1;
-           // Then by date
            return new Date(b.createdAt) - new Date(a.createdAt);
         });
         setDonations(sortedData); 
@@ -69,7 +67,7 @@ const ManageDonations = () => {
       if (response.success) {
         setDonations(prev => prev.map(donation => 
           donation._id === donationId 
-            ? { ...donation, status: 'approved', isFlagged: false } // Clear flag on approval
+            ? { ...donation, status: 'approved', isFlagged: false }
             : donation
         ));
         toast.success("Donation Approved & Published");
@@ -98,9 +96,12 @@ const ManageDonations = () => {
             ? { ...donation, status: 'rejected', moderation: { ...donation.moderation, rejectionReason: rejectReason } }
             : donation
          ));
+         
          setRejectReason('');
-         toast.success("Donation Rejected");
+         setRejectModalOpen(false);
          setSelectedDonation(null);
+         
+         toast.success("Donation Rejected");
        } else {
          toast.error(response.message || "Failed to reject donation");     
        }
@@ -122,9 +123,7 @@ const ManageDonations = () => {
     }
   };
 
-  // 💡 NEW: Risk Score Badge Helper
   const getRiskBadge = (donation) => {
-    // Use AI analysis risk score if available, or fallback to 0
     const score = donation.aiAnalysis?.fraudScore || donation.riskScore || 0;
     const isFlagged = donation.isFlagged || donation.status === 'flagged';
 
@@ -145,7 +144,6 @@ const ManageDonations = () => {
     );
   }
 
-  // Donation Details Modal Content
   const DonationDetailsModal = ({ donation, onClose }) => (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
@@ -153,10 +151,12 @@ const ManageDonations = () => {
           <span>{donation.title}</span>
           {getRiskBadge(donation)}
         </DialogTitle>
+        <DialogDescription>
+          Review donation details and take appropriate action
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-4">
         
-        {/* 💡 NEW: Fraud/Risk Alert Box */}
         {(donation.isFlagged || (donation.aiAnalysis?.fraudScore > 0.4)) && (
            <div className="bg-red-50 border border-red-200 p-3 rounded-lg flex items-start gap-3">
              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
@@ -223,38 +223,28 @@ const ManageDonations = () => {
 
         {(donation.status === 'pending' || donation.status === 'flagged') && (
           <div className="flex space-x-3 pt-4 border-t">
-            <Button onClick={() => handleApprove(donation._id)} className="flex-1 bg-green-600 hover:bg-green-700">
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleApprove(donation._id);
+              }} 
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
               <Check className="h-4 w-4 mr-2" />
               Approve & Publish
             </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="flex-1">
-                  <X className="h-4 w-4 mr-2" />
-                  Reject
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Reject Donation</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <p>Please provide a reason for rejecting this donation:</p>
-                  <Textarea
-                    placeholder="Enter rejection reason..."
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                  />
-                  <Button 
-                    onClick={() => handleReject(donation._id)} 
-                    variant="destructive"
-                    className="w-full"
-                  >
-                    Confirm Rejection
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            
+            <Button 
+              variant="destructive" 
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setRejectModalOpen(true);
+              }}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Reject
+            </Button>
           </div>
         )}
       </div>
@@ -383,20 +373,152 @@ const ManageDonations = () => {
         </CardContent>
       </Card>
 
-      {/* Modal Dialog */}
-      <Dialog open={!!selectedDonation} onOpenChange={(open) => {
-        if (!open) {
-          setSelectedDonation(null);
-          setRejectReason('');
-        }
-      }}>
-        {selectedDonation && (
-          <DonationDetailsModal 
-            donation={selectedDonation} 
-            onClose={() => setSelectedDonation(null)} 
-          />
+      {/* Main Donation Details Modal */}
+      {/* Main Details Modal - HIDE when reject modal is open */}
+{selectedDonation && !rejectModalOpen && (
+  <Dialog open={true} onOpenChange={(open) => {
+    if (!open) {
+      setSelectedDonation(null);
+      setRejectReason('');
+    }
+  }}>
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle className="flex justify-between items-center pr-8">
+          <span>{selectedDonation.title}</span>
+          {getRiskBadge(selectedDonation)}
+        </DialogTitle>
+        <DialogDescription>Review donation details and take action</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4">
+        {(selectedDonation.isFlagged || (selectedDonation.aiAnalysis?.fraudScore > 0.4)) && (
+          <div className="bg-red-50 border border-red-200 p-3 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-red-900 text-sm">AI Risk Alert</h4>
+              <p className="text-red-700 text-sm">High probability of fraudulent activity.</p>
+            </div>
+          </div>
         )}
-      </Dialog>
+        <div className="grid grid-cols-2 gap-4">
+          <img 
+            src={selectedDonation.images?.[0]?.url || 'https://placehold.co/600x400'} 
+            alt={selectedDonation.title}
+            className="w-full h-48 object-cover rounded-lg"
+          />
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Donor</label>
+              <p>{selectedDonation.donor?.name || 'N/A'}</p>
+              <p className="text-sm text-gray-500">{selectedDonation.donor?.email || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Status</label>
+              <Badge className={getStatusColor(selectedDonation.status)}>{selectedDonation.status}</Badge>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium text-gray-600">Quantity</label>
+            <p>{selectedDonation.quantity} items</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600">Condition</label>
+            <p className="capitalize">{selectedDonation.condition}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600">Category</label>
+            <p className="capitalize">{selectedDonation.category}</p>
+          </div>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-600">Description</label>
+          <p className="mt-1 p-2 bg-gray-50 rounded text-sm">{selectedDonation.description}</p>
+        </div>
+        {(selectedDonation.status === 'pending' || selectedDonation.status === 'flagged') && (
+          <div className="flex space-x-3 pt-4 border-t">
+            <Button onClick={() => handleApprove(selectedDonation._id)} className="flex-1 bg-green-600">
+              <Check className="h-4 w-4 mr-2" />Approve & Publish
+            </Button>
+            <Button 
+              variant="destructive" 
+              className="flex-1" 
+              onClick={() => setRejectModalOpen(true)}
+            >
+              <X className="h-4 w-4 mr-2" />Reject
+            </Button>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
+
+{/* Reject Modal - ONLY show when rejectModalOpen is true */}
+{rejectModalOpen && selectedDonation && (
+  <div 
+    className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        setRejectModalOpen(false);
+        setRejectReason('');
+      }
+    }}
+  >
+    <div 
+      className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 relative"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={() => {
+          setRejectModalOpen(false);
+          setRejectReason('');
+        }}
+        className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+      >
+        <X className="h-5 w-5" />
+      </button>
+
+      <h2 className="text-xl font-bold mb-2">Reject Donation</h2>
+      <p className="text-sm text-gray-600 mb-4">
+        Please provide a reason for rejecting this donation
+      </p>
+      
+      <textarea
+        autoFocus
+        value={rejectReason}
+        onChange={(e) => setRejectReason(e.target.value)}
+        placeholder="Enter rejection reason..."
+        className="w-full border border-gray-300 rounded-lg p-3 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+      />
+      
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            setRejectModalOpen(false);
+            setRejectReason('');
+          }}
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={async () => {
+            if (rejectReason.trim()) {
+              await handleReject(selectedDonation._id, rejectReason);
+            }
+          }}
+          disabled={!rejectReason.trim()}
+          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+        >
+          Confirm Rejection
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };

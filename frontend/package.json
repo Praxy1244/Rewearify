@@ -91,7 +91,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17"
   },
-  "packageManager": "yarn@1.22.22"  ,
+  "packageManager": "yarn@1.22.22",
   "jest": {
     "transformIgnorePatterns": [
       "node_modules/(?!(axios)/)"
@@ -101,6 +101,3 @@
     }
   }
 }
-
-  
-
