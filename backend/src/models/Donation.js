@@ -75,6 +75,12 @@ const donationSchema = new mongoose.Schema({
     default: '',
     maxlength: [100, 'Subcategory cannot exceed 100 characters']
   },
+  season: {
+  type: String,
+  enum: ['Summer', 'Winter', 'Monsoon', 'All Season'],
+  default: 'All Season',
+  required: [true, 'Season is required']
+},
   condition: {
     type: String,
     required: [true, 'Condition is required'],

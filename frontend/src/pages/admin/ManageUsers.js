@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, Eye, Edit, Shield, ShieldOff, Users, UserCheck, UserX, Crown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -19,18 +19,23 @@ const ManageUsers = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  // --- MAIN FETCH FUNCTION ---
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      // --- FIX: Call the correct service function ---
-      const response = await adminService.getAllUsers(); 
+      
+      // ✅ FIX: Request 100 users to ensure Recipients are loaded
+      const response = await adminService.getAllUsers({ 
+        page: page,
+        limit: 100, 
+        role: roleFilter === 'all' ? undefined : roleFilter,
+        search: searchTerm || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter
+      });
+      
       if (response.success) {
-        // The data is at response.data (which is the array)
         setUsers(response.data || []);
       } else {
         setError('Failed to fetch users');
@@ -43,11 +48,17 @@ const ManageUsers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, roleFilter, searchTerm, statusFilter]);
 
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Client-side filtering
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
@@ -56,10 +67,11 @@ const ManageUsers = () => {
   const handleBlockUser = async (userId) => {
     try {
       const user = users.find(u => u._id === userId);
-      // Determine the new status
       const newStatus = user.status === 'active' ? 'suspended' : 'active';
       
-      const response = await adminService.updateUserStatus(userId, newStatus, newStatus === 'suspended' ? 'Blocked by admin' : 'Activated by admin');
+      const response = await adminService.updateUserStatus(userId, newStatus, 
+        newStatus === 'suspended' ? 'Blocked by admin' : 'Activated by admin'
+      );
       
       if (response.success) {
         setUsers(prev => prev.map(u => 
@@ -74,7 +86,8 @@ const ManageUsers = () => {
       toast.error('Failed to update user status');
     }
   };
-  
+
+  // Helper functions
   const getRoleIcon = (role) => {
     switch (role) {
       case 'admin': return <Crown className="h-4 w-4" />;
@@ -102,6 +115,7 @@ const ManageUsers = () => {
     }
   };
 
+  // --- MODAL COMPONENT (With Date Fixes) ---
   const UserDetailsModal = ({ user }) => (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
@@ -134,7 +148,8 @@ const ManageUsers = () => {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-600">Join Date</label>
-              <p>{new Date(user.createdAt).toLocaleDateString()}</p>
+              {/* ✅ FIXED DATE CHECK */}
+              <p>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Location</label>
@@ -142,7 +157,8 @@ const ManageUsers = () => {
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Last Activity</label>
-              <p>{new Date(user.lastActive || user.updatedAt).toLocaleDateString()}</p>
+              {/* ✅ FIXED DATE CHECK */}
+              <p>{(user.lastActive || user.updatedAt) ? new Date(user.lastActive || user.updatedAt).toLocaleDateString() : 'N/A'}</p>
             </div>
           </div>
           <div className="space-y-4">
@@ -268,7 +284,9 @@ const ManageUsers = () => {
               <Users className="h-5 w-5 text-blue-500" />
               <div>
                 <p className="text-sm text-gray-600">Recipients</p>
-                <p className="text-2xl font-bold">{users.filter(u => u.role === 'recipient').length}</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {users.filter(u => u.role === 'recipient').length}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -374,7 +392,8 @@ const ManageUsers = () => {
                       {user.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  {/* ✅ FIXED DATE CHECK */}
+                  <TableCell>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
                   <TableCell>
                     <div>
                       {user.role === 'donor' && (
@@ -383,7 +402,10 @@ const ManageUsers = () => {
                       {user.role === 'recipient' && (
                         <p className="text-sm"><span className="font-medium">{user.statistics?.totalRequests || 0}</span> requests</p>
                       )}
-                      <p className="text-xs text-gray-500">Last: {new Date(user.lastActive || user.updatedAt).toLocaleDateString()}</p>
+                      {/* ✅ FIXED DATE CHECK */}
+                      <p className="text-xs text-gray-500">
+                        Last: {(user.lastActive || user.updatedAt) ? new Date(user.lastActive || user.updatedAt).toLocaleDateString() : 'N/A'}
+                      </p>
                     </div>
                   </TableCell>
                   <TableCell>

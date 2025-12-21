@@ -81,6 +81,7 @@ const DonationForm = () => {
     description: '',
     category: '',
     subcategory: '',
+    season: 'All Season',
     condition: '',
     quantity: 1,
     sizes: [],
@@ -287,6 +288,7 @@ const DonationForm = () => {
                formData.category && 
                formData.subcategory && 
                formData.condition;
+                formData.season; // ✅ ADD THIS
       case 2:
         // 💡 REMOVED: Color check
         return formData.sizes.length > 0;
@@ -345,6 +347,7 @@ const DonationForm = () => {
       category: formData.category,
       subcategory: formData.subcategory,
       condition: formData.condition,
+      season: formData.season, 
       quantity: formData.quantity,
       sizes: formattedSizes,
       // 💡 REMOVED: colors: formData.colors
@@ -566,6 +569,22 @@ const renderSubcategorySuggestions = () => {
               </SelectContent>
             </Select>
           </div>
+
+          <div>
+  <Label htmlFor="season">Season/Usage *</Label>
+  <Select value={formData.season} onValueChange={(value) => handleInputChange('season', value)}>
+    <SelectTrigger className="mt-1">
+      <SelectValue placeholder="Select season" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="Summer">Summer</SelectItem>
+      <SelectItem value="Winter">Winter</SelectItem>
+      <SelectItem value="Monsoon">Monsoon/Rainy</SelectItem>
+      <SelectItem value="All Season">All Season/Year-Round</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+
 
           <div>
             <Label htmlFor="quantity">Total Number of Items *</Label>

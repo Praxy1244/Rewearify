@@ -1,302 +1,141 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from fastapi.middleware.cors import CORSMiddleware  # ✅ Add this
+from typing import Dict, Any
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-import pandas as pd
-import pickle
-from pathlib import Path
 import os
 import sys
 
-# Import services
-from services.matching import DonationMatcher
+# Import only fraud detection
 from services.fraud_detection import FraudDetector
-from services.clustering import NGOClusterer
-from services.forecasting import DemandForecaster
-from services.recommendations import initialize_recommendation_engine, recommendation_engine
-from services.trends import get_donor_trends
 
+# Setup paths
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
 
-DATA_DIR = os.path.join(ROOT_DIR, 'data')
-
 app = FastAPI(
-    title="Rewearify AI Service",
-    description="AI-powered matching, fraud detection, forecasting, and recommendations for Rewearify platform",
-    version="3.0.0"
+    title="Rewearify AI Service - Fraud Detection",
+    description="AI-powered fraud detection for donations",
+    version="1.0.0"
 )
 
-# ✅ ADD CORS MIDDLEWARE
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000"],  # Frontend URLs
+    allow_origins=["http://localhost:3000", "http://localhost:5000"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# Global variables
-matcher = None
-fraud_detector = None
-clusterer = None
-forecaster = None
-ngo_data = None
-clustering_model = None
-forecasting_models = {}
 
-# Initialize services
-print("🚀 Initializing AI services...")
+# Global fraud detector
+fraud_detector = None
 
 @app.on_event("startup")
 async def startup_event():
-    """Load models and data on startup"""
-    global matcher, fraud_detector, clusterer, forecaster, ngo_data, recommendation_engine
+    """Load fraud detection models on startup"""
+    global fraud_detector
     
-    print("🚀 Initializing AI services...")
+    print("🚀 Initializing Fraud Detection Service...")
     
     try:
-        import os
-        
-        # ✅ FIXED: Data is in root/data, not ai_service/data
-        root_dir = os.path.dirname(os.path.dirname(__file__))  # Go up to root
-        data_dir = os.path.join(root_dir, 'data')
-        
-        print(f"📁 Data directory: {data_dir}\n")
-        
-        # Initialize matcher
-        matcher = DonationMatcher()
-        print("✅ Matcher initialized")
-        
-        # Initialize fraud detector
         fraud_detector = FraudDetector()
         fraud_detector.load_models()
-        print("✅ Fraud detector loaded")
-        
-        # Initialize clusterer
-        clusterer = NGOClusterer()
-        clusterer.load_clustering()
-        print("✅ Clusterer loaded")
-        
-        # Load NGO data from root/data
-        print("📊 Loading NGO data...")
-        ngo_path = os.path.join(data_dir, 'ngos.csv')
-        ngo_data = pd.read_csv(ngo_path)
-        print(f"✅ Loaded {len(ngo_data)} NGOs")
-        
-        # Initialize forecaster
-        print("📈 Loading forecasting service...")
-        forecaster = DemandForecaster()
-        forecaster.is_trained = True
-        print("✅ Forecasting service ready")
-        
-        # Initialize recommendation engine
-        print("🎯 Initializing recommendation engine...")
-        try:
-            donations_path = os.path.join(data_dir, 'synthetic_donations.csv')
-            donations_df = pd.read_csv(donations_path)
-            print(f"✅ Loaded {len(donations_df)} historical donations")
-            
-            recommendation_engine = initialize_recommendation_engine(ngo_data, donations_df)
-            print("✅ Recommendation engine initialized")
-        except Exception as e:
-            print(f"⚠️ Recommendation engine initialization failed: {e}")
-            print("   Continuing without recommendations...")
-        
-        print("\n✅ All AI services initialized successfully!")
+        print("✅ Fraud detector loaded with 3 models")
+        print("   - Logistic Regression")
+        print("   - Random Forest (primary)")
+        print("   - Decision Tree")
+        print("\n✅ Service ready!")
         
     except Exception as e:
-        print(f"❌ Error during startup: {e}")
+        print(f"❌ Error loading fraud detector: {e}")
         import traceback
         traceback.print_exc()
 
 
 # --- Data Models ---
 
-class DonationMatchRequest(BaseModel):
-    donation_id: Optional[str] = "NEW"
-    type: str = Field(..., description="Clothing type")
-    season: str = Field(default="All Season", description="Season")
-    quantity: int = Field(..., gt=0, description="Number of items")
-    latitude: float = Field(..., description="Donation location latitude")
-    longitude: float = Field(..., description="Donation location longitude")
-    description: Optional[str] = ""
-    max_distance: Optional[int] = Field(default=50, description="Maximum distance in km")
-
-class RequestMatchRequest(BaseModel):
-    request_id: Optional[str] = "NEW"
-    ngo_id: str
-    ngo_name: str
-    type: str = Field(..., description="Requested clothing type")
-    urgency: str = Field(default="medium", description="Urgency level")
-    latitude: float
-    longitude: float
-    city: str
-    capacity: Optional[int] = Field(default=200, description="NGO capacity per week")
-    max_distance: Optional[int] = Field(default=50, description="Maximum distance in km")
-
 class FraudCheckRequest(BaseModel):
     donor_id: str
     donation_data: Dict[str, Any] = Field(..., description="Donation information")
     donor_data: Dict[str, Any] = Field(..., description="Donor information")
-    model_name: Optional[str] = Field(default="random_forest", description="Model to use")
+    model_name: str = Field(default="random_forest", description="Model to use")
 
-class LegacyDonationRequest(BaseModel):
-    type: str
-    subtype: Optional[str] = None
-    quantity: int
-    description: Optional[str] = ""
-    id: Optional[str] = "new"
 
-class AnalysisRequest(BaseModel):
-    category: str
-    condition: str
-    title: Optional[str] = ""
-    description: Optional[str] = ""
-
-# --- Root Endpoint ---
+# --- Endpoints ---
 
 @app.get("/")
 def read_root():
-    """Health check endpoint"""
+    """Health check"""
     return {
-        "status": "AI Service is running",
-        "version": "3.0.0",
-        "services": {
-            "matching": "operational",
-            "fraud_detection": "operational" if fraud_detector and fraud_detector.is_trained else "not_trained",
-            "clustering": "operational" if clusterer and clusterer.is_trained else "not_trained",
-            "forecasting": "operational" if forecaster and forecaster.is_trained else "not_trained",
-            "recommendations": "operational" if recommendation_engine else "not_initialized"
-        },
-        "endpoints": {
-            "match_donations": "/api/ai/match-donations",
-            "match_requests": "/api/ai/match-requests",
-            "check_fraud": "/api/ai/check-fraud",
-            "forecast": "/forecast",
-            "recommendations": "/recommendations/hybrid"
-        }
+        "status": "running",
+        "service": "Fraud Detection",
+        "version": "1.0.0",
+        "fraud_detector": "operational" if fraud_detector and fraud_detector.is_trained else "not_trained"
     }
+
 
 @app.get("/health")
 def health_check():
     """Detailed health check"""
+    if not fraud_detector:
+        return {
+            "status": "error",
+            "message": "Fraud detector not initialized"
+        }
+    
     return {
         "status": "healthy",
-        "services": {
-            "matcher": {
-                "loaded": matcher is not None,
-                "ngos_count": len(matcher.ngos_df) if matcher and not matcher.ngos_df.empty else 0,
-                "donations_count": len(matcher.donations_df) if matcher and not matcher.donations_df.empty else 0
-            },
-            "fraud_detector": {
-                "loaded": fraud_detector is not None,
-                "trained": fraud_detector.is_trained if fraud_detector else False,
-                "models": list(fraud_detector.models.keys()) if fraud_detector and fraud_detector.is_trained else []
-            },
-            "clusterer": {
-                "loaded": clusterer is not None,
-                "trained": clusterer.is_trained if clusterer else False,
-                "clusters_count": len(clusterer.cluster_stats) if clusterer and clusterer.is_trained else 0
-            },
-            "forecaster": {
-                "loaded": forecaster is not None,
-                "trained": forecaster.is_trained if forecaster else False
-            },
-            "recommendations": {
-                "loaded": recommendation_engine is not None,
-                "donor_profiles": len(recommendation_engine.donor_profiles) if recommendation_engine else 0
-            }
+        "fraud_detector": {
+            "loaded": fraud_detector is not None,
+            "trained": fraud_detector.is_trained,
+            "models": list(fraud_detector.models.keys()) if fraud_detector.is_trained else []
         }
     }
 
-# --- Matching Endpoints ---
-
-@app.post("/api/ai/match-donations")
-def match_donations(request: DonationMatchRequest):
-    """Find top NGO matches for a donation"""
-    try:
-        donation_data = {
-            "donation_id": request.donation_id,
-            "type": request.type,
-            "season": request.season,
-            "quantity": request.quantity,
-            "latitude": request.latitude,
-            "longitude": request.longitude,
-            "description": request.description
-        }
-        
-        matches = matcher.find_matches_for_donation(
-            donation_data,
-            max_matches=5,
-            max_distance=request.max_distance
-        )
-        
-        summary = matcher.get_recommendations_summary(matches)
-        
-        return {
-            "success": True,
-            "donation_id": request.donation_id,
-            "total_matches": len(matches),
-            "matches": matches,
-            "summary": summary
-        }
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Matching error: {str(e)}")
-
-@app.post("/api/ai/match-requests")
-def match_requests(request: RequestMatchRequest):
-    """Find top donation matches for an NGO request"""
-    try:
-        request_data = {
-            "request_id": request.request_id,
-            "ngo_id": request.ngo_id,
-            "ngo_name": request.ngo_name,
-            "type": request.type,
-            "urgency": request.urgency,
-            "latitude": request.latitude,
-            "longitude": request.longitude,
-            "city": request.city,
-            "capacity": request.capacity
-        }
-        
-        matches = matcher.find_matches_for_request(
-            request_data,
-            max_matches=5,
-            max_distance=request.max_distance
-        )
-        
-        summary = matcher.get_recommendations_summary(matches)
-        
-        return {
-            "success": True,
-            "request_id": request.request_id,
-            "total_matches": len(matches),
-            "matches": matches,
-            "summary": summary
-        }
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Matching error: {str(e)}")
-
-# --- Fraud Detection Endpoints ---
 
 @app.post("/api/ai/check-fraud")
 def check_fraud(request: FraudCheckRequest):
-    """Check donation for fraud indicators"""
+    """
+    Check donation for fraud indicators using ML models
+    
+    Expected format:
+    {
+        "donor_id": "123",
+        "donation_data": {
+            "quantity": 5,
+            "condition": "Good",
+            "proof_provided": true
+        },
+        "donor_data": {
+            "reliability_score": 0.9,
+            "past_donations": 10,
+            "flagged": false,
+            "last_feedback": 4.5,
+            "fulfillment_rate": 0.85,
+            "avg_quantity_claimed": 8,
+            "avg_quantity_received_ratio": 0.95,
+            "avg_fulfillment_delay": 5,
+            "num_manual_rejects": 0
+        },
+        "model_name": "random_forest"
+    }
+    """
     if not fraud_detector or not fraud_detector.is_trained:
         raise HTTPException(
             status_code=503, 
-            detail="Fraud detection models not trained"
+            detail="Fraud detection models not trained. Run training first."
         )
     
     try:
+        print(f"\n🔍 Fraud check request for donor: {request.donor_id}")
+        
+        # Build feature vector (12 features)
         features = {
             'DonorReliability': request.donor_data.get('reliability_score', 0.8),
             'Past_Donations': request.donor_data.get('past_donations', 0),
             'Flagged': 1 if request.donor_data.get('flagged', False) else 0,
-            'Feedback_mean': request.donor_data.get('last_feedback', 4),
+            'Feedback_mean': request.donor_data.get('last_feedback', 4.0),
             'Quantity': request.donation_data.get('quantity', 0),
             'Condition_New': 1 if request.donation_data.get('condition') == 'New' else 0,
             'Proof_Provided': 1 if request.donation_data.get('proof_provided', True) else 0,
@@ -307,515 +146,47 @@ def check_fraud(request: FraudCheckRequest):
             'Num_ManualRejects': request.donor_data.get('num_manual_rejects', 0)
         }
         
+        print(f"📊 Key features: Reliability={features['DonorReliability']:.2f}, "
+              f"Quantity={features['Quantity']}, Past={features['Past_Donations']}")
+        
+        # Get prediction from model
         result = fraud_detector.predict(features, model_name=request.model_name)
+        
+        print(f"✅ Prediction: {result['risk_level']} risk, "
+              f"confidence={result['confidence']*100:.1f}%, "
+              f"suspicious={result['is_suspicious']}")
         
         return {
             "success": True,
             "donor_id": request.donor_id,
-            **result
+            "confidence": result['confidence'],
+            "risk_level": result['risk_level'],
+            "is_suspicious": result['is_suspicious'],
+            "risk_factors": result.get('risk_factors', []),
+            "recommended_action": result.get('recommended_action', 'review'),
+            "model_used": request.model_name
         }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Fraud detection error: {str(e)}")
-
-# --- Clustering Endpoints ---
-
-@app.get("/api/ai/get-clusters")
-def get_clusters():
-    """Get all NGO cluster assignments"""
-    if not clusterer or not clusterer.is_trained:
-        raise HTTPException(status_code=503, detail="Clustering not performed")
-    
-    try:
-        return {
-            "success": True,
-            "total_ngos": len(clusterer.ngos_df),
-            "total_clusters": len(clusterer.cluster_stats),
-            "clusters": clusterer.cluster_stats
-        }
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Clustering error: {str(e)}")
-
-@app.get("/api/ai/cluster-stats/{cluster_key}")
-def get_cluster_stats(cluster_key: str):
-    """Get detailed statistics for a specific cluster"""
-    if not clusterer or not clusterer.is_trained:
-        raise HTTPException(status_code=503, detail="Clustering not performed")
-    
-    try:
-        stats = clusterer.get_cluster_info(cluster_key)
-        
-        if "error" in stats:
-            raise HTTPException(status_code=404, detail=stats["error"])
-        
-        return {
-            "success": True,
-            "cluster_key": cluster_key,
-            **stats
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-# --- Forecasting Endpoints ---
-
-@app.post("/forecast")
-async def get_forecast(request: Request):
-    """Get demand forecast for specific category and location"""
-    try:
-        data = await request.json()
-        clothing_type = data.get('clothing_type', 'Winter Wear')
-        city = data.get('city', 'Mumbai')
-        periods = data.get('periods', 30)
-        
-        summary = forecaster.get_forecast_summary(clothing_type, city, periods)
-        
-        if summary is None:
-            return {
-                "success": False,
-                "error": "Not enough data for forecast"
-            }
-        
-        return {
-            "success": True,
-            "data": summary
-        }
-        
-    except Exception as e:
-        print(f"Forecast error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.get("/seasonal-trends/{clothing_type}")
-async def get_seasonal_trends(clothing_type: str):
-    """Get seasonal trends for a clothing category"""
-    try:
-        trends = forecaster.get_seasonal_trends(clothing_type)
-        
-        if trends is None:
-            return {
-                "success": False,
-                "error": "No data available for this category"
-            }
-        
-        return {
-            "success": True,
-            "data": trends
-        }
-        
-    except Exception as e:
-        print(f"Seasonal trends error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.post("/supply-gap")
-async def analyze_supply_gap(request: Request):
-    """Analyze supply-demand gap"""
-    try:
-        data = await request.json()
-        clothing_type = data.get('clothing_type', 'Winter Wear')
-        city = data.get('city', 'Mumbai')
-        current_supply = data.get('current_supply', 0)
-        periods = data.get('periods', 30)
-        
-        forecast_df = forecaster.forecast(clothing_type, city, periods)
-        
-        if forecast_df is None:
-            return {
-                "success": False,
-                "error": "Could not generate forecast"
-            }
-        
-        gap_analysis = forecaster.detect_supply_gap(forecast_df, current_supply)
-        
-        return {
-            "success": True,
-            "data": gap_analysis
-        }
-        
-    except Exception as e:
-        print(f"Supply gap analysis error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.get("/forecast-categories")
-async def get_forecast_categories():
-    """Get available categories and cities for forecasting"""
-    try:
-        categories = forecaster.donations_df['Type'].unique().tolist()
-        cities = forecaster.donations_df['Location_City'].unique().tolist()
-        
-        return {
-            "success": True,
-            "data": {
-                "categories": categories,
-                "cities": cities
-            }
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-@app.post("/fraud-check")
-async def fraud_check(data: dict):
-    """
-    Simple fraud detection for new donations
-    Based on quantity, description quality, and basic patterns
-    """
-    try:
-        category = data.get('category', '')
-        condition = data.get('condition', '')
-        quantity = data.get('quantity', 1)
-        description = data.get('description', '')
-        location = data.get('location', {})
-        
-        fraud_score = 0.0
-        fraud_flags = []
-        
-        # ✅ FIXED: Quantity-based detection
-        if quantity >= 5000:
-            fraud_score += 0.7  # Very high quantity = high risk
-            fraud_flags.append("extremely_high_quantity")
-        elif quantity >= 2000:
-            fraud_score += 0.5
-            fraud_flags.append("very_high_quantity")
-        elif quantity >= 1000:
-            fraud_score += 0.3
-            fraud_flags.append("unusually_high_quantity")
-        elif quantity >= 500:
-            fraud_score += 0.15
-            fraud_flags.append("high_quantity")
-        
-        # Check description quality
-        description_length = len(description) if description else 0
-        if description_length < 20:
-            fraud_score += 0.25
-            fraud_flags.append("insufficient_description")
-        elif description_length < 50:
-            fraud_score += 0.1
-            fraud_flags.append("short_description")
-        
-        # Check for suspicious keywords
-        suspicious_keywords = ['urgent', 'quick cash', 'money', 'fake', 'pay', 'sell']
-        if description:
-            desc_lower = description.lower()
-            matched_keywords = [kw for kw in suspicious_keywords if kw in desc_lower]
-            if matched_keywords:
-                fraud_score += 0.3
-                fraud_flags.append(f"suspicious_keywords: {', '.join(matched_keywords)}")
-        
-        # Check condition vs quantity mismatch
-        if condition in ['excellent', 'good'] and quantity > 1000:
-            fraud_score += 0.2
-            fraud_flags.append("unusual_condition_quantity_combo")
-        
-        # Cap fraud score at 1.0
-        fraud_score = min(fraud_score, 1.0)
-        
-        # ✅ FIXED: Risk level determination
-        if fraud_score >= 0.7:
-            risk_level = "high"
-            recommendation = "reject"
-        elif fraud_score >= 0.4:
-            risk_level = "medium"
-            recommendation = "review"
-        else:
-            risk_level = "low"
-            recommendation = "approve"
-        
-        # ✅ FIXED: is_suspicious flag
-        is_suspicious = fraud_score >= 0.7
-        
-        # Calculate quality score (inverse of fraud)
-        quality_score = round(max(0, 1 - fraud_score), 2)
-        
-        return {
-            "success": True,
-            "data": {
-                "fraud_score": round(fraud_score, 2),
-                "quality_score": quality_score,
-                "risk_level": risk_level,
-                "recommendation": recommendation,
-                "fraud_flags": fraud_flags,
-                "is_suspicious": is_suspicious,
-                "confidence": 0.85,
-                "analysis": {
-                    "category_risk": "normal",
-                    "quantity_risk": "critical" if quantity >= 5000 else "very_high" if quantity >= 2000 else "high" if quantity >= 1000 else "medium" if quantity >= 500 else "normal",
-                    "condition_risk": "normal",
-                    "description_completeness": "good" if description_length > 100 else "fair" if description_length > 50 else "poor" if description_length > 20 else "very_poor"
-                }
-            }
-        }
-    except Exception as e:
-        logger.error(f"Fraud check error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
-# ==================== RECOMMENDATION ENDPOINTS ====================
-
-@app.post("/recommendations/hybrid")
-async def get_hybrid_recommendations(request: Request):
-    """Get personalized NGO recommendations using hybrid approach"""
-    try:
-        if recommendation_engine is None:
-            return {
-                "success": False,
-                "error": "Recommendation engine not initialized",
-                "data": []
-            }
-        
-        data = await request.json()
-        donor_id = data.get('donor_id')
-        donor_location = data.get('location')
-        limit = data.get('limit', 10)
-        
-        if not donor_id:
-            return {
-                "success": False,
-                "error": "donor_id is required",
-                "data": []
-            }
-        
-        recommendations = recommendation_engine.get_hybrid_recommendations(
-            donor_id=donor_id,
-            donor_location=donor_location,
-            n=limit
-        )
-        
-        for rec in recommendations:
-            rec['_id'] = str(rec['_id'])
-            if 'location' in rec and 'coordinates' in rec['location']:
-                if isinstance(rec['location']['coordinates'], dict):
-                    coords = rec['location']['coordinates'].get('coordinates', [0, 0])
-                    rec['location']['coordinates'] = coords
-        
-        return {
-            "success": True,
-            "data": {
-                "recommendations": recommendations,
-                "count": len(recommendations),
-                "donor_id": donor_id,
-                "method": "hybrid"
-            }
-        }
-        
-    except Exception as e:
-        print(f"Hybrid recommendations error: {str(e)}")
+        print(f"❌ Fraud detection error: {str(e)}")
         import traceback
         traceback.print_exc()
-        return {
-            "success": False,
-            "error": str(e),
-            "data": []
-        }
+        raise HTTPException(status_code=500, detail=f"Fraud detection error: {str(e)}")
 
-@app.post("/recommendations/collaborative")
-async def get_collaborative_recommendations(request: Request):
-    """Get recommendations based on similar donors"""
-    try:
-        if recommendation_engine is None:
-            return {"success": False, "error": "Recommendation engine not initialized"}
-        
-        data = await request.json()
-        donor_id = data.get('donor_id')
-        limit = data.get('limit', 5)
-        
-        if not donor_id:
-            return {"success": False, "error": "donor_id is required"}
-        
-        ngo_ids = recommendation_engine.get_collaborative_recommendations(donor_id, limit)
-        
-        recommendations = []
-        for ngo_id in ngo_ids:
-            ngo = ngo_data[ngo_data['_id'] == ngo_id]
-            if len(ngo) > 0:
-                ngo_dict = ngo.iloc[0].to_dict()
-                ngo_dict['_id'] = str(ngo_dict['_id'])
-                recommendations.append(ngo_dict)
-        
-        return {
-            "success": True,
-            "data": {
-                "recommendations": recommendations,
-                "method": "collaborative_filtering",
-                "explanation": "Based on donations from similar users"
-            }
-        }
-        
-    except Exception as e:
-        print(f"Collaborative recommendations error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.post("/recommendations/content-based")
-async def get_content_based_recommendations(request: Request):
-    """Get recommendations based on donor's past preferences"""
-    try:
-        if recommendation_engine is None:
-            return {"success": False, "error": "Recommendation engine not initialized"}
-        
-        data = await request.json()
-        donor_id = data.get('donor_id')
-        limit = data.get('limit', 5)
-        
-        if not donor_id:
-            return {"success": False, "error": "donor_id is required"}
-        
-        ngo_ids = recommendation_engine.get_content_based_recommendations(donor_id, limit)
-        
-        recommendations = []
-        for ngo_id in ngo_ids:
-            ngo = ngo_data[ngo_data['_id'] == ngo_id]
-            if len(ngo) > 0:
-                ngo_dict = ngo.iloc[0].to_dict()
-                ngo_dict['_id'] = str(ngo_dict['_id'])
-                recommendations.append(ngo_dict)
-        
-        return {
-            "success": True,
-            "data": {
-                "recommendations": recommendations,
-                "method": "content_based_filtering",
-                "explanation": "Based on your donation history and preferences"
-            }
-        }
-        
-    except Exception as e:
-        print(f"Content-based recommendations error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.get("/recommendations/popular")
-async def get_popular_ngos(limit: int = 10):
-    """Get most popular/highly rated NGOs"""
-    try:
-        if recommendation_engine is None:
-            return {"success": False, "error": "Recommendation engine not initialized"}
-        
-        ngo_ids = recommendation_engine.get_popular_ngos(limit)
-        
-        recommendations = []
-        for ngo_id in ngo_ids:
-            ngo = ngo_data[ngo_data['_id'] == ngo_id]
-            if len(ngo) > 0:
-                ngo_dict = ngo.iloc[0].to_dict()
-                ngo_dict['_id'] = str(ngo_dict['_id'])
-                recommendations.append(ngo_dict)
-        
-        return {
-            "success": True,
-            "data": {
-                "recommendations": recommendations,
-                "method": "popularity_based",
-                "explanation": "Highest rated NGOs on the platform"
-            }
-        }
-        
-    except Exception as e:
-        print(f"Popular NGOs error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.get("/recommendations/donor-profile/{donor_id}")
-async def get_donor_profile(donor_id: str):
-    """Get donor's preference profile"""
-    try:
-        if recommendation_engine is None:
-            return {"success": False, "error": "Recommendation engine not initialized"}
-        
-        if donor_id not in recommendation_engine.donor_profiles:
-            return {
-                "success": False,
-                "error": "Donor not found or no donation history"
-            }
-        
-        profile = recommendation_engine.donor_profiles[donor_id]
-        
-        return {
-            "success": True,
-            "data": {
-                "donor_id": donor_id,
-                "profile": profile,
-                "insights": {
-                    "is_active": profile['recent_activity'] < 30,
-                    "donation_level": "high" if profile['total_donations'] > 10 else "medium" if profile['total_donations'] > 3 else "low",
-                    "preferred_category": max(profile['categories'].items(), key=lambda x: x[1])[0] if profile['categories'] else None,
-                    "preferred_location": max(profile['preferred_locations'].items(), key=lambda x: x[1])[0] if profile['preferred_locations'] else None
-                }
-            }
-        }
-        
-    except Exception as e:
-        print(f"Get donor profile error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-# --- Legacy Endpoints ---
-
-@app.post("/match")
-def match_ngos_legacy(donation: LegacyDonationRequest):
-    """Legacy endpoint: Simple NGO matching"""
-    from services.matching import get_ngo_matches
-    matches = get_ngo_matches(donation.type, donation.description or "")
-    return {"matches": matches}
-
-@app.post("/analyze-donation")
-def analyze_donation(request: AnalysisRequest):
-    """Generate smart suggestions for donation form"""
-    try:
-        from services.suggestions import generate_smart_suggestions
-        
-        suggestions = generate_smart_suggestions(
-            request.category,
-            request.condition,
-            f"{request.title} {request.description}"
-        )
-        
-        return {
-            "success": True, 
-            "data": {
-                "suggestions": suggestions
-            }
-        }
-    except Exception as e:
-        print(f"Analysis error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@app.get("/trends")
-def get_trends():
-    """Get current donation trends based on historical data"""
-    try:
-        trends = get_donor_trends()
-        return {
-            "success": True,
-            "data": {
-                "trending": trends
-            }
-        }
-    except Exception as e:
-        print(f"Error getting trends: {e}")
-        # Fallback if calculation fails
-        return {
-            "success": True,
-            "data": {
-                "trending": ["Winter Wear", "School Supplies", "Blankets"]
-            }
-        }
 
 # --- Run the app ---
 
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 Starting Rewearify AI Service v3.0")
+    print("🚀 Starting Rewearify Fraud Detection Service")
     print("="*60)
     print("\n📍 API Documentation: http://localhost:8000/docs")
     print("📍 Health Check: http://localhost:8000/health")
-    print("\n🔥 Available Services:")
-    print("   ✅ Donation Matching (CBF)")
-    print("   ✅ Fraud Detection (3 models)")
-    print("   ✅ NGO Clustering (2-stage)")
-    print("   ✅ Forecasting (Time-series)")
-    print("   ✅ Recommendations (Hybrid)")
+    print("\n🔥 Features:")
+    print("   ✅ ML-based fraud detection")
+    print("   ✅ 3 trained models (LR, RF, DT)")
+    print("   ✅ 12-feature analysis")
+    print("   ✅ Real-time risk scoring")
     print("\n" + "="*60 + "\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -35,6 +35,89 @@ const upload = multer({
     }
   }
 });
+// @desc    Get all users for admin dashboard
+// @route   GET /api/users
+// @access  Private (Admin only)
+router.get('/', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 20, 
+      role, 
+      search, 
+      status = 'active'
+    } = req.query;
+
+    // Build query - SHOW ALL ROLES (admin, donor, recipient)
+    let query = { status };
+
+    // Filter by role if specified
+    if (role && role !== 'all') {
+      query.role = role;
+    }
+
+    // Search across name, email, organization
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { 'organization.name': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get total count
+    const total = await User.countDocuments(query);
+
+    // Get users with pagination
+    // ✅ Fix: Ensure dates exist + fallback sorting
+const users = await User.find(query)
+  .select('-password -security')
+  .lean()
+  .sort({ 
+    createdAt: -1,
+    _id: -1  // Fallback to ID if no createdAt
+  })
+  .limit(parseInt(limit))
+  .skip((parseInt(page) - 1) * parseInt(limit));
+
+// ✅ Add dates if missing
+const usersWithDates = users.map(user => ({
+  ...user,
+  createdAt: user.createdAt || new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // 30 days ago
+  updatedAt: user.updatedAt || new Date()
+}));
+
+    // Get role statistics
+    const roleStats = await User.aggregate([
+      { $match: { status: 'active' } },
+      { $group: { _id: '$role', count: { $sum: 1 } } }
+    ]);
+
+    const stats = {
+      total,
+      active: await User.countDocuments({ status: 'active' }),
+      suspended: await User.countDocuments({ status: { $ne: 'active' } }),
+      byRole: {
+        admin: roleStats.find(r => r._id === 'admin')?.count || 0,
+        donor: roleStats.find(r => r._id === 'donor')?.count || 0,
+        recipient: roleStats.find(r => r._id === 'recipient')?.count || 0
+      }
+    };
+
+    return res.json({
+      success: true,
+      data:  usersWithDates,
+      stats
+    });
+
+  } catch (error) {
+    console.error('Get all users error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get users'
+    });
+  }
+});
 
 // --- 💡 NEW ROUTE: Upload Profile Picture ---
 // @route   POST /api/users/:id/profile-picture

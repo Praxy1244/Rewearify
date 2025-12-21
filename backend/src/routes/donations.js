@@ -7,6 +7,7 @@ import { protect, restrictTo, adminOrOwner } from '../middleware/auth.js';
 import { donationValidations, searchValidations, handleValidationErrors } from '../utils/validation.js';
 import axios from 'axios';
 import donationFSM from '../services/fsmService.js';
+import donorMetricsService from '../services/donorMetricsService.js';
 
 const router = express.Router();
 
@@ -89,9 +90,6 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
 // @desc    Create new donation
 // @route   POST /api/donations
 // @access  Private (Donor or Admin)
-// @desc    Create new donation
-// @route   POST /api/donations
-// @access  Private (Donor or Admin)
 router.post('/', 
   protect, 
   restrictTo('donor', 'admin'),
@@ -104,60 +102,128 @@ router.post('/',
         donor: req.user.id
       };
 
+      // ==================== CALCULATE DONOR METRICS ====================
+      console.log('📊 Calculating donor metrics...');
+      const donorMetrics = await donorMetricsService.calculateDonorMetrics(req.user.id);
+
+      // ==================== STEP 1: FRAUD DETECTION ====================
       console.log('🔍 Running fraud detection...');
-      console.log('📦 Checking quantity:', donationData.quantity);
 
       const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
       let fraudCheckResult = null;
 
       try {
-        const fraudResponse = await axios.post(`${AI_SERVICE_URL}/fraud-check`, {
+        // ✅ Build donor_data object (historical metrics)
+        const donor_data = {
+          reliability_score: donorMetrics.DonorReliability,
+          past_donations: donorMetrics.Past_Donations,
+          flagged: donorMetrics.Flagged === 1,
+          last_feedback: donorMetrics.Feedback_mean,
+          fulfillment_rate: donorMetrics.Fulfillment_Rate,
+          avg_quantity_claimed: donorMetrics.Avg_Quantity_Claimed,
+          avg_quantity_received_ratio: donorMetrics.Avg_Quantity_Received_ratio,
+          avg_fulfillment_delay: donorMetrics.Avg_Fulfillment_Delay,
+          num_manual_rejects: donorMetrics.Num_ManualRejects
+        };
+
+        // ✅ Build donation_data object (current donation)
+        const donation_data = {
           category: donationData.category,
-          condition: donationData.condition,
+          condition: donationData.condition === 'excellent' ? 'New' : donationData.condition,
           quantity: donationData.quantity,
           description: donationData.description,
-          location: donationData.location
+          proof_provided: !!(donationData.images && donationData.images.length > 0)
+        };
+
+        console.log('🎯 Fraud check request:', {
+          donor_data: {
+            reliability: donor_data.reliability_score,
+            past_donations: donor_data.past_donations
+          },
+          donation_data: {
+            quantity: donation_data.quantity,
+            condition: donation_data.condition
+          }
+        });
+
+        // ✅ Send to AI service in correct format
+        const fraudResponse = await axios.post(`${AI_SERVICE_URL}/api/ai/check-fraud`, {
+          donor_id: req.user.id,
+          donation_data: donation_data,
+          donor_data: donor_data,
+          model_name: 'random_forest'
         }, { timeout: 5000 });
 
-        console.log('✅ Fraud API Response:', JSON.stringify(fraudResponse.data, null, 2));
-
-        if (fraudResponse.data.success) {
-          fraudCheckResult = fraudResponse.data.data;
-          console.log(`📊 Fraud Score: ${fraudCheckResult.fraud_score}`);
-          console.log(`📊 Risk Level: ${fraudCheckResult.risk_level}`);
-          console.log(`📊 Is Suspicious: ${fraudCheckResult.is_suspicious}`);
+        if (fraudResponse.data && fraudResponse.data.success) {
+          fraudCheckResult = fraudResponse.data;
+          console.log(`✅ Fraud check complete:`);
+          console.log(`   Risk Level: ${fraudCheckResult.risk_level}`);
+          console.log(`   Confidence: ${(fraudCheckResult.confidence * 100).toFixed(1)}%`);
+          console.log(`   Is Suspicious: ${fraudCheckResult.is_suspicious}`);
           
-          // ✅ Save riskScore AND riskLevel
-          donationData.riskScore = fraudCheckResult.fraud_score;
+          // ✅ Save fraud results
+          donationData.riskScore = fraudCheckResult.confidence;
           donationData.riskLevel = fraudCheckResult.risk_level;
+          donationData.isFlagged = fraudCheckResult.is_suspicious;
+          donationData.flagReason = fraudCheckResult.risk_factors ? fraudCheckResult.risk_factors.join(', ') : '';
+          
           donationData.aiAnalysis = {
             ...donationData.aiAnalysis,
-            fraudScore: fraudCheckResult.fraud_score,
-            qualityScore: fraudCheckResult.quality_score || 0,
-            riskLevel: fraudCheckResult.risk_level
+            fraudScore: fraudCheckResult.confidence,
+            qualityScore: 1 - fraudCheckResult.confidence
           };
-          
-          console.log('💾 Data to save:', {
-            riskScore: donationData.riskScore,
-            riskLevel: donationData.riskLevel
-          });
-        } else {
-          console.log('⚠️ Fraud check returned success:false');
         }
       } catch (aiError) {
         console.error('⚠️ Fraud check failed (non-blocking):', aiError.message);
         if (aiError.response) {
-          console.error('Response data:', aiError.response.data);
+          console.error('Response status:', aiError.response.status);
+          console.error('Response data:', JSON.stringify(aiError.response.data, null, 2));
         }
       }
 
+      // ==================== STEP 2: AI MATCHING ====================
+      let aiMatches = [];
+      if (donationData.location?.coordinates?.coordinates) {
+        try {
+          console.log('🔍 Running AI matching...');
+          const [lng, lat] = donationData.location.coordinates.coordinates;
+          
+          const matchResponse = await axios.post(`${AI_SERVICE_URL}/api/ai/match-donations`, {
+            donation_id: "NEW",
+            type: donationData.category,
+            season: donationData.season || 'All Season',
+            quantity: donationData.quantity,
+            latitude: lat,
+            longitude: lng,
+            description: donationData.description,
+            max_distance: donationData.availability?.deliveryRadius || 25
+          }, { timeout: 5000 });
+
+          if (matchResponse.data.success) {
+            aiMatches = matchResponse.data.matches || [];
+            console.log(`✅ Found ${aiMatches.length} AI matches`);
+            
+            // Store top matches in aiAnalysis
+            donationData.aiAnalysis = {
+              ...donationData.aiAnalysis,
+              matchingTags: aiMatches.slice(0, 3).map(m => m.ngo_name || 'Unknown'),
+              demandPrediction: aiMatches.length > 3 ? 'high' : aiMatches.length > 0 ? 'medium' : 'low'
+            };
+          }
+        } catch (matchError) {
+          console.error('⚠️ AI Matching failed (non-blocking):', matchError.message);
+        }
+      }
+
+      // ==================== CREATE DONATION ====================
       console.log('📝 Creating donation...');
       const donation = await Donation.create(donationData);
 
       console.log('✅ Donation created:', {
         id: donation._id,
         riskScore: donation.riskScore,
-        riskLevel: donation.riskLevel
+        riskLevel: donation.riskLevel,
+        aiMatches: aiMatches.length
       });
 
       // Auto-flag if suspicious
@@ -165,7 +231,7 @@ router.post('/',
         console.log('🚨 High fraud risk detected - flagging donation');
         
         donation.isFlagged = true;
-        donation.flagReason = fraudCheckResult.fraud_flags ? fraudCheckResult.fraud_flags.join(', ') : '';
+        donation.flagReason = fraudCheckResult.risk_factors ? fraudCheckResult.risk_factors.join(', ') : 'High fraud risk';
         
         try {
           await donationFSM.transition(
@@ -177,9 +243,9 @@ router.post('/',
               role: 'system'
             },
             {
-              fraud_score: fraudCheckResult.fraud_score,
+              fraud_score: fraudCheckResult.confidence,
               risk_level: fraudCheckResult.risk_level,
-              flags: fraudCheckResult.fraud_flags,
+              risk_factors: fraudCheckResult.risk_factors,
               automated: true
             }
           );
@@ -200,12 +266,12 @@ router.post('/',
               recipient: admin._id,
               type: 'fraud_alert',
               title: '⚠️ Suspicious Donation Flagged',
-              message: `Donation "${donation.title}" flagged for review. Risk score: ${(fraudCheckResult.fraud_score * 100).toFixed(0)}%`,
+              message: `Donation "${donation.title}" flagged for review. Risk score: ${(fraudCheckResult.confidence * 100).toFixed(0)}%`,
               data: {
                 donationId: donation._id,
                 donorId: req.user.id,
                 donorName: req.user.name,
-                fraudScore: fraudCheckResult.fraud_score,
+                fraudScore: fraudCheckResult.confidence,
                 riskLevel: fraudCheckResult.risk_level,
                 actionUrl: `/admin/donations/flagged`
               },
@@ -232,6 +298,7 @@ router.post('/',
         return created(res, { 
           donation,
           fraud_check: fraudCheckResult,
+          ai_matches: aiMatches,
           warning: 'Donation flagged for manual review due to suspicious activity'
         }, 'Donation submitted but flagged for review');
       }
@@ -280,7 +347,8 @@ router.post('/',
 
       return created(res, { 
         donation,
-        fraud_check: fraudCheckResult
+        fraud_check: fraudCheckResult,
+        ai_matches: aiMatches
       }, 'Donation created successfully. Pending admin approval.');
       
     } catch (error) {
@@ -289,7 +357,6 @@ router.post('/',
     }
   }
 );
-
 
 // ==================== SPECIAL ROUTES (BEFORE /:id) ====================
 

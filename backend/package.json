@@ -9,7 +9,9 @@
     "dev": "nodemon server.js",
     "test": "jest",
     "lint": "eslint .",
-    "seed": "node src/utils/seedData.js"
+    "seed": "node src/scripts/seedAll.js",
+    "seed:users": "node src/scripts/seedUsers.js",
+    "seed:donations": "node src/scripts/seedDonations.js"
   },
   "dependencies": {
     "axios": "^1.6.2",
