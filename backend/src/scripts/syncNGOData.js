@@ -47,7 +47,7 @@ class NGODataSyncer {
     try {
       const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify';
       console.log('\ud83d\udd0c Connecting to MongoDB...');
-      console.log(`   URI: ${mongoURI.replace(/:\/\/([^:]+):([^@]+)@/, '://*****:*****@')}`);
+      console.log(`   URI: ${mongoURI.replace(/:\/ \/([^:]+):([^@]+)@/, '://*****:*****@')}`);
       await mongoose.connect(mongoURI);
       console.log('\u2705 Connected to MongoDB\n');
     } catch (error) {
@@ -134,12 +134,8 @@ class NGODataSyncer {
     
     const str = String(value);
     
-    // If contains comma, quote, or newline, wrap in quotes and escape quotes
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}`;
-    }
-    
-    return str;
+    // Always wrap in quotes and escape any internal quotes
+    return `"${str.replace(/"/g, '""')}"`;
   }
 
   /**
@@ -168,7 +164,14 @@ class NGODataSyncer {
       const csvRows = [headers.join(',')];
       
       ngoData.forEach(ngo => {
-        const row = headers.map(header => ngo[header] || '').join(',');
+        const row = headers.map(header => {
+          const value = ngo[header];
+          // Don't escape numbers and booleans
+          if (typeof value === 'number' || header === 'Urgent_Need') {
+            return value;
+          }
+          return value || '';
+        }).join(',');
         csvRows.push(row);
       });
 
