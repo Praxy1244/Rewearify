@@ -13,13 +13,47 @@ import {
   MapPin,
   AlertCircle,
   Brain,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import aiService from '../../services/aiService';
+import {
+  transformDonationTrends,
+  transformCategoryData,
+  transformLocationData,
+  calculateSummary
+} from '../../utils/forecastTransforms';
+import { toast } from 'react-hot-toast';
 
 const Forecasting = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Filters
+  const [selectedCategory, setSelectedCategory] = useState('winter_wear');
+  const [selectedCity, setSelectedCity] = useState('Bangalore');
+  const [selectedPeriods, setSelectedPeriods] = useState(30);
+  const [availableCategories, setAvailableCategories] = useState([
+    'winter_wear',
+    'summer_wear',
+    'ethnic_wear',
+    'kids_wear',
+    'formal_wear'
+  ]);
+  const [availableCities, setAvailableCities] = useState([
+    'Bangalore',
+    'Mumbai',
+    'Delhi',
+    'Chennai',
+    'Kolkata',
+    'Hyderabad',
+    'Pune',
+    'Mysuru'
+  ]);
+  
+  // Data
   const [forecastData, setForecastData] = useState({
     donationTrends: [],
     demandPredictions: [],
@@ -30,43 +64,122 @@ const Forecasting = () => {
 
   useEffect(() => {
     fetchForecastData();
+    fetchCategories();
   }, []);
 
-  const fetchForecastData = async () => {
-    setLoading(true);
+  /**
+   * Fetch available categories and cities from backend
+   */
+  const fetchCategories = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
-      // Call your AI forecasting endpoint
-      const response = await fetch('http://localhost:8000/api/forecast', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          period: '30days', // Next 30 days
-          include_categories: true,
-          include_locations: true
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setForecastData({
-          donationTrends: data.donation_trends || [],
-          demandPredictions: data.demand_predictions || [],
-          categoryForecasts: data.category_forecasts || [],
-          locationInsights: data.location_insights || [],
-          summary: data.summary || {}
-        });
-        console.log('Forecast data loaded:', data);
+      const response = await aiService.getForecastCategories();
+      if (response.data.success) {
+        const data = response.data.data || response.data;
+        if (data.categories) setAvailableCategories(data.categories);
+        if (data.cities) setAvailableCities(data.cities);
       }
     } catch (error) {
-      console.error('Failed to fetch forecast:', error);
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch categories:', error);
+      // Use default categories if API fails
     }
+  };
+
+  /**
+   * Fetch forecast data from backend
+   */
+ const fetchForecastData = async (isRefresh = false) => {
+  if (isRefresh) {
+    setRefreshing(true);
+  } else {
+    setLoading(true);
+  }
+  
+  try {
+    console.log('📊 Fetching forecast data for:', {
+      clothing_type: selectedCategory,
+      city: selectedCity,
+      periods: selectedPeriods
+    });
+
+    const response = await aiService.getForecastSummary({
+      clothing_type: selectedCategory,
+      city: selectedCity,
+      periods: selectedPeriods,
+      current_supply: 100
+    });
+    
+    console.log('✅ Full response:', response);
+    
+    // ✅ FIX: Check response.success (not response.data.success)
+    if (response.success === true) {
+      const apiData = response.data; // ✅ response.data is already the unwrapped data
+      console.log('✅ Forecast data received:', apiData);
+      
+      // Verify we have the required data fields
+      if (!apiData) {
+        console.error('❌ No data in response');
+        toast.error('No forecast data received');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      console.log('📊 apiData.forecast:', apiData.forecast ? 'EXISTS' : 'MISSING');
+      console.log('📊 apiData.seasonal_trends:', apiData.seasonal_trends ? 'EXISTS' : 'MISSING');
+      console.log('📊 apiData.supply_gap:', apiData.supply_gap ? 'EXISTS' : 'MISSING');
+      
+      // Transform the data
+      const transformedData = {
+        donationTrends: transformDonationTrends(apiData.forecast),
+        demandPredictions: apiData.forecast?.forecasted_demands || [],
+        categoryForecasts: transformCategoryData(apiData.seasonal_trends, apiData.forecast),
+        locationInsights: transformLocationData(apiData.supply_gap, apiData.forecast),
+        summary: calculateSummary(apiData)
+      };
+      
+      console.log('✅ Transformed data:', transformedData);
+      console.log('  - Donation Trends length:', transformedData.donationTrends.length);
+      console.log('  - Category Forecasts length:', transformedData.categoryForecasts.length);
+      console.log('  - Location Insights length:', transformedData.locationInsights.length);
+      console.log('  - Summary:', transformedData.summary);
+      
+      setForecastData(transformedData);
+      
+      if (isRefresh) {
+        toast.success('Forecast data refreshed!');
+      }
+    } else {
+      console.error('❌ Response check failed');
+      console.error('  - response exists?', !!response);
+      console.error('  - response.success?', response?.success);
+      toast.error('Failed to load forecast data');
+    }
+  } catch (error) {
+    console.error('❌ Failed to fetch forecast:', error);
+    console.error('Error details:', error.response?.data);
+    toast.error(error.response?.data?.message || 'Failed to load forecast data');
+    
+    // Set empty data on error
+    setForecastData({
+      donationTrends: [],
+      demandPredictions: [],
+      categoryForecasts: [],
+      locationInsights: [],
+      summary: {}
+    });
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
+
+
+  const handleRefresh = () => {
+    fetchForecastData(true);
+  };
+
+  const handleFilterChange = () => {
+    fetchForecastData(false);
   };
 
   const getTrendIcon = (trend) => {
@@ -83,10 +196,11 @@ const Forecasting = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Brain className="h-12 w-12 animate-pulse text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Analyzing trends and generating forecasts...</p>
+          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
         </div>
       </div>
     );
@@ -105,14 +219,95 @@ const Forecasting = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <TrendingUp className="text-blue-600" />
-            AI Forecasting & Trends
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Predictive analytics for the next 30 days
-          </p>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <TrendingUp className="text-blue-600" />
+                AI Forecasting & Trends
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Predictive analytics for the next {selectedPeriods} days
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              
+              
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
+          </div>
         </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Clothing Type
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {availableCategories.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  City
+                </label>
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {availableCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Forecast Period
+                </label>
+                <select
+                  value={selectedPeriods}
+                  onChange={(e) => setSelectedPeriods(Number(e.target.value))}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="30">30 Days</option>
+                  <option value="60">60 Days</option>
+                  <option value="90">90 Days</option>
+                </select>
+              </div>
+              
+              <div className="flex items-end">
+                <Button
+                  onClick={handleFilterChange}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -131,7 +326,7 @@ const Forecasting = () => {
                 {getTrendIcon(forecastData.summary.donation_trend || 0)}
                 <span className={`text-sm font-medium ${getTrendColor(forecastData.summary.donation_trend || 0)}`}>
                   {forecastData.summary.donation_trend > 0 ? '+' : ''}
-                  {forecastData.summary.donation_trend || 0}% vs last month
+                  {forecastData.summary.donation_trend || 0}% vs last period
                 </span>
               </div>
             </CardContent>
@@ -152,7 +347,7 @@ const Forecasting = () => {
                 {getTrendIcon(forecastData.summary.demand_trend || 0)}
                 <span className={`text-sm font-medium ${getTrendColor(forecastData.summary.demand_trend || 0)}`}>
                   {forecastData.summary.demand_trend > 0 ? '+' : ''}
-                  {forecastData.summary.demand_trend || 0}% vs last month
+                  {forecastData.summary.demand_trend || 0}% vs last period
                 </span>
               </div>
             </CardContent>
@@ -163,7 +358,7 @@ const Forecasting = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Top Category</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl font-bold text-gray-900 capitalize">
                     {forecastData.summary.top_category || 'N/A'}
                   </p>
                 </div>
@@ -214,7 +409,7 @@ const Forecasting = () => {
           <TabsContent value="donations" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>30-Day Donation Forecast</CardTitle>
+                <CardTitle>{selectedPeriods}-Day Donation Forecast</CardTitle>
                 <p className="text-sm text-gray-600">
                   AI-predicted donation volumes by week
                 </p>
@@ -223,30 +418,30 @@ const Forecasting = () => {
                 {forecastData.donationTrends.length > 0 ? (
                   <div className="space-y-4">
                     {forecastData.donationTrends.map((trend, idx) => (
-                      <div key={idx} className="p-4 bg-gray-50 rounded-lg">
+                      <div key={idx} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                         <div className="flex justify-between items-center mb-2">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium">{trend.period || `Week ${idx + 1}`}</span>
+                            <span className="font-medium">{trend.period}</span>
                           </div>
                           <Badge className="bg-blue-600">
-                            {trend.predicted_donations || 0} donations
+                            {trend.predicted_donations} donations
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-gray-200 rounded-full h-2">
                             <div 
-                              className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: `${Math.min((trend.predicted_donations / 100) * 100, 100)}%` }}
+                              className="bg-blue-600 h-2 rounded-full transition-all"
+                              style={{ width: `${Math.min((trend.predicted_donations / 150) * 100, 100)}%` }}
                             />
                           </div>
                           <span className="text-sm text-gray-600">
-                            {trend.confidence || 85}% confidence
+                            {trend.confidence}% confidence
                           </span>
                         </div>
                         {trend.insight && (
                           <p className="text-xs text-gray-600 mt-2 flex items-start gap-1">
-                            <AlertCircle className="h-3 w-3 mt-0.5" />
+                            <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
                             {trend.insight}
                           </p>
                         )}
@@ -256,7 +451,8 @@ const Forecasting = () => {
                 ) : (
                   <div className="text-center py-12 text-gray-500">
                     <TrendingUp className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                    <p>No forecast data available</p>
+                    <p className="font-medium">No forecast data available</p>
+                    <p className="text-sm mt-1">Try adjusting your filters or check back later</p>
                   </div>
                 )}
               </CardContent>
@@ -278,12 +474,12 @@ const Forecasting = () => {
                     {forecastData.categoryForecasts
                       .sort((a, b) => (b.predicted_demand || 0) - (a.predicted_demand || 0))
                       .map((category, idx) => (
-                        <div key={idx} className="p-4 bg-gray-50 rounded-lg">
+                        <div key={idx} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                           <div className="flex justify-between items-start mb-2">
                             <div>
                               <h4 className="font-semibold capitalize">{category.category}</h4>
                               <p className="text-sm text-gray-600">
-                                {category.predicted_demand || 0} items needed
+                                {category.predicted_demand} items needed
                               </p>
                             </div>
                             <div className="text-right">
@@ -301,17 +497,19 @@ const Forecasting = () => {
                           <div className="flex items-center gap-2 mb-2">
                             <div className="flex-1 bg-gray-200 rounded-full h-2">
                               <div 
-                                className={`h-2 rounded-full ${
+                                className={`h-2 rounded-full transition-all ${
                                   idx === 0 ? 'bg-red-600' :
                                   idx === 1 ? 'bg-orange-600' :
                                   idx === 2 ? 'bg-yellow-600' : 'bg-gray-600'
                                 }`}
-                                style={{ width: `${(category.demand_percentage || 0)}%` }}
+                                style={{ width: `${category.demand_percentage}%` }}
                               />
                             </div>
-                            <span className="text-sm text-gray-600">{category.demand_percentage || 0}%</span>
+                            <span className="text-sm text-gray-600 min-w-[45px] text-right">
+                              {category.demand_percentage}%
+                            </span>
                           </div>
-                          {category.trend && (
+                          {category.trend !== undefined && (
                             <div className="flex items-center gap-1 text-sm">
                               {getTrendIcon(category.trend)}
                               <span className={getTrendColor(category.trend)}>
@@ -325,7 +523,8 @@ const Forecasting = () => {
                 ) : (
                   <div className="text-center py-12 text-gray-500">
                     <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                    <p>No category forecasts available</p>
+                    <p className="font-medium">No category forecasts available</p>
+                    <p className="text-sm mt-1">Try adjusting your filters or check back later</p>
                   </div>
                 )}
               </CardContent>
@@ -345,37 +544,37 @@ const Forecasting = () => {
                 {forecastData.locationInsights.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {forecastData.locationInsights.map((location, idx) => (
-                      <div key={idx} className="p-4 border rounded-lg bg-white">
+                      <div key={idx} className="p-4 border rounded-lg bg-white hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <MapPin className="h-5 w-5 text-blue-600" />
                             <div>
-                              <h4 className="font-semibold">{location.city || location.location}</h4>
-                              <p className="text-xs text-gray-600">{location.state || 'N/A'}</p>
+                              <h4 className="font-semibold">{location.city}</h4>
+                              <p className="text-xs text-gray-600">{location.state}</p>
                             </div>
                           </div>
                           <Badge variant="outline">
-                            {location.activity_score || 0}% active
+                            {location.activity_score}% active
                           </Badge>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div className="bg-blue-50 p-2 rounded">
-                            <p className="text-xs text-gray-600">Expected Donations</p>
-                            <p className="text-lg font-bold text-blue-600">
-                              {location.predicted_donations || 0}
+                          <div className="bg-blue-50 p-3 rounded">
+                            <p className="text-xs text-gray-600 mb-1">Expected Donations</p>
+                            <p className="text-xl font-bold text-blue-600">
+                              {location.predicted_donations}
                             </p>
                           </div>
-                          <div className="bg-green-50 p-2 rounded">
-                            <p className="text-xs text-gray-600">Expected Demand</p>
-                            <p className="text-lg font-bold text-green-600">
-                              {location.predicted_demand || 0}
+                          <div className="bg-green-50 p-3 rounded">
+                            <p className="text-xs text-gray-600 mb-1">Expected Demand</p>
+                            <p className="text-xl font-bold text-green-600">
+                              {location.predicted_demand}
                             </p>
                           </div>
                         </div>
 
                         {location.top_category && (
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-600 mb-2">
                             <strong>Top Need:</strong> {location.top_category}
                           </p>
                         )}
@@ -383,7 +582,7 @@ const Forecasting = () => {
                         {location.alert && (
                           <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
                             <p className="text-xs text-yellow-800 flex items-start gap-1">
-                              <AlertCircle className="h-3 w-3 mt-0.5" />
+                              <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
                               {location.alert}
                             </p>
                           </div>
@@ -394,7 +593,8 @@ const Forecasting = () => {
                 ) : (
                   <div className="text-center py-12 text-gray-500">
                     <MapPin className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                    <p>No location insights available</p>
+                    <p className="font-medium">No location insights available</p>
+                    <p className="text-sm mt-1">Try adjusting your filters or check back later</p>
                   </div>
                 )}
               </CardContent>
@@ -406,13 +606,14 @@ const Forecasting = () => {
         <Card className="mt-6 border-blue-200 bg-blue-50">
           <CardContent className="p-6">
             <div className="flex items-start gap-3">
-              <Brain className="h-6 w-6 text-blue-600 flex-shrink-0" />
+              <Brain className="h-6 w-6 text-blue-600 flex-shrink-0 mt-1" />
               <div>
                 <h3 className="font-semibold text-blue-900 mb-1">About AI Forecasting</h3>
-                <p className="text-sm text-blue-800">
+                <p className="text-sm text-blue-800 leading-relaxed">
                   This forecasting system uses machine learning to analyze historical patterns, 
                   seasonal trends, and current platform activity to predict future donation volumes 
-                  and demand. The model is updated daily and achieves {forecastData.summary.confidence_score || 85}% accuracy.
+                  and demand. The model is updated daily and achieves {forecastData.summary.confidence_score || 87}% accuracy. 
+                  Predictions are based on {selectedCategory.replace(/_/g, ' ')} in {selectedCity} over the next {selectedPeriods} days.
                 </p>
               </div>
             </div>

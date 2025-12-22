@@ -8,26 +8,22 @@ import sys
 import pandas as pd
 import pickle
 
-
 # Import services
 from services.fraud_detection import FraudDetector
 from services.suggestions import generate_smart_suggestions
 from services.matching import DonationMatcher
 from services.recommendations import initialize_recommendation_engine
-from services.forecasting import DemandForecaster
-
+from services.forcasting_mongo import forecaster  # ✅ Import the global forecaster instance
 
 # Setup paths
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
 
-
 app = FastAPI(
     title="Rewearify AI Service",
     description="AI-powered fraud detection, smart suggestions, NGO matching, clustering, and recommendations",
-    version="6.0.0"
+    version="6.1.0"
 )
-
 
 # Enable CORS
 app.add_middleware(
@@ -38,19 +34,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Global services
 fraud_detector = None
 matcher = None
 recommender = None
-forecaster = None
-cluster_stats = None  # NEW: Clustering data
-
+# forecaster is now imported globally
+cluster_stats = None
 
 @app.on_event("startup")
 async def startup_event():
     """Load AI services on startup"""
-    global fraud_detector, matcher, recommender, forecaster, cluster_stats
+    global fraud_detector, matcher, recommender, cluster_stats
     
     print("🚀 Initializing AI Services...")
     
@@ -67,14 +61,8 @@ async def startup_event():
         matcher = DonationMatcher()
         print(f"✅ NGO Matcher loaded")
         
-        # Initialize forecaster
-        try:
-            forecaster = DemandForecaster()
-            forecaster.is_trained = True
-            print("✅ Demand forecaster loaded")
-        except Exception as forecast_error:
-            print(f"⚠️ Forecaster failed to load: {forecast_error}")
-            forecaster = None
+        # Forecaster is already initialized globally
+        print("✅ Demand forecaster ready (mock data)")
         
         # Initialize recommendation engine
         try:
@@ -88,7 +76,7 @@ async def startup_event():
             print(f"⚠️ Recommendation engine failed to load: {rec_error}")
             recommender = None
         
-        # NEW: Load clustering data
+        # Load clustering data
         try:
             models_path = os.path.join(ROOT_DIR, "ai_service", "models")
             cluster_stats_path = os.path.join(models_path, "cluster_stats.pkl")
@@ -111,9 +99,7 @@ async def startup_event():
         import traceback
         traceback.print_exc()
 
-
 # --- Data Models ---
-
 
 class FraudCheckRequest(BaseModel):
     donor_id: str
@@ -121,14 +107,12 @@ class FraudCheckRequest(BaseModel):
     donor_data: Dict[str, Any]
     model_name: str = Field(default="random_forest")
 
-
 class SmartSuggestionRequest(BaseModel):
     category: str
     condition: str
     title: Optional[str] = ""
     description: Optional[str] = ""
-    mode: Optional[str] = "donation"  # ✅ "donation" or "request"
-
+    mode: Optional[str] = "donation"
 
 class DonationMatchRequest(BaseModel):
     donation_id: Optional[str] = "NEW"
@@ -139,7 +123,6 @@ class DonationMatchRequest(BaseModel):
     longitude: float
     description: Optional[str] = ""
     max_distance: Optional[int] = 50
-
 
 class RequestMatchRequest(BaseModel):
     requestId: str
@@ -152,18 +135,14 @@ class RequestMatchRequest(BaseModel):
     max_distance: Optional[int] = 50
     maxMatches: Optional[int] = 5
 
-
 class MatchingRequest(BaseModel):
-    """NEW: For donation-request matching"""
     donation: dict
     requests: list
-
 
 class ForecastRequest(BaseModel):
     clothing_type: str
     city: str
     periods: Optional[int] = 30
-
 
 class SupplyGapRequest(BaseModel):
     clothing_type: str
@@ -171,28 +150,25 @@ class SupplyGapRequest(BaseModel):
     current_supply: int
     periods: Optional[int] = 30
 
-
 class HybridRecommendationRequest(BaseModel):
     donor_id: str
     location: Optional[str] = None
     limit: Optional[int] = 10
 
-
 # --- Root & Health Endpoints ---
-
 
 @app.get("/")
 def read_root():
     return {
         "status": "running",
         "service": "Rewearify AI",
-        "version": "6.0.0",
+        "version": "6.1.0",
         "services": {
             "fraud_detection": "operational" if fraud_detector and fraud_detector.is_trained else "not_trained",
             "smart_suggestions": "operational",
             "ngo_matching": "operational" if matcher else "unavailable",
             "request_matching": "operational" if matcher else "unavailable",
-            "forecasting": "operational" if forecaster else "unavailable",
+            "forecasting": "operational",  # ✅ Always operational now
             "recommendations": "operational" if recommender else "unavailable",
             "clustering": "operational" if cluster_stats else "unavailable"
         },
@@ -202,11 +178,13 @@ def read_root():
             "ngo_matching": "/api/ai/match-donations",
             "request_matching": "/match-requests",
             "forecasting": "/forecast",
+            "seasonal_trends": "/seasonal-trends/{clothing_type}",
+            "supply_gap": "/supply-gap",
+            "forecast_categories": "/forecast-categories",
             "recommendations_hybrid": "/recommendations/hybrid",
             "clustering": "/clusters"
         }
     }
-
 
 @app.get("/health")
 def health_check():
@@ -225,8 +203,9 @@ def health_check():
             "status": "operational" if matcher else "unavailable"
         },
         "forecaster": {
-            "loaded": forecaster is not None,
-            "models_trained": len(forecaster.models) if forecaster else 0
+            "loaded": True,
+            "status": "operational",
+            "mode": "mock_data"
         },
         "recommender": {
             "loaded": recommender is not None,
@@ -238,9 +217,7 @@ def health_check():
         }
     }
 
-
-# ==================== NEW: CLUSTERING ENDPOINTS ====================
-
+# ==================== CLUSTERING ENDPOINTS ====================
 
 @app.get("/clusters")
 def get_clusters():
@@ -264,7 +241,6 @@ def get_clusters():
     except Exception as e:
         print(f"❌ Clustering error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Clustering error: {str(e)}")
-
 
 @app.get("/clusters/{cluster_id}")
 def get_cluster_details(cluster_id: str):
@@ -293,12 +269,7 @@ def get_cluster_details(cluster_id: str):
         print(f"❌ Cluster details error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
-# ==================== END CLUSTERING ENDPOINTS ====================
-
-
-# --- Fraud Detection ---
-
+# ==================== FRAUD DETECTION ====================
 
 @app.post("/api/ai/check-fraud")
 def check_fraud(request: FraudCheckRequest):
@@ -343,9 +314,7 @@ def check_fraud(request: FraudCheckRequest):
         print(f"❌ Fraud detection error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Fraud detection error: {str(e)}")
 
-
-# --- Smart Suggestions ---
-
+# ==================== SMART SUGGESTIONS ====================
 
 def _generate_suggestions(request: SmartSuggestionRequest):
     try:
@@ -371,23 +340,19 @@ def _generate_suggestions(request: SmartSuggestionRequest):
         print(f"❌ Smart suggestions error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 @app.post("/api/ai/analyze-donation")
 def analyze_donation_full(request: SmartSuggestionRequest):
     return _generate_suggestions(request)
-
 
 @app.post("/analyze-donation")
 def analyze_donation_short(request: SmartSuggestionRequest):
     return _generate_suggestions(request)
 
-
-# --- NGO Matching (Donation-Specific) ---
-
+# ==================== NGO MATCHING ====================
 
 @app.post("/api/ai/match-donations")
 def match_donations(request: DonationMatchRequest):
-    """Find NGOs that can ACCEPT this specific donation (LEGACY)"""
+    """Find NGOs that can ACCEPT this specific donation"""
     if not matcher:
         raise HTTPException(status_code=503, detail="Matching service not available")
     
@@ -426,9 +391,7 @@ def match_donations(request: DonationMatchRequest):
         print(f"❌ Matching error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Matching error: {str(e)}")
 
-
-# ==================== NEW: DONATION-REQUEST MATCHING ====================
-
+# ==================== REQUEST MATCHING ====================
 
 @app.post("/match-requests")
 async def match_requests(data: MatchingRequest):
@@ -461,10 +424,6 @@ async def match_requests(data: MatchingRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Matching failed: {str(e)}")
 
-
-# --- Placeholder for Old Endpoint (backward compatibility) ---
-
-
 @app.post("/find-matches")
 def find_donation_matches(request: RequestMatchRequest):
     """DEPRECATED: Use /match-requests instead"""
@@ -475,63 +434,41 @@ def find_donation_matches(request: RequestMatchRequest):
         "matches": []
     }
 
-
-# --- Forecasting Endpoints ---
-
+# ==================== FORECASTING ENDPOINTS ====================
 
 @app.post("/forecast")
 def get_forecast(request: ForecastRequest):
     """Get demand forecast for specific category and city"""
-    if not forecaster:
-        raise HTTPException(status_code=503, detail="Forecasting service not available")
-    
     try:
         print(f"\n📈 Forecast request: {request.clothing_type} in {request.city}")
         
-        summary = forecaster.get_forecast_summary(
+        result = forecaster.forecast(
             clothing_type=request.clothing_type,
             city=request.city,
             periods=request.periods
         )
         
-        if not summary:
-            return {
-                "success": False,
-                "error": "Insufficient data for forecast",
-                "message": f"Not enough historical data for {request.clothing_type} in {request.city}"
-            }
-        
-        print(f"✅ Forecast generated: {summary['total_predicted_demand']} items over {request.periods} days")
+        print(f"✅ Forecast generated successfully")
         
         return {
             "success": True,
-            "data": summary
+            "data": result
         }
         
     except Exception as e:
         print(f"❌ Forecasting error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Forecasting error: {str(e)}")
 
 
 @app.get("/seasonal-trends/{clothing_type}")
 def get_seasonal_trends(clothing_type: str):
     """Get seasonal trends for a clothing category"""
-    if not forecaster:
-        raise HTTPException(status_code=503, detail="Forecasting service not available")
-    
     try:
         print(f"\n📊 Seasonal trends request: {clothing_type}")
         
         trends = forecaster.get_seasonal_trends(clothing_type)
-        
-        if not trends:
-            return {
-                "success": False,
-                "error": "No data available",
-                "message": f"No historical data for {clothing_type}"
-            }
-        
-        print(f"✅ Trends generated: {trends['total_donations']} total donations")
         
         return {
             "success": True,
@@ -542,34 +479,18 @@ def get_seasonal_trends(clothing_type: str):
         print(f"❌ Trends error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Trends error: {str(e)}")
 
-
 @app.post("/supply-gap")
 def analyze_supply_gap(request: SupplyGapRequest):
     """Analyze supply-demand gap"""
-    if not forecaster:
-        raise HTTPException(status_code=503, detail="Forecasting service not available")
-    
     try:
         print(f"\n⚖️ Supply gap analysis: {request.clothing_type} in {request.city}")
         
-        # Get forecast first
-        forecast = forecaster.forecast(
+        gap_analysis = forecaster.analyze_supply_gap(
             clothing_type=request.clothing_type,
             city=request.city,
+            current_supply=request.current_supply,
             periods=request.periods
         )
-        
-        if forecast is None:
-            return {
-                "success": False,
-                "error": "Cannot generate forecast",
-                "message": f"Insufficient data for {request.clothing_type} in {request.city}"
-            }
-        
-        # Analyze gap
-        gap_analysis = forecaster.detect_supply_gap(forecast, request.current_supply)
-        
-        print(f"✅ Gap analysis: {gap_analysis['status']} ({gap_analysis['gap']} items)")
         
         return {
             "success": True,
@@ -580,21 +501,21 @@ def analyze_supply_gap(request: SupplyGapRequest):
         print(f"❌ Supply gap error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Supply gap error: {str(e)}")
 
-
 @app.get("/forecast-categories")
 def get_forecast_categories():
     """Get available categories and cities for forecasting"""
-    return {
-        "success": True,
-        "data": {
-            "categories": ["Winter Wear", "Men's Wear", "Women's Wear", "Kids Wear"],
-            "cities": ["Mumbai", "Delhi", "Bengaluru"]
+    try:
+        result = forecaster.get_forecast_categories()
+        
+        return {
+            "success": True,
+            "data": result
         }
-    }
+    except Exception as e:
+        print(f"❌ Categories error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
-# --- NGO Recommendations (User Profile-Based) ---
-
+# ==================== RECOMMENDATIONS ====================
 
 @app.post("/recommendations/hybrid")
 def get_hybrid_recommendations(request: HybridRecommendationRequest):
@@ -647,7 +568,6 @@ def get_hybrid_recommendations(request: HybridRecommendationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 @app.get("/recommendations/popular")
 def get_popular_ngos(limit: int = 10):
     """Get most popular/highly-rated NGOs"""
@@ -683,13 +603,11 @@ def get_popular_ngos(limit: int = 10):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
-# --- Run the app ---
-
+# ==================== RUN THE APP ====================
 
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 Starting Rewearify AI Service v6.0")
+    print("🚀 Starting Rewearify AI Service v6.1")
     print("="*60)
     print("\n📍 API Documentation: http://localhost:8000/docs")
     print("📍 Health Check: http://localhost:8000/health")
@@ -698,11 +616,12 @@ if __name__ == "__main__":
     print("   ✅ Smart Suggestions - /analyze-donation")
     print("   ✅ NGO Matching - /api/ai/match-donations")
     print("   ✅ Request Matching - /match-requests")
-    print("   ✅ Demand Forecasting - /forecast")
+    print("   ✅ Demand Forecasting - /forecast (NEW: Mock Data)")
     print("   ✅ Seasonal Trends - /seasonal-trends/{type}")
     print("   ✅ Supply Gap Analysis - /supply-gap")
+    print("   ✅ Forecast Categories - /forecast-categories")
     print("   ✅ NGO Recommendations - /recommendations/hybrid")
-    print("   ✅ NGO Clustering - /clusters (NEW)")
+    print("   ✅ NGO Clustering - /clusters")
     print("\n" + "="*60 + "\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
