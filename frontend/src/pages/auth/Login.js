@@ -123,9 +123,9 @@ const Login = () => {
             <div className="space-y-3">
               <p className="text-center text-sm text-gray-600">Or click to fill demo credentials:</p>
               <div className="grid grid-cols-3 gap-2">
-                <Button variant="outline" size="sm" onClick={() => setFormData({ email: 'john.smith@email.com', password: 'password123' })}>Donor</Button>
-                <Button variant="outline" size="sm" onClick={() => setFormData({ email: 'contact@hopefoundation.org', password: 'password123' })}>Recipient</Button>
-                <Button variant="outline" size="sm" onClick={() => setFormData({ email: 'admin@rewearify.com', password: 'admin123' })}>Admin</Button>
+                <Button variant="outline" size="sm" onClick={() => setFormData({ email: 'donor1@example.com', password: 'Password@123' })}>Donor</Button>
+                <Button variant="outline" size="sm" onClick={() => setFormData({ email: 'recipient1@example.com', password: 'Password@123' })}>Recipient</Button>
+                <Button variant="outline" size="sm" onClick={() => setFormData({ email: 'admin@rewearify.com', password: 'Admin@123' })}>Admin</Button>
               </div>
             </div>
             <div className="mt-6 text-center">

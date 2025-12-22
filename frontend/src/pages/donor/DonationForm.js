@@ -188,15 +188,23 @@ const DonationForm = () => {
   };
 
   const selectAddress = (address) => {
-    handleInputChange('location', address.display_name);
-    setFormData(prev => ({
-      ...prev,
-      location: address.display_name,
-      coordinates: [parseFloat(address.lon), parseFloat(address.lat)]
-    }));
-    setAddressSuggestions([]);
-    setShowAddressDropdown(false);
-  };
+  const displayName = address.display_name;
+  const lng = parseFloat(address.lon);
+  const lat = parseFloat(address.lat);
+  
+  console.log(`✅ Selected address: ${displayName}`);
+  console.log(`   Coordinates: [${lng}, ${lat}]`);
+  
+  setFormData(prev => ({
+    ...prev,
+    location: displayName,
+    coordinates: [lng, lat] // GeoJSON format: [longitude, latitude]
+  }));
+  
+  setAddressSuggestions([]);
+  setShowAddressDropdown(false);
+};
+
 
   const categories = [
     { value: 'outerwear', label: 'Outerwear & Coats' },
@@ -222,50 +230,103 @@ const DonationForm = () => {
     { value: 'fair', label: 'Fair - Some wear but usable' }
   ];
 
-  const fetchRecommendations = async () => {
-    setLoadingRecommendations(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/recommendations/for-donation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+const fetchRecommendations = async () => {
+  setLoadingRecommendations(true);
+  try {
+    const token = localStorage.getItem('token');
+    
+    console.log('🎁 Fetching recommendations for donation:', {
+      category: formData.category,
+      location: formData.location,
+      coordinates: formData.coordinates
+    });
+    
+    const response = await fetch('http://localhost:5000/api/recommendations/for-donation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        category: formData.category,
+        subcategory: formData.subcategory,
+        quantity: formData.quantity,
+        location: {
+          city: formData.location.split(',')[0]?.trim() || formData.location,
+          coordinates: formData.coordinates || [77.5946, 12.9716]
         },
-        body: JSON.stringify({
-          clothing_type: formData.category,
-          subcategory: formData.subcategory,
-          quantity: formData.quantity,
-          location: formData.location,
-          condition: formData.condition,
-          urgentNeeded: formData.urgentNeeded
-        })
-      });
-      
-      const data = await response.json();
-      setRecommendedNGOs(data.recommendations || []);
-    } catch (error) {
-      console.error('Failed to fetch recommendations:', error);
-    } finally {
-      setLoadingRecommendations(false);
+        condition: formData.condition,
+        urgentNeeded: formData.urgentNeeded,
+        season: formData.season
+      })
+    });
+    
+    const data = await response.json();
+    
+    console.log('✅ Recommendations response:', data);
+    
+    if (data.success && data.data && data.data.recommendations) {
+      setRecommendedNGOs(data.data.recommendations);
+      console.log(`✅ Got ${data.data.recommendations.length} recommended NGOs`);
+    } else {
+      setRecommendedNGOs([]);
+      console.log('⚠️ No recommendations received');
     }
-  };
+  } catch (error) {
+    console.error('Failed to fetch recommendations:', error);
+    setRecommendedNGOs([]);
+  } finally {
+    setLoadingRecommendations(false);
+  }
+};
+
 
   const fetchNearbyNGOs = async () => {
-    if (!formData.coordinates) return;
-    setLoadingNearby(true);
-    try {
-      const [lng, lat] = formData.coordinates;
-      const response = await userService.getNearbyUsers(lat, lng, Math.max(25, formData.deliveryRadius), 'recipient');
-      if (response.success) {
-        setNearbyNGOs(response.data.users || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch nearby NGOs:", error);
-    } finally {
-      setLoadingNearby(false);
+  if (!formData.coordinates || !Array.isArray(formData.coordinates) || formData.coordinates.length !== 2) {
+    console.log('⚠️ No valid coordinates for nearby search');
+    setNearbyNGOs([]);
+    return;
+  }
+  
+  setLoadingNearby(true);
+  try {
+    const [lng, lat] = formData.coordinates; // GeoJSON format: [longitude, latitude]
+    
+    console.log(`📍 Fetching nearby NGOs at [${lat}, ${lng}]`);
+    
+    const response = await userService.getNearbyUsers(
+      lat, 
+      lng, 
+      Math.max(25, formData.deliveryRadius), 
+      'recipient'
+    );
+    
+    console.log('✅ Nearby NGOs response:', response);
+    
+    if (response.success && response.data && response.data.users) {
+      const ngos = response.data.users.map(ngo => ({
+        ...ngo,
+        _id: ngo._id || ngo.id,
+        name: ngo.organization?.name || ngo.name || 'Unknown NGO',
+        city: ngo.location?.city || 'Unknown',
+        trust_score: ngo.trust_score || 4.0,
+        impact_score: ngo.impact_score || 4.0
+      }));
+      
+      setNearbyNGOs(ngos);
+      console.log(`✅ Got ${ngos.length} nearby NGOs`);
+    } else {
+      setNearbyNGOs([]);
+      console.log('⚠️ No nearby NGOs found');
     }
-  };
+  } catch (error) {
+    console.error("Failed to fetch nearby NGOs:", error);
+    setNearbyNGOs([]);
+  } finally {
+    setLoadingNearby(false);
+  }
+};
+
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -300,18 +361,22 @@ const DonationForm = () => {
   };
 
   const handleNext = () => {
-    if (validateStep(step)) {
-      if (step === 4) {
-        fetchRecommendations();
-        if (formData.coordinates) {
-          fetchNearbyNGOs();
-        }
+  if (validateStep(step)) {
+    if (step === 4) {
+      // Fetch both AI recommendations and nearby NGOs
+      fetchRecommendations();
+      if (formData.coordinates && formData.coordinates.length === 2) {
+        fetchNearbyNGOs();
+      } else {
+        console.log('⚠️ No coordinates available for nearby search');
       }
-      setStep(step + 1);
-    } else {
-      toast.error("Please complete all required fields");
     }
-  };
+    setStep(step + 1);
+  } else {
+    toast.error("Please complete all required fields");
+  }
+};
+
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -826,45 +891,75 @@ const renderSubcategorySuggestions = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="nearby">
-          {loadingNearby ? (
-            <div className="text-center py-12">
-              <Loader2 className="h-12 w-12 animate-spin mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600">Searching for NGOs in your area...</p>
+ <TabsContent value="nearby">
+  {loadingNearby ? (
+    <div className="text-center py-12">
+      <Loader2 className="h-12 w-12 animate-spin mx-auto text-gray-400 mb-4" />
+      <p className="text-gray-600">Searching for NGOs in your area...</p>
+    </div>
+  ) : nearbyNGOs.length > 0 ? (
+    <div className="space-y-4">
+      {nearbyNGOs.map((ngo, idx) => (
+         <Card 
+          key={ngo._id || idx} 
+          className={`cursor-pointer transition-all border-2 ${selectedNgoId === ngo._id ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
+          onClick={() => setSelectedNgoId(ngo._id)}
+        >
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+                <p className="text-sm text-gray-600 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {ngo.city || ngo.location?.city}, {ngo.location?.state || 'India'}
+                </p>
+              </div>
+              {selectedNgoId === ngo._id && (
+                <Badge className="bg-green-600 flex gap-1">
+                  <CheckCircle className="h-3 w-3"/> Selected
+                </Badge>
+              )}
             </div>
-          ) : nearbyNGOs.length > 0 ? (
-            <div className="space-y-4">
-              {nearbyNGOs.map((ngo, idx) => (
-                 <Card 
-                  key={idx} 
-                  className={`cursor-pointer transition-all border-2 ${selectedNgoId === ngo._id ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
-                  onClick={() => setSelectedNgoId(ngo._id)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
-                        <p className="text-sm text-gray-600">{ngo.location?.city}, {ngo.location?.state}</p>
-                      </div>
-                       {selectedNgoId === ngo._id && (
-                         <Badge className="bg-green-600 flex gap-1"><CheckCircle className="h-3 w-3"/> Selected</Badge>
-                      )}
-                    </div>
-                    {ngo.organization?.name && (
-                       <p className="text-sm text-gray-500 mb-2">{ngo.organization.name}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+            
+            {ngo.organization?.name && (
+              <p className="text-sm text-gray-500 mb-2">{ngo.organization.name}</p>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
+              <div>
+                <span className="font-medium">Trust Score:</span> {ngo.trust_score || 'N/A'}/5 ⭐
+              </div>
+              <div>
+                <span className="font-medium">Impact Score:</span> {ngo.impact_score || 'N/A'}/5
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500">No registered NGOs found nearby.</p>
-              {!formData.coordinates && <p className="text-xs text-red-500 mt-2">Please select a valid address in Step 3 to enable this feature.</p>}
-            </div>
-          )}
-        </TabsContent>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  ) : (
+    <div className="text-center py-8 bg-gray-50 rounded-lg">
+      <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+      <p className="text-gray-600 font-medium">No registered NGOs found nearby.</p>
+      {!formData.coordinates || formData.coordinates.length !== 2 ? (
+        <div className="mt-3">
+          <p className="text-sm text-red-500">⚠️ Please select a valid address in Step 3</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Current location: {formData.location || 'Not set'}
+          </p>
+          <p className="text-xs text-gray-500">
+            Coordinates: {formData.coordinates ? `[${formData.coordinates[0]}, ${formData.coordinates[1]}]` : 'Not set'}
+          </p>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500 mt-2">
+          Try increasing the delivery radius or check a different location
+        </p>
+      )}
+    </div>
+  )}
+</TabsContent>
+
       </Tabs>
 
       <Alert className="bg-blue-50 border-blue-200 mt-4">

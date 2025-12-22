@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Sparkles, MapPin, Send, ExternalLink, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import api from '../lib/api'; // Use our API helper
+import axios from 'axios';
 
 const SuggestedNGOs = ({ donation }) => {
   const [suggestions, setSuggestions] = useState([]);
@@ -22,19 +22,46 @@ const SuggestedNGOs = ({ donation }) => {
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
-      // Call the recommendations endpoint
-      const response = await api.post('/recommendations/for-donation', {
-        category: donation.category,
-        location: donation.location,
-        condition: donation.condition,
-        quantity: donation.quantity
+      console.log('🔍 Fetching AI matches for donation:', donation);
+      
+      // Call AI service directly
+      const response = await axios.post('http://localhost:8000/api/ai/match-donations', {
+        type: donation.category || donation.type || "Clothing",
+        season: donation.season || "All Season",
+        quantity: donation.quantity || 1,
+        latitude: donation.location?.latitude || donation.location?.coordinates?.[1] || 12.9716,
+        longitude: donation.location?.longitude || donation.location?.coordinates?.[0] || 77.5946,
+        description: donation.description || "",
+        max_distance: 50
       });
       
-      if (response.success) {
-        setSuggestions(response.data.recommendations || []);
+      console.log('✅ AI Response:', response.data);
+      
+      if (response.data.success) {
+        // Map AI response to UI format
+        const mappedNGOs = response.data.matches.map(match => ({
+          _id: match.ngo_id,
+          name: match.ngo_name,
+          match_score: (match.match_score / 100).toFixed(2),
+          distance: match.distance,
+          city: match.location?.city || 'Unknown',
+          contact: match.contact || '',
+          trust_score: 4.5,
+          match_reasons: [
+            `${match.distance}km away`,
+            `${match.match_score}% compatibility`
+          ]
+        }));
+        
+        setSuggestions(mappedNGOs);
+        console.log('✅ Displaying', mappedNGOs.length, 'matched NGOs');
       }
     } catch (error) {
-      console.error('Failed to fetch suggestions:', error);
+      console.error('❌ Failed to fetch AI suggestions:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+      }
+      toast.error("Could not fetch AI suggestions. Make sure AI service is running on port 8000.");
     } finally {
       setLoading(false);
     }
@@ -42,6 +69,7 @@ const SuggestedNGOs = ({ donation }) => {
 
   const handleInvite = async (ngoId) => {
     try {
+      const api = (await import('../lib/api')).default;
       await api.post(`/donations/${donation._id}/invite`, { ngoId });
       toast.success("Invitation sent successfully!");
       setInvited([...invited, ngoId]);
@@ -65,7 +93,7 @@ const SuggestedNGOs = ({ donation }) => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800">
           <Sparkles className="h-5 w-5 text-purple-600" />
-          AI Suggested Matches
+          AI Suggested Matches ({suggestions.length} found)
         </h3>
         <Button 
           variant="ghost" 
@@ -80,7 +108,7 @@ const SuggestedNGOs = ({ donation }) => {
 
       {suggestions.length > 0 ? (
         <div className="grid gap-4">
-          {suggestions.slice(0, 3).map((ngo) => (
+          {suggestions.map((ngo) => (
             <Card key={ngo._id} className="border-purple-100 hover:shadow-md transition-shadow">
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex-1">
@@ -95,12 +123,13 @@ const SuggestedNGOs = ({ donation }) => {
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" /> {ngo.city}
                     </span>
+                    <span>{ngo.distance}km away</span>
                     <span>Trust: {ngo.trust_score}/5</span>
                   </div>
 
                   {ngo.match_reasons && (
                     <p className="text-xs text-purple-600 mt-2">
-                      💡 {ngo.match_reasons.join(', ')}
+                      💡 {ngo.match_reasons.join(' • ')}
                     </p>
                   )}
                 </div>
@@ -125,7 +154,7 @@ const SuggestedNGOs = ({ donation }) => {
         </div>
       ) : (
         <div className="text-center py-6 bg-gray-50 rounded-lg">
-          <p className="text-gray-500 text-sm">No specific AI matches found right now.</p>
+          <p className="text-gray-500 text-sm">No AI matches found nearby.</p>
           <Button variant="link" onClick={() => navigate('/donor/browse-needs')}>
             Browse the full NGO directory
           </Button>

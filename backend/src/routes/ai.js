@@ -35,8 +35,6 @@ const fetchFromAI = async (method, endpoint, data = {}, params = {}) => {
 
 // ==================== EXISTING ROUTES ====================
 
-
-
 // @desc    Match donation to NGOs
 // @route   POST /api/ai/match
 // @access  Private
@@ -101,7 +99,7 @@ router.get('/trends', protect, async (req, res) => {
   }
 });
 
-// ==================== NEW FORECASTING ROUTES ====================
+// ==================== FORECASTING ROUTES ====================
 
 // @desc    Get demand forecast
 // @route   POST /api/ai/forecast
@@ -239,20 +237,106 @@ router.post('/forecast-summary', protect, restrictTo('admin'), async (req, res) 
   }
 });
 
+// ==================== SMART SUGGESTIONS & MATCHING ROUTES ====================
+
+// @desc    Analyze donation with smart suggestions
+// @route   POST /api/ai/analyze-donation
+// @access  Private
 router.post('/analyze-donation', protect, async (req, res) => {
   try {
-    // Forward the request to the Python AI Service
+    console.log('📤 Analyzing donation with AI service:', req.body);
+    
     const result = await fetchFromAI('POST', '/analyze-donation', req.body);
     
+    console.log('✅ AI service response received');
+    
     if (result.success) {
-      // Handle potential data wrapping from AI service
-      const data = result.data.data || result.data;
-      return ok(res, data, 'Analysis complete');
+      return res.json(result.data);
     }
+    
+    console.error('❌ AI service failed:', result.error);
     return fail(res, result.error, result.status);
+    
   } catch (error) {
-    console.error('Analyze donation error:', error);
+    console.error('❌ Analyze donation error:', error);
     return fail(res, 'Failed to analyze donation', 500);
+  }
+});
+
+// @desc    Match donations to NGOs using AI
+// @route   POST /api/ai/match-donations
+// @access  Private
+router.post('/match-donations', protect, async (req, res) => {
+  try {
+    console.log('📤 Matching donations with AI service:', req.body);
+    
+    const result = await fetchFromAI('POST', '/api/ai/match-donations', req.body);
+    
+    console.log('✅ AI matching response received');
+    
+    if (result.success) {
+      return res.json(result.data);
+    }
+    
+    console.error('❌ AI matching failed:', result.error);
+    return fail(res, result.error, result.status);
+    
+  } catch (error) {
+    console.error('❌ Match donations error:', error);
+    return fail(res, 'Failed to match donations', 500);
+  }
+});
+
+// @desc    Get recommendations for a donation
+// @route   POST /api/recommendations/for-donation
+// @access  Private
+router.post('/recommendations/for-donation', protect, async (req, res) => {
+  try {
+    console.log('📤 Getting recommendations:', req.body);
+    
+    // Transform the request to match AI service format
+    const aiRequest = {
+      type: req.body.category || req.body.type || 'Clothing',
+      season: req.body.season || 'All Season',
+      quantity: req.body.quantity || 1,
+      latitude: req.body.location?.latitude || 12.9716,
+      longitude: req.body.location?.longitude || 77.5946,
+      description: req.body.description || '',
+      max_distance: 50
+    };
+    
+    console.log('📍 Transformed AI request:', aiRequest);
+    
+    const result = await fetchFromAI('POST', '/api/ai/match-donations', aiRequest);
+    
+    if (result.success) {
+      // Transform response to match frontend expectations
+      const recommendations = result.data.matches?.map(match => ({
+        _id: match.ngo_id,
+        name: match.ngo_name,
+        match_score: (match.match_score / 100).toFixed(2),
+        distance: match.distance,
+        city: match.location?.city || 'Unknown',
+        trust_score: 4.5,
+        match_reasons: [`${match.distance}km away`, `${match.match_score}% match`]
+      })) || [];
+      
+      console.log('✅ Recommendations ready:', recommendations.length);
+      
+      return res.json({
+        success: true,
+        data: {
+          recommendations
+        }
+      });
+    }
+    
+    console.error('❌ Recommendations failed:', result.error);
+    return fail(res, result.error, result.status);
+    
+  } catch (error) {
+    console.error('❌ Recommendations error:', error);
+    return fail(res, 'Failed to get recommendations', 500);
   }
 });
 
