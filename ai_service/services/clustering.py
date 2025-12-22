@@ -198,10 +198,14 @@ class NGOClusterer:
                 # Calculate statistics
                 cluster_key = f"G{geo_id}_B{behav_id}"
                 
+                # ✨ NEW: Include NGO IDs
+                ngo_ids = cluster_ngos['NGO_ID'].tolist()
+                
                 self.cluster_stats[cluster_key] = {
                     'geo_cluster': int(geo_id),
                     'behavioral_cluster': int(behav_id),
                     'ngo_count': len(cluster_ngos),
+                    'ngo_ids': ngo_ids,  # ✨ NEW: Add NGO IDs for backend enrichment
                     'cities': cluster_ngos['City'].unique().tolist(),
                     'avg_capacity': float(cluster_ngos['Capacity_per_week'].mean()),
                     'total_capacity': int(cluster_ngos['Capacity_per_week'].sum()),
