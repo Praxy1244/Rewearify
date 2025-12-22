@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "seed": "node src/scripts/seedAll.js",
     "seed:users": "node src/scripts/seedUsers.js",
-    "seed:donations": "node src/scripts/seedDonations.js"
+    "seed:donations": "node src/scripts/seedDonations.js",
+    "sync:ngos": "node src/scripts/syncNGOData.js"
   },
   "dependencies": {
     "axios": "^1.6.2",
