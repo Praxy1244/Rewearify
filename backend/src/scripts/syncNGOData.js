@@ -23,8 +23,8 @@ import User from '../models/User.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config({ path: path.join(__dirname, '../../../.env') });
+// Load environment variables from backend/.env
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // CSV output path (for AI service)
 const OUTPUT_PATH = path.join(__dirname, '../../../data/ngos.csv');
@@ -46,12 +46,12 @@ class NGODataSyncer {
   async connect() {
     try {
       const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify';
-      console.log('🔌 Connecting to MongoDB...');
+      console.log('\ud83d\udd0c Connecting to MongoDB...');
       console.log(`   URI: ${mongoURI.replace(/:\/\/([^:]+):([^@]+)@/, '://*****:*****@')}`);
       await mongoose.connect(mongoURI);
-      console.log('✅ Connected to MongoDB\n');
+      console.log('\u2705 Connected to MongoDB\n');
     } catch (error) {
-      console.error('❌ MongoDB connection error:', error.message);
+      console.error('\u274c MongoDB connection error:', error.message);
       throw error;
     }
   }
@@ -61,7 +61,7 @@ class NGODataSyncer {
    */
   async fetchNGOs() {
     try {
-      console.log('📊 Fetching NGO/Recipient users...');
+      console.log('\ud83d\udcca Fetching NGO/Recipient users...');
       
       const recipients = await User.find({ 
         role: 'recipient',
@@ -75,7 +75,7 @@ class NGODataSyncer {
 
       return recipients;
     } catch (error) {
-      console.error('❌ Error fetching NGOs:', error.message);
+      console.error('\u274c Error fetching NGOs:', error.message);
       throw error;
     }
   }
@@ -91,7 +91,7 @@ class NGODataSyncer {
 
       // Skip if no valid location
       if (latitude === 0 && longitude === 0) {
-        console.warn(`   ⚠️  Skipping ${ngo.name} - No valid coordinates`);
+        console.warn(`   \u26a0\ufe0f  Skipping ${ngo.name} - No valid coordinates`);
         this.stats.skipped++;
         return null;
       }
@@ -120,7 +120,7 @@ class NGODataSyncer {
         Created_At: ngo.createdAt?.toISOString() || ''
       };
     } catch (error) {
-      console.error(`   ❌ Error transforming ${ngo.name}:`, error.message);
+      console.error(`   \u274c Error transforming ${ngo.name}:`, error.message);
       this.stats.errors++;
       return null;
     }
@@ -147,7 +147,7 @@ class NGODataSyncer {
    */
   async writeCSV(ngoData) {
     try {
-      console.log('\n📝 Writing CSV file...');
+      console.log('\n\ud83d\udcdd Writing CSV file...');
 
       // Ensure data directory exists
       const dataDir = path.dirname(OUTPUT_PATH);
@@ -176,12 +176,12 @@ class NGODataSyncer {
       const csvContent = csvRows.join('\n');
       fs.writeFileSync(OUTPUT_PATH, csvContent, 'utf8');
 
-      console.log(`   ✅ CSV file written: ${OUTPUT_PATH}`);
-      console.log(`   📊 Exported ${ngoData.length} NGOs\n`);
+      console.log(`   \u2705 CSV file written: ${OUTPUT_PATH}`);
+      console.log(`   \ud83d\udcca Exported ${ngoData.length} NGOs\n`);
 
       this.stats.exported = ngoData.length;
     } catch (error) {
-      console.error('❌ Error writing CSV:', error.message);
+      console.error('\u274c Error writing CSV:', error.message);
       throw error;
     }
   }
@@ -196,9 +196,9 @@ class NGODataSyncer {
       
       try {
         fs.copyFileSync(OUTPUT_PATH, backupPath);
-        console.log(`💾 Backup created: ${path.basename(backupPath)}\n`);
+        console.log(`\ud83d\udcbe Backup created: ${path.basename(backupPath)}\n`);
       } catch (error) {
-        console.warn('⚠️  Could not create backup:', error.message);
+        console.warn('\u26a0\ufe0f  Could not create backup:', error.message);
       }
     }
   }
@@ -208,7 +208,7 @@ class NGODataSyncer {
    */
   printStats() {
     console.log('\n' + '='.repeat(60));
-    console.log('📊 SYNC SUMMARY');
+    console.log('\ud83d\udcca SYNC SUMMARY');
     console.log('='.repeat(60));
     console.log(`Total NGOs found:        ${this.stats.total}`);
     console.log(`Successfully exported:   ${this.stats.exported}`);
@@ -217,13 +217,13 @@ class NGODataSyncer {
     console.log('='.repeat(60) + '\n');
 
     if (this.stats.exported > 0) {
-      console.log('✅ Sync completed successfully!');
-      console.log(`\n🔄 Next steps:`);
+      console.log('\u2705 Sync completed successfully!');
+      console.log(`\n\ud83d\udd04 Next steps:`);
       console.log(`   1. Restart your AI service to pick up the new data`);
       console.log(`   2. Run clustering: python ai_service/services/clustering.py`);
       console.log(`   3. Test clustering endpoint: GET /api/ai/clusters\n`);
     } else {
-      console.warn('⚠️  No NGOs were exported. Check your data and try again.\n');
+      console.warn('\u26a0\ufe0f  No NGOs were exported. Check your data and try again.\n');
     }
   }
 
@@ -233,7 +233,7 @@ class NGODataSyncer {
   async sync() {
     try {
       console.log('\n' + '='.repeat(60));
-      console.log('🔄 NGO DATA SYNC - MongoDB to CSV');
+      console.log('\ud83d\udd04 NGO DATA SYNC - MongoDB to CSV');
       console.log('='.repeat(60) + '\n');
 
       // Connect to database
@@ -246,18 +246,18 @@ class NGODataSyncer {
       const ngos = await this.fetchNGOs();
 
       // Transform to CSV format
-      console.log('🔄 Transforming data to CSV format...');
+      console.log('\ud83d\udd04 Transforming data to CSV format...');
       const ngoData = ngos
         .map(ngo => this.transformToCSV(ngo))
         .filter(row => row !== null); // Remove nulls (skipped entries)
 
-      console.log(`   ✅ Transformed ${ngoData.length} NGOs\n`);
+      console.log(`   \u2705 Transformed ${ngoData.length} NGOs\n`);
 
       // Write CSV file
       if (ngoData.length > 0) {
         await this.writeCSV(ngoData);
       } else {
-        console.warn('⚠️  No valid NGO data to export!\n');
+        console.warn('\u26a0\ufe0f  No valid NGO data to export!\n');
       }
 
       // Print summary
@@ -265,10 +265,10 @@ class NGODataSyncer {
 
       // Close database connection
       await mongoose.connection.close();
-      console.log('🔌 Database connection closed\n');
+      console.log('\ud83d\udd0c Database connection closed\n');
 
     } catch (error) {
-      console.error('\n❌ SYNC FAILED:', error.message);
+      console.error('\n\u274c SYNC FAILED:', error.message);
       console.error(error.stack);
       await mongoose.connection.close();
       process.exit(1);
