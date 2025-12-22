@@ -1,0 +1,401 @@
+_id,name,city,state,latitude,longitude,trust_score,impact_score,focus_areas,accepted_clothing_types,Capacity_per_week,Acceptance_Rate,Urgent_Need,Contact
+NGO0001,NGO Elderly 1,Kolkata,West Bengal,22.555932,88.353248,75,82,Elderly Care,formal;shoes;accessories;children,320,0.85,False,ngo1@example.org
+NGO0002,NGO Homeless 2,Mumbai,Maharashtra,19.084235,72.8905,75,68,Homeless Shelter,outerwear;accessories;casual;children,51,0.79,False,ngo2@example.org
+NGO0003,NGO Women 3,Surat,Maharashtra,21.128088,72.838466,75,92,Women Empowerment,children;shoes;casual;formal;accessories,85,0.69,False,ngo3@example.org
+NGO0004,NGO Homeless 4,Pune,Maharashtra,18.489315,73.876276,75,69,Homeless Shelter,shoes;casual;children;formal,248,0.68,True,ngo4@example.org
+NGO0005,NGO Women 5,Delhi,Delhi,28.708304,77.089599,75,88,Women Empowerment,shoes;formal;accessories;casual,201,0.91,False,ngo5@example.org
+NGO0006,NGO Women 6,Kolkata,West Bengal,22.538357,88.380975,75,78,Women Empowerment,shoes;casual;accessories;children;formal,67,0.9,False,ngo6@example.org
+NGO0007,NGO Women 7,Delhi,Delhi,28.683376,77.079012,75,83,Women Empowerment,casual;shoes;outerwear;formal,385,0.64,False,ngo7@example.org
+NGO0008,NGO Disaster 8,Delhi,Delhi,28.699176,77.110445,75,67,Disaster Relief,casual;shoes;children;accessories;formal,429,0.84,False,ngo8@example.org
+NGO0009,NGO Disaster 9,Chennai,Tamil Nadu,13.086727,80.223502,75,92,Disaster Relief,children;casual;shoes,455,0.92,False,ngo9@example.org
+NGO0010,NGO Elderly 10,Hyderabad,Telangana,17.424719,78.493608,75,91,Elderly Care,casual;accessories;formal;outerwear;children,245,0.86,True,ngo10@example.org
+NGO0011,NGO Rural 11,Mumbai,Maharashtra,19.106472,72.836667,75,94,Rural Development,outerwear;casual;formal,299,0.75,False,ngo11@example.org
+NGO0012,NGO Elderly 12,Mumbai,Maharashtra,19.05235,72.927055,75,89,Elderly Care,shoes;formal;accessories;children,156,0.89,True,ngo12@example.org
+NGO0013,NGO Elderly 13,Mumbai,Maharashtra,19.079656,72.906838,75,91,Elderly Care,children;shoes;outerwear;casual;formal,74,0.66,False,ngo13@example.org
+NGO0014,NGO Elderly 14,Bengaluru,Karnataka,12.955434,77.589446,75,67,Elderly Care,accessories;formal;shoes;casual;outerwear,423,0.91,False,ngo14@example.org
+NGO0015,NGO Disaster 15,Mumbai,Maharashtra,19.039348,72.927102,75,62,Disaster Relief,formal;shoes;outerwear;accessories;children,456,0.68,False,ngo15@example.org
+NGO0016,NGO Children 16,Mumbai,Maharashtra,19.059019,72.885062,75,63,Children Education,outerwear;shoes;formal;casual,160,0.67,True,ngo16@example.org
+NGO0017,NGO Homeless 17,Delhi,Delhi,28.676046,77.077864,75,69,Homeless Shelter,children;outerwear;accessories;shoes;casual,275,0.62,True,ngo17@example.org
+NGO0018,NGO Children 18,Hyderabad,Telangana,17.377778,78.482329,75,93,Children Education,accessories;shoes;outerwear;children;formal,274,0.9,False,ngo18@example.org
+NGO0019,NGO Elderly 19,Chennai,Tamil Nadu,13.093667,80.255437,75,89,Elderly Care,shoes;children;formal;outerwear,177,0.91,True,ngo19@example.org
+NGO0020,NGO Children 20,Mumbai,Maharashtra,19.090175,72.848761,75,82,Children Education,shoes;formal;outerwear;casual,138,0.92,False,ngo20@example.org
+NGO0021,NGO Elderly 21,Kolkata,West Bengal,22.539663,88.316804,75,86,Elderly Care,formal;outerwear;accessories;casual,416,0.92,False,ngo21@example.org
+NGO0022,NGO Disaster 22,Mumbai,Maharashtra,19.080018,72.873545,75,68,Disaster Relief,children;casual;shoes,464,0.86,True,ngo22@example.org
+NGO0023,NGO Rural 23,Mumbai,Maharashtra,19.09777,72.923461,75,69,Rural Development,casual;children;formal;shoes,458,0.65,True,ngo23@example.org
+NGO0024,NGO Rural 24,Ahmedabad,Gujarat,22.978349,72.602832,75,92,Rural Development,casual;formal;accessories;outerwear,261,0.92,False,ngo24@example.org
+NGO0025,NGO Children 25,Hyderabad,Telangana,17.389646,78.509665,75,63,Children Education,casual;accessories;children;shoes,475,0.92,False,ngo25@example.org
+NGO0026,NGO Disaster 26,Delhi,Delhi,28.680145,77.063087,75,76,Disaster Relief,casual;shoes;children;formal,491,0.66,False,ngo26@example.org
+NGO0027,NGO Disaster 27,Mumbai,Maharashtra,19.061976,72.881862,75,94,Disaster Relief,children;casual;shoes,496,0.92,False,ngo27@example.org
+NGO0028,NGO Disaster 28,Chennai,Tamil Nadu,13.079616,80.235534,75,78,Disaster Relief,casual;children;formal,496,0.93,False,ngo28@example.org
+NGO0029,NGO Disaster 29,Mumbai,Maharashtra,19.08588,72.907966,75,84,Disaster Relief,casual;accessories;formal;shoes;outerwear,450,0.84,False,ngo29@example.org
+NGO0030,NGO Disaster 30,Delhi,Delhi,28.707478,77.123761,75,76,Disaster Relief,formal;shoes;children,421,0.86,False,ngo30@example.org
+NGO0031,NGO Children 31,Bengaluru,Karnataka,12.98432,77.589737,75,83,Children Education,formal;shoes;children,456,0.67,False,ngo31@example.org
+NGO0032,NGO Homeless 32,Mumbai,Maharashtra,19.123933,72.839623,75,90,Homeless Shelter,formal;shoes;accessories;children;outerwear,312,0.61,False,ngo32@example.org
+NGO0033,NGO Rural 33,Surat,Maharashtra,21.17548,72.861834,75,93,Rural Development,outerwear;children;shoes,364,0.62,True,ngo33@example.org
+NGO0034,NGO Elderly 34,Bengaluru,Karnataka,12.926548,77.627038,75,66,Elderly Care,shoes;children;accessories,405,0.61,False,ngo34@example.org
+NGO0035,NGO Disaster 35,Pune,Maharashtra,18.505652,73.865476,75,60,Disaster Relief,outerwear;shoes;accessories;children,366,0.69,False,ngo35@example.org
+NGO0036,NGO Children 36,Mumbai,Maharashtra,19.057834,72.916275,75,76,Children Education,casual;formal;shoes,302,0.64,False,ngo36@example.org
+NGO0037,NGO Elderly 37,Mumbai,Maharashtra,19.075223,72.866481,75,83,Elderly Care,accessories;formal;children,177,0.68,False,ngo37@example.org
+NGO0038,NGO Women 38,Mumbai,Maharashtra,19.028146,72.913416,75,62,Women Empowerment,shoes;children;casual,123,0.64,False,ngo38@example.org
+NGO0039,NGO Disaster 39,Delhi,Delhi,28.68615,77.133591,75,74,Disaster Relief,accessories;outerwear;children;formal;shoes,500,0.83,False,ngo39@example.org
+NGO0040,NGO Disaster 40,Ahmedabad,Gujarat,23.046504,72.521551,75,60,Disaster Relief,casual;accessories;outerwear;children,468,0.67,False,ngo40@example.org
+NGO0041,NGO Children 41,Delhi,Delhi,28.698382,77.142984,75,87,Children Education,accessories;formal;outerwear;shoes,206,0.78,False,ngo41@example.org
+NGO0042,NGO Elderly 42,Bengaluru,Karnataka,12.979611,77.577659,75,73,Elderly Care,accessories;formal;shoes;outerwear,287,0.61,False,ngo42@example.org
+NGO0043,NGO Disaster 43,Mumbai,Maharashtra,19.063419,72.896012,75,62,Disaster Relief,formal;shoes;casual;outerwear,400,0.72,False,ngo43@example.org
+NGO0044,NGO Disaster 44,Mumbai,Maharashtra,19.094187,72.877384,75,86,Disaster Relief,casual;children;formal,409,0.92,False,ngo44@example.org
+NGO0045,NGO Disaster 45,Bengaluru,Karnataka,12.987393,77.560596,75,64,Disaster Relief,shoes;outerwear;children;formal,429,0.71,False,ngo45@example.org
+NGO0046,NGO Elderly 46,Delhi,Delhi,28.699335,77.102301,75,75,Elderly Care,accessories;outerwear;children;formal;casual,456,0.66,False,ngo46@example.org
+NGO0047,NGO Homeless 47,Pune,Maharashtra,18.472154,73.814755,75,88,Homeless Shelter,accessories;formal;outerwear,228,0.79,False,ngo47@example.org
+NGO0048,NGO Disaster 48,Chennai,Tamil Nadu,13.046082,80.286112,75,76,Disaster Relief,shoes;casual;accessories;children,421,0.92,False,ngo48@example.org
+NGO0049,NGO Homeless 49,Pune,Maharashtra,18.482103,73.838958,75,72,Homeless Shelter,casual;children;formal;accessories,161,0.61,False,ngo49@example.org
+NGO0050,NGO Women 50,Delhi,Delhi,28.720584,77.110657,75,85,Women Empowerment,casual;children;accessories,273,0.69,False,ngo50@example.org
+NGO0051,NGO Elderly 51,Pune,Maharashtra,18.487636,73.868942,75,66,Elderly Care,casual;shoes;formal;accessories;children,390,0.87,False,ngo51@example.org
+NGO0052,NGO Elderly 52,Mumbai,Maharashtra,19.063698,72.861222,75,83,Elderly Care,children;outerwear;formal,369,0.78,False,ngo52@example.org
+NGO0053,NGO Rural 53,Mumbai,Maharashtra,19.046476,72.838397,75,87,Rural Development,shoes;formal;casual,325,0.87,True,ngo53@example.org
+NGO0054,NGO Women 54,Mumbai,Maharashtra,19.08339,72.912867,75,67,Women Empowerment,children;formal;casual;accessories,410,0.9,True,ngo54@example.org
+NGO0055,NGO Children 55,Kolkata,West Bengal,22.530971,88.39895,75,75,Children Education,formal;casual;shoes;outerwear,474,0.66,True,ngo55@example.org
+NGO0056,NGO Children 56,Delhi,Delhi,28.683707,77.118775,75,64,Children Education,accessories;outerwear;children,414,0.73,False,ngo56@example.org
+NGO0057,NGO Homeless 57,Kolkata,West Bengal,22.576944,88.367479,75,75,Homeless Shelter,formal;accessories;children;outerwear,202,0.91,True,ngo57@example.org
+NGO0058,NGO Disaster 58,Chennai,Tamil Nadu,13.043674,80.253372,75,89,Disaster Relief,accessories;children;outerwear;shoes;formal,325,0.62,False,ngo58@example.org
+NGO0059,NGO Rural 59,Surat,Maharashtra,21.195208,72.864817,75,69,Rural Development,outerwear;formal;shoes;casual,50,0.61,False,ngo59@example.org
+NGO0060,NGO Homeless 60,Mumbai,Maharashtra,19.118807,72.919257,75,66,Homeless Shelter,casual;children;outerwear,276,0.82,False,ngo60@example.org
+NGO0061,NGO Rural 61,Delhi,Delhi,28.685468,77.085229,75,85,Rural Development,formal;casual;children;outerwear;accessories,248,0.82,False,ngo61@example.org
+NGO0062,NGO Rural 62,Jaipur,Rajasthan,26.90233,75.768379,75,88,Rural Development,casual;accessories;formal;children,110,0.81,False,ngo62@example.org
+NGO0063,NGO Women 63,Delhi,Delhi,28.71995,77.063679,75,64,Women Empowerment,outerwear;children;accessories,416,0.93,False,ngo63@example.org
+NGO0064,NGO Rural 64,Mumbai,Maharashtra,19.045331,72.829411,75,94,Rural Development,shoes;outerwear;formal,82,0.62,False,ngo64@example.org
+NGO0065,NGO Children 65,Pune,Maharashtra,18.52359,73.886284,75,67,Children Education,outerwear;shoes;casual;children;accessories,194,0.86,True,ngo65@example.org
+NGO0066,NGO Homeless 66,Mumbai,Maharashtra,19.11227,72.872351,75,92,Homeless Shelter,casual;shoes;formal;outerwear;children,351,0.81,False,ngo66@example.org
+NGO0067,NGO Disaster 67,Pune,Maharashtra,18.523085,73.871869,75,62,Disaster Relief,formal;shoes;children;casual,407,0.67,True,ngo67@example.org
+NGO0068,NGO Children 68,Mumbai,Maharashtra,19.113518,72.869925,75,77,Children Education,children;accessories;casual;formal;shoes,427,0.84,False,ngo68@example.org
+NGO0069,NGO Women 69,Hyderabad,Telangana,17.341239,78.471484,75,83,Women Empowerment,shoes;casual;accessories,432,0.66,False,ngo69@example.org
+NGO0070,NGO Children 70,Mumbai,Maharashtra,19.065603,72.914997,75,85,Children Education,children;accessories;outerwear;shoes,214,0.82,False,ngo70@example.org
+NGO0071,NGO Women 71,Chennai,Tamil Nadu,13.059715,80.30933,75,89,Women Empowerment,casual;outerwear;children;shoes;formal,331,0.85,False,ngo71@example.org
+NGO0072,NGO Disaster 72,Pune,Maharashtra,18.486584,73.848493,75,64,Disaster Relief,shoes;outerwear;casual;children,137,0.83,True,ngo72@example.org
+NGO0073,NGO Women 73,Mumbai,Maharashtra,19.065811,72.897451,75,87,Women Empowerment,accessories;shoes;formal;outerwear;casual,471,0.76,False,ngo73@example.org
+NGO0074,NGO Disaster 74,Jaipur,Rajasthan,26.948179,75.755031,75,92,Disaster Relief,accessories;formal;shoes;outerwear,155,0.91,False,ngo74@example.org
+NGO0075,NGO Homeless 75,Hyderabad,Telangana,17.423276,78.457085,75,88,Homeless Shelter,accessories;shoes;outerwear,258,0.92,True,ngo75@example.org
+NGO0076,NGO Disaster 76,Bengaluru,Karnataka,12.9851,77.632927,75,86,Disaster Relief,formal;outerwear;shoes;casual,465,0.86,False,ngo76@example.org
+NGO0077,NGO Disaster 77,Mumbai,Maharashtra,19.071488,72.852483,75,75,Disaster Relief,shoes;formal;children;casual;accessories,206,0.94,True,ngo77@example.org
+NGO0078,NGO Disaster 78,Mumbai,Maharashtra,19.033439,72.843205,75,94,Disaster Relief,formal;accessories;shoes;children,455,0.65,False,ngo78@example.org
+NGO0079,NGO Disaster 79,Hyderabad,Telangana,17.350235,78.504003,75,78,Disaster Relief,formal;casual;accessories;children,424,0.94,False,ngo79@example.org
+NGO0080,NGO Children 80,Ahmedabad,Gujarat,23.018609,72.581409,75,81,Children Education,formal;shoes;children,320,0.77,True,ngo80@example.org
+NGO0081,NGO Children 81,Bengaluru,Karnataka,13.011165,77.593901,75,85,Children Education,children;shoes;accessories;formal;casual,383,0.62,False,ngo81@example.org
+NGO0082,NGO Disaster 82,Kolkata,West Bengal,22.539305,88.37738,75,66,Disaster Relief,casual;formal;shoes;children;accessories,317,0.64,False,ngo82@example.org
+NGO0083,NGO Disaster 83,Delhi,Delhi,28.661606,77.065244,75,69,Disaster Relief,accessories;children;outerwear;casual,277,0.93,True,ngo83@example.org
+NGO0084,NGO Disaster 84,Bengaluru,Karnataka,12.971917,77.555667,75,84,Disaster Relief,outerwear;formal;shoes;children,264,0.8,False,ngo84@example.org
+NGO0085,NGO Women 85,Bengaluru,Karnataka,12.951491,77.610674,75,85,Women Empowerment,shoes;outerwear;children;casual,426,0.84,False,ngo85@example.org
+NGO0086,NGO Homeless 86,Hyderabad,Telangana,17.372687,78.506293,75,80,Homeless Shelter,formal;accessories;shoes,323,0.73,False,ngo86@example.org
+NGO0087,NGO Women 87,Pune,Maharashtra,18.50579,73.889643,75,81,Women Empowerment,formal;shoes;accessories,215,0.76,False,ngo87@example.org
+NGO0088,NGO Women 88,Pune,Maharashtra,18.529718,73.895811,75,63,Women Empowerment,casual;children;formal;outerwear;accessories,225,0.71,False,ngo88@example.org
+NGO0089,NGO Homeless 89,Hyderabad,Telangana,17.397827,78.437603,75,87,Homeless Shelter,outerwear;casual;children;shoes,427,0.7,False,ngo89@example.org
+NGO0090,NGO Rural 90,Pune,Maharashtra,18.531183,73.851205,75,69,Rural Development,casual;accessories;children,293,0.65,False,ngo90@example.org
+NGO0091,NGO Homeless 91,Bengaluru,Karnataka,13.020446,77.575051,75,63,Homeless Shelter,casual;outerwear;accessories,343,0.82,False,ngo91@example.org
+NGO0092,NGO Homeless 92,Mumbai,Maharashtra,19.026385,72.905885,75,71,Homeless Shelter,accessories;outerwear;formal;shoes,207,0.84,False,ngo92@example.org
+NGO0093,NGO Disaster 93,Delhi,Delhi,28.689294,77.114281,75,81,Disaster Relief,accessories;outerwear;children;formal,195,0.74,True,ngo93@example.org
+NGO0094,NGO Disaster 94,Jaipur,Rajasthan,26.881754,75.798126,75,72,Disaster Relief,accessories;children;formal;outerwear;casual,483,0.71,False,ngo94@example.org
+NGO0095,NGO Rural 95,Bengaluru,Karnataka,12.950498,77.590434,75,71,Rural Development,outerwear;shoes;children;formal,225,0.67,True,ngo95@example.org
+NGO0096,NGO Children 96,Surat,Maharashtra,21.149497,72.839528,75,89,Children Education,accessories;outerwear;children;shoes;formal,185,0.7,True,ngo96@example.org
+NGO0097,NGO Homeless 97,Chennai,Tamil Nadu,13.049367,80.284701,75,60,Homeless Shelter,accessories;formal;casual;children,498,0.6,False,ngo97@example.org
+NGO0098,NGO Homeless 98,Mumbai,Maharashtra,19.114763,72.83084,75,74,Homeless Shelter,children;shoes;formal,121,0.94,True,ngo98@example.org
+NGO0099,NGO Children 99,Delhi,Delhi,28.683088,77.112683,75,73,Children Education,shoes;children;formal,59,0.89,False,ngo99@example.org
+NGO0100,NGO Children 100,Delhi,Delhi,28.737456,77.088357,75,92,Children Education,casual;accessories;shoes;children;formal,444,0.68,False,ngo100@example.org
+NGO0101,NGO Elderly 101,Kolkata,West Bengal,22.60305,88.346888,75,93,Elderly Care,children;shoes;formal;casual;outerwear,391,0.89,False,ngo101@example.org
+NGO0102,NGO Rural 102,Pune,Maharashtra,18.544089,73.832891,75,67,Rural Development,formal;shoes;outerwear,104,0.79,False,ngo102@example.org
+NGO0103,NGO Homeless 103,Surat,Maharashtra,21.143856,72.796038,75,63,Homeless Shelter,formal;accessories;children,453,0.73,True,ngo103@example.org
+NGO0104,NGO Rural 104,Mumbai,Maharashtra,19.047285,72.895666,75,81,Rural Development,shoes;children;accessories,249,0.87,False,ngo104@example.org
+NGO0105,NGO Elderly 105,Mumbai,Maharashtra,19.11486,72.905555,75,68,Elderly Care,shoes;accessories;outerwear,380,0.67,False,ngo105@example.org
+NGO0106,NGO Disaster 106,Delhi,Delhi,28.663809,77.078606,75,78,Disaster Relief,outerwear;accessories;casual,148,0.89,False,ngo106@example.org
+NGO0107,NGO Homeless 107,Bengaluru,Karnataka,12.978548,77.594865,75,78,Homeless Shelter,formal;outerwear;shoes,419,0.92,True,ngo107@example.org
+NGO0108,NGO Children 108,Bengaluru,Karnataka,12.9378,77.632419,75,75,Children Education,casual;accessories;formal;children;shoes,65,0.64,False,ngo108@example.org
+NGO0109,NGO Women 109,Bengaluru,Karnataka,13.010456,77.556888,75,90,Women Empowerment,accessories;shoes;formal;children;outerwear,188,0.92,False,ngo109@example.org
+NGO0110,NGO Children 110,Jaipur,Rajasthan,26.887607,75.797445,75,68,Children Education,outerwear;casual;shoes;formal,251,0.77,False,ngo110@example.org
+NGO0111,NGO Elderly 111,Jaipur,Rajasthan,26.918263,75.830213,75,86,Elderly Care,outerwear;accessories;children;casual,134,0.71,True,ngo111@example.org
+NGO0112,NGO Elderly 112,Delhi,Delhi,28.73284,77.065105,75,60,Elderly Care,outerwear;shoes;children;formal;casual,226,0.81,False,ngo112@example.org
+NGO0113,NGO Women 113,Kolkata,West Bengal,22.536293,88.407144,75,61,Women Empowerment,children;outerwear;formal;casual,144,0.93,False,ngo113@example.org
+NGO0114,NGO Rural 114,Mumbai,Maharashtra,19.026791,72.851291,75,86,Rural Development,outerwear;shoes;casual;accessories;children,381,0.83,False,ngo114@example.org
+NGO0115,NGO Homeless 115,Chennai,Tamil Nadu,13.058562,80.25143,75,88,Homeless Shelter,children;accessories;outerwear,205,0.79,False,ngo115@example.org
+NGO0116,NGO Women 116,Delhi,Delhi,28.676384,77.096207,75,67,Women Empowerment,formal;outerwear;accessories,99,0.9,False,ngo116@example.org
+NGO0117,NGO Children 117,Bengaluru,Karnataka,12.952854,77.59351,75,68,Children Education,casual;shoes;outerwear;formal,120,0.7,False,ngo117@example.org
+NGO0118,NGO Disaster 118,Delhi,Delhi,28.670722,77.13539,75,86,Disaster Relief,formal;casual;shoes;outerwear,78,0.6,False,ngo118@example.org
+NGO0119,NGO Children 119,Delhi,Delhi,28.719941,77.14715,75,82,Children Education,formal;outerwear;shoes;accessories,417,0.87,False,ngo119@example.org
+NGO0120,NGO Homeless 120,Ahmedabad,Gujarat,23.036509,72.584731,75,62,Homeless Shelter,accessories;outerwear;shoes,303,0.65,False,ngo120@example.org
+NGO0121,NGO Elderly 121,Bengaluru,Karnataka,12.976158,77.569238,75,67,Elderly Care,children;outerwear;shoes;casual;formal,334,0.71,False,ngo121@example.org
+NGO0122,NGO Elderly 122,Pune,Maharashtra,18.487497,73.865146,75,70,Elderly Care,formal;shoes;children;accessories,137,0.84,False,ngo122@example.org
+NGO0123,NGO Children 123,Mumbai,Maharashtra,19.111922,72.83784,75,69,Children Education,shoes;children;casual;accessories;formal,307,0.71,False,ngo123@example.org
+NGO0124,NGO Children 124,Pune,Maharashtra,18.515263,73.812174,75,92,Children Education,shoes;accessories;formal,320,0.9,True,ngo124@example.org
+NGO0125,NGO Homeless 125,Delhi,Delhi,28.714029,77.078333,75,76,Homeless Shelter,children;accessories;formal,207,0.69,False,ngo125@example.org
+NGO0126,NGO Women 126,Chennai,Tamil Nadu,13.096563,80.256362,75,94,Women Empowerment,formal;shoes;outerwear;children;casual,202,0.75,False,ngo126@example.org
+NGO0127,NGO Elderly 127,Mumbai,Maharashtra,19.104947,72.873824,75,93,Elderly Care,casual;shoes;children;formal;outerwear,347,0.71,False,ngo127@example.org
+NGO0128,NGO Women 128,Mumbai,Maharashtra,19.054938,72.91783,75,81,Women Empowerment,accessories;children;formal;shoes,68,0.72,False,ngo128@example.org
+NGO0129,NGO Disaster 129,Bengaluru,Karnataka,12.924629,77.564124,75,67,Disaster Relief,formal;outerwear;accessories;casual,161,0.75,True,ngo129@example.org
+NGO0130,NGO Disaster 130,Hyderabad,Telangana,17.358965,78.501131,75,65,Disaster Relief,formal;casual;shoes;children;outerwear,143,0.75,True,ngo130@example.org
+NGO0131,NGO Disaster 131,Bengaluru,Karnataka,12.972203,77.633562,75,78,Disaster Relief,accessories;formal;outerwear;children;casual,84,0.72,False,ngo131@example.org
+NGO0132,NGO Disaster 132,Bengaluru,Karnataka,12.969122,77.545564,75,79,Disaster Relief,shoes;children;accessories;outerwear;formal,272,0.66,True,ngo132@example.org
+NGO0133,NGO Homeless 133,Delhi,Delhi,28.666323,77.121651,75,85,Homeless Shelter,formal;outerwear;children;casual,217,0.89,False,ngo133@example.org
+NGO0134,NGO Disaster 134,Ahmedabad,Gujarat,23.045394,72.569663,75,65,Disaster Relief,outerwear;children;casual;formal,75,0.64,True,ngo134@example.org
+NGO0135,NGO Elderly 135,Delhi,Delhi,28.722656,77.071299,75,68,Elderly Care,children;formal;casual,495,0.73,True,ngo135@example.org
+NGO0136,NGO Women 136,Chennai,Tamil Nadu,13.076969,80.25859,75,92,Women Empowerment,shoes;accessories;children,353,0.88,True,ngo136@example.org
+NGO0137,NGO Women 137,Surat,Maharashtra,21.142648,72.862463,75,92,Women Empowerment,children;shoes;casual,350,0.81,False,ngo137@example.org
+NGO0138,NGO Elderly 138,Ahmedabad,Gujarat,23.03541,72.564401,75,74,Elderly Care,casual;outerwear;formal;children;shoes,76,0.81,True,ngo138@example.org
+NGO0139,NGO Disaster 139,Hyderabad,Telangana,17.346217,78.489927,75,74,Disaster Relief,formal;casual;children;outerwear;accessories,224,0.77,True,ngo139@example.org
+NGO0140,NGO Rural 140,Bengaluru,Karnataka,12.944995,77.637712,75,63,Rural Development,children;formal;shoes;casual;accessories,224,0.66,True,ngo140@example.org
+NGO0141,NGO Elderly 141,Bengaluru,Karnataka,12.96256,77.596807,75,62,Elderly Care,casual;outerwear;children;formal;accessories,137,0.83,False,ngo141@example.org
+NGO0142,NGO Elderly 142,Delhi,Delhi,28.747888,77.130148,75,80,Elderly Care,shoes;casual;children;formal;accessories,367,0.86,False,ngo142@example.org
+NGO0143,NGO Elderly 143,Pune,Maharashtra,18.514204,73.862804,75,88,Elderly Care,formal;accessories;casual,471,0.87,False,ngo143@example.org
+NGO0144,NGO Disaster 144,Delhi,Delhi,28.725098,77.087353,75,64,Disaster Relief,children;accessories;formal,114,0.93,True,ngo144@example.org
+NGO0145,NGO Homeless 145,Kolkata,West Bengal,22.527734,88.328246,75,79,Homeless Shelter,formal;outerwear;children;shoes,431,0.8,True,ngo145@example.org
+NGO0146,NGO Rural 146,Kolkata,West Bengal,22.552524,88.367945,75,71,Rural Development,casual;formal;shoes;accessories,361,0.92,False,ngo146@example.org
+NGO0147,NGO Disaster 147,Ahmedabad,Gujarat,23.018712,72.614023,75,93,Disaster Relief,shoes;outerwear;casual;accessories;children,320,0.7,False,ngo147@example.org
+NGO0148,NGO Women 148,Ahmedabad,Gujarat,23.053589,72.600391,75,81,Women Empowerment,formal;accessories;outerwear;casual;children,267,0.77,False,ngo148@example.org
+NGO0149,NGO Children 149,Bengaluru,Karnataka,12.960722,77.596937,75,81,Children Education,formal;children;outerwear;shoes;casual,143,0.85,True,ngo149@example.org
+NGO0150,NGO Disaster 150,Delhi,Delhi,28.704378,77.127699,75,60,Disaster Relief,accessories;shoes;outerwear;casual,108,0.87,False,ngo150@example.org
+NGO0151,NGO Children 151,Pune,Maharashtra,18.568984,73.890129,75,79,Children Education,accessories;formal;children;shoes,190,0.93,False,ngo151@example.org
+NGO0152,NGO Disaster 152,Pune,Maharashtra,18.559151,73.808966,75,88,Disaster Relief,children;outerwear;shoes,386,0.92,False,ngo152@example.org
+NGO0153,NGO Elderly 153,Kolkata,West Bengal,22.567129,88.371609,75,83,Elderly Care,shoes;accessories;formal;casual;outerwear,211,0.65,False,ngo153@example.org
+NGO0154,NGO Elderly 154,Ahmedabad,Gujarat,23.03102,72.543501,75,79,Elderly Care,shoes;outerwear;casual;accessories,95,0.82,False,ngo154@example.org
+NGO0155,NGO Rural 155,Chennai,Tamil Nadu,13.086546,80.222767,75,68,Rural Development,shoes;accessories;casual;children;outerwear,287,0.94,True,ngo155@example.org
+NGO0156,NGO Rural 156,Chennai,Tamil Nadu,13.099594,80.240216,75,71,Rural Development,outerwear;accessories;children;formal,252,0.61,True,ngo156@example.org
+NGO0157,NGO Children 157,Mumbai,Maharashtra,19.050113,72.886149,75,78,Children Education,formal;outerwear;children;shoes,177,0.94,False,ngo157@example.org
+NGO0158,NGO Rural 158,Kolkata,West Bengal,22.621076,88.344637,75,85,Rural Development,casual;shoes;children;outerwear;accessories,493,0.71,True,ngo158@example.org
+NGO0159,NGO Rural 159,Delhi,Delhi,28.696759,77.109897,75,62,Rural Development,shoes;formal;outerwear;children;casual,321,0.71,True,ngo159@example.org
+NGO0160,NGO Elderly 160,Kolkata,West Bengal,22.594318,88.318172,75,79,Elderly Care,shoes;casual;accessories,81,0.91,False,ngo160@example.org
+NGO0161,NGO Elderly 161,Delhi,Delhi,28.700204,77.092546,75,87,Elderly Care,children;formal;outerwear;shoes;accessories,406,0.88,False,ngo161@example.org
+NGO0162,NGO Homeless 162,Delhi,Delhi,28.729853,77.066486,75,82,Homeless Shelter,outerwear;shoes;casual,90,0.68,False,ngo162@example.org
+NGO0163,NGO Women 163,Bengaluru,Karnataka,12.981558,77.601435,75,80,Women Empowerment,accessories;shoes;outerwear;children,230,0.68,True,ngo163@example.org
+NGO0164,NGO Homeless 164,Hyderabad,Telangana,17.397663,78.491155,75,65,Homeless Shelter,accessories;formal;shoes;casual,96,0.73,False,ngo164@example.org
+NGO0165,NGO Homeless 165,Bengaluru,Karnataka,12.946231,77.609666,75,73,Homeless Shelter,shoes;accessories;outerwear;children,470,0.73,False,ngo165@example.org
+NGO0166,NGO Children 166,Pune,Maharashtra,18.506107,73.885685,75,70,Children Education,accessories;outerwear;shoes;casual,101,0.73,False,ngo166@example.org
+NGO0167,NGO Women 167,Delhi,Delhi,28.721984,77.056759,75,78,Women Empowerment,outerwear;children;formal,479,0.78,False,ngo167@example.org
+NGO0168,NGO Women 168,Bengaluru,Karnataka,12.939771,77.547417,75,68,Women Empowerment,casual;children;shoes;formal;outerwear,328,0.81,False,ngo168@example.org
+NGO0169,NGO Women 169,Bengaluru,Karnataka,12.955912,77.569537,75,81,Women Empowerment,children;shoes;outerwear;accessories;formal,316,0.63,False,ngo169@example.org
+NGO0170,NGO Children 170,Delhi,Delhi,28.7358,77.120796,75,73,Children Education,shoes;casual;children,67,0.91,False,ngo170@example.org
+NGO0171,NGO Elderly 171,Jaipur,Rajasthan,26.894733,75.826464,75,72,Elderly Care,outerwear;formal;shoes;accessories,324,0.91,False,ngo171@example.org
+NGO0172,NGO Children 172,Bengaluru,Karnataka,12.94816,77.642131,75,85,Children Education,children;shoes;outerwear,69,0.67,True,ngo172@example.org
+NGO0173,NGO Women 173,Mumbai,Maharashtra,19.124013,72.828527,75,72,Women Empowerment,accessories;shoes;children,299,0.75,False,ngo173@example.org
+NGO0174,NGO Elderly 174,Mumbai,Maharashtra,19.111722,72.914936,75,86,Elderly Care,casual;children;outerwear;accessories,374,0.69,False,ngo174@example.org
+NGO0175,NGO Disaster 175,Bengaluru,Karnataka,12.974487,77.602501,75,87,Disaster Relief,shoes;casual;accessories;children,212,0.88,True,ngo175@example.org
+NGO0176,NGO Homeless 176,Pune,Maharashtra,18.527913,73.81119,75,62,Homeless Shelter,casual;accessories;formal,255,0.69,True,ngo176@example.org
+NGO0177,NGO Elderly 177,Pune,Maharashtra,18.487713,73.860358,75,84,Elderly Care,shoes;casual;outerwear;formal;children,364,0.78,False,ngo177@example.org
+NGO0178,NGO Rural 178,Kolkata,West Bengal,22.59804,88.34896,75,94,Rural Development,shoes;accessories;casual;outerwear;children,171,0.89,False,ngo178@example.org
+NGO0179,NGO Homeless 179,Bengaluru,Karnataka,13.010876,77.558178,75,73,Homeless Shelter,outerwear;formal;shoes,113,0.76,False,ngo179@example.org
+NGO0180,NGO Disaster 180,Mumbai,Maharashtra,19.122784,72.908304,75,66,Disaster Relief,accessories;formal;outerwear;children,111,0.88,False,ngo180@example.org
+NGO0181,NGO Children 181,Kolkata,West Bengal,22.604676,88.391466,75,78,Children Education,outerwear;formal;children,153,0.71,False,ngo181@example.org
+NGO0182,NGO Disaster 182,Pune,Maharashtra,18.546401,73.896815,75,65,Disaster Relief,formal;casual;accessories;shoes,302,0.67,False,ngo182@example.org
+NGO0183,NGO Women 183,Bengaluru,Karnataka,12.996341,77.64078,75,81,Women Empowerment,casual;formal;outerwear,424,0.68,False,ngo183@example.org
+NGO0184,NGO Elderly 184,Delhi,Delhi,28.70159,77.053892,75,60,Elderly Care,casual;children;accessories;outerwear,98,0.68,True,ngo184@example.org
+NGO0185,NGO Elderly 185,Pune,Maharashtra,18.532669,73.817972,75,73,Elderly Care,children;outerwear;shoes;formal;accessories,148,0.78,False,ngo185@example.org
+NGO0186,NGO Women 186,Jaipur,Rajasthan,26.881029,75.750072,75,69,Women Empowerment,casual;formal;shoes;outerwear,228,0.69,False,ngo186@example.org
+NGO0187,NGO Women 187,Jaipur,Rajasthan,26.954783,75.744082,75,79,Women Empowerment,children;shoes;accessories,491,0.9,True,ngo187@example.org
+NGO0188,NGO Homeless 188,Pune,Maharashtra,18.542816,73.84231,75,75,Homeless Shelter,accessories;casual;shoes;formal;children,118,0.6,False,ngo188@example.org
+NGO0189,NGO Rural 189,Mumbai,Maharashtra,19.03166,72.896714,75,61,Rural Development,children;outerwear;shoes,352,0.89,False,ngo189@example.org
+NGO0190,NGO Women 190,Mumbai,Maharashtra,19.047509,72.854772,75,65,Women Empowerment,casual;children;shoes;formal;accessories,480,0.79,True,ngo190@example.org
+NGO0191,NGO Children 191,Mumbai,Maharashtra,19.074272,72.889313,75,64,Children Education,accessories;casual;shoes,374,0.92,False,ngo191@example.org
+NGO0192,NGO Disaster 192,Chennai,Tamil Nadu,13.087099,80.267262,75,77,Disaster Relief,children;formal;outerwear;casual,423,0.86,False,ngo192@example.org
+NGO0193,NGO Disaster 193,Mumbai,Maharashtra,19.064977,72.853276,75,60,Disaster Relief,formal;accessories;casual;children,258,0.67,False,ngo193@example.org
+NGO0194,NGO Women 194,Delhi,Delhi,28.753286,77.136698,75,83,Women Empowerment,children;formal;outerwear;accessories,144,0.7,False,ngo194@example.org
+NGO0195,NGO Women 195,Kolkata,West Bengal,22.59199,88.381245,75,60,Women Empowerment,outerwear;accessories;casual;children;shoes,264,0.63,True,ngo195@example.org
+NGO0196,NGO Children 196,Mumbai,Maharashtra,19.056548,72.880284,75,89,Children Education,casual;formal;outerwear;accessories;children,402,0.73,True,ngo196@example.org
+NGO0197,NGO Rural 197,Bengaluru,Karnataka,12.936531,77.584536,75,69,Rural Development,formal;accessories;children,384,0.66,False,ngo197@example.org
+NGO0198,NGO Women 198,Chennai,Tamil Nadu,13.03588,80.254222,75,77,Women Empowerment,formal;outerwear;children;casual,250,0.91,False,ngo198@example.org
+NGO0199,NGO Homeless 199,Hyderabad,Telangana,17.342008,78.472739,75,93,Homeless Shelter,children;casual;shoes,328,0.8,True,ngo199@example.org
+NGO0200,NGO Children 200,Delhi,Delhi,28.70168,77.083799,75,94,Children Education,outerwear;shoes;formal;accessories,99,0.77,False,ngo200@example.org
+NGO0201,NGO Children 201,Delhi,Delhi,28.733894,77.14907,75,94,Children Education,outerwear;casual;shoes,458,0.76,False,ngo201@example.org
+NGO0202,NGO Homeless 202,Mumbai,Maharashtra,19.101264,72.831161,75,76,Homeless Shelter,formal;children;accessories;outerwear;casual,137,0.66,True,ngo202@example.org
+NGO0203,NGO Rural 203,Delhi,Delhi,28.7354,77.109137,75,80,Rural Development,children;formal;accessories;casual,310,0.77,True,ngo203@example.org
+NGO0204,NGO Children 204,Hyderabad,Telangana,17.384561,78.455264,75,76,Children Education,shoes;accessories;outerwear;children,461,0.89,False,ngo204@example.org
+NGO0205,NGO Homeless 205,Kolkata,West Bengal,22.593595,88.341833,75,80,Homeless Shelter,formal;casual;children;accessories;shoes,455,0.64,False,ngo205@example.org
+NGO0206,NGO Children 206,Mumbai,Maharashtra,19.042718,72.908474,75,63,Children Education,accessories;casual;outerwear;shoes,292,0.89,False,ngo206@example.org
+NGO0207,NGO Women 207,Delhi,Delhi,28.678588,77.057879,75,79,Women Empowerment,children;outerwear;casual;shoes,472,0.68,False,ngo207@example.org
+NGO0208,NGO Women 208,Delhi,Delhi,28.732752,77.142739,75,92,Women Empowerment,formal;outerwear;shoes;children;accessories,234,0.65,False,ngo208@example.org
+NGO0209,NGO Disaster 209,Mumbai,Maharashtra,19.060232,72.849167,75,64,Disaster Relief,accessories;children;shoes;outerwear;formal,188,0.86,False,ngo209@example.org
+NGO0210,NGO Children 210,Jaipur,Rajasthan,26.953786,75.803732,75,80,Children Education,shoes;formal;accessories,348,0.7,False,ngo210@example.org
+NGO0211,NGO Disaster 211,Chennai,Tamil Nadu,13.080146,80.238729,75,68,Disaster Relief,outerwear;formal;accessories,61,0.67,False,ngo211@example.org
+NGO0212,NGO Women 212,Bengaluru,Karnataka,12.984151,77.576181,75,61,Women Empowerment,children;outerwear;shoes,116,0.76,True,ngo212@example.org
+NGO0213,NGO Disaster 213,Hyderabad,Telangana,17.395268,78.466711,75,66,Disaster Relief,casual;outerwear;formal,62,0.94,False,ngo213@example.org
+NGO0214,NGO Disaster 214,Delhi,Delhi,28.688595,77.121704,75,63,Disaster Relief,outerwear;shoes;accessories;formal;casual,326,0.72,False,ngo214@example.org
+NGO0215,NGO Children 215,Mumbai,Maharashtra,19.036577,72.885197,75,81,Children Education,outerwear;shoes;formal,213,0.93,True,ngo215@example.org
+NGO0216,NGO Rural 216,Mumbai,Maharashtra,19.068987,72.915784,75,87,Rural Development,children;shoes;casual;accessories;formal,196,0.86,False,ngo216@example.org
+NGO0217,NGO Disaster 217,Delhi,Delhi,28.7097,77.131616,75,83,Disaster Relief,formal;accessories;outerwear;shoes;casual,395,0.75,False,ngo217@example.org
+NGO0218,NGO Disaster 218,Bengaluru,Karnataka,13.021513,77.635385,75,69,Disaster Relief,casual;shoes;children,319,0.69,False,ngo218@example.org
+NGO0219,NGO Rural 219,Delhi,Delhi,28.705217,77.075572,75,78,Rural Development,formal;accessories;outerwear;casual,335,0.94,True,ngo219@example.org
+NGO0220,NGO Disaster 220,Pune,Maharashtra,18.51947,73.868671,75,91,Disaster Relief,children;outerwear;accessories,116,0.63,False,ngo220@example.org
+NGO0221,NGO Disaster 221,Mumbai,Maharashtra,19.066366,72.901398,75,80,Disaster Relief,accessories;shoes;outerwear;formal,471,0.87,False,ngo221@example.org
+NGO0222,NGO Women 222,Delhi,Delhi,28.750295,77.115033,75,83,Women Empowerment,shoes;casual;formal;children;outerwear,452,0.71,False,ngo222@example.org
+NGO0223,NGO Homeless 223,Delhi,Delhi,28.681002,77.096205,75,76,Homeless Shelter,children;outerwear;accessories;formal,70,0.78,True,ngo223@example.org
+NGO0224,NGO Elderly 224,Delhi,Delhi,28.750646,77.093522,75,70,Elderly Care,shoes;outerwear;children;accessories;formal,271,0.67,True,ngo224@example.org
+NGO0225,NGO Rural 225,Mumbai,Maharashtra,19.125787,72.84763,75,72,Rural Development,formal;casual;shoes;outerwear,301,0.84,False,ngo225@example.org
+NGO0226,NGO Women 226,Kolkata,West Bengal,22.558528,88.346785,75,82,Women Empowerment,accessories;shoes;formal;casual;children,439,0.68,True,ngo226@example.org
+NGO0227,NGO Elderly 227,Mumbai,Maharashtra,19.080854,72.86539,75,71,Elderly Care,accessories;formal;casual,430,0.85,False,ngo227@example.org
+NGO0228,NGO Children 228,Bengaluru,Karnataka,12.980974,77.605819,75,84,Children Education,shoes;casual;children;formal,314,0.78,True,ngo228@example.org
+NGO0229,NGO Children 229,Mumbai,Maharashtra,19.037911,72.907532,75,78,Children Education,formal;casual;children;accessories,346,0.93,True,ngo229@example.org
+NGO0230,NGO Women 230,Delhi,Delhi,28.729397,77.115278,75,70,Women Empowerment,children;shoes;formal;outerwear,121,0.84,False,ngo230@example.org
+NGO0231,NGO Disaster 231,Jaipur,Rajasthan,26.936616,75.795497,75,68,Disaster Relief,formal;casual;outerwear,445,0.8,False,ngo231@example.org
+NGO0232,NGO Disaster 232,Chennai,Tamil Nadu,13.094478,80.25952,75,73,Disaster Relief,children;shoes;outerwear;formal,457,0.86,False,ngo232@example.org
+NGO0233,NGO Disaster 233,Bengaluru,Karnataka,13.005865,77.55282,75,81,Disaster Relief,casual;outerwear;formal,267,0.77,False,ngo233@example.org
+NGO0234,NGO Disaster 234,Delhi,Delhi,28.658163,77.054806,75,91,Disaster Relief,accessories;formal;casual,467,0.89,False,ngo234@example.org
+NGO0235,NGO Children 235,Hyderabad,Telangana,17.359904,78.448574,75,93,Children Education,shoes;formal;accessories;children,420,0.89,False,ngo235@example.org
+NGO0236,NGO Elderly 236,Mumbai,Maharashtra,19.035612,72.915938,75,71,Elderly Care,casual;accessories;outerwear,97,0.83,False,ngo236@example.org
+NGO0237,NGO Disaster 237,Hyderabad,Telangana,17.367973,78.450852,75,85,Disaster Relief,casual;accessories;outerwear;children;shoes,462,0.71,True,ngo237@example.org
+NGO0238,NGO Children 238,Mumbai,Maharashtra,19.051977,72.912486,75,86,Children Education,shoes;outerwear;formal;accessories,85,0.73,False,ngo238@example.org
+NGO0239,NGO Homeless 239,Chennai,Tamil Nadu,13.060473,80.261812,75,67,Homeless Shelter,accessories;children;shoes;formal;outerwear,214,0.73,False,ngo239@example.org
+NGO0240,NGO Homeless 240,Delhi,Delhi,28.743157,77.079834,75,93,Homeless Shelter,outerwear;children;accessories;casual;formal,271,0.75,True,ngo240@example.org
+NGO0241,NGO Rural 241,Mumbai,Maharashtra,19.081054,72.8544,75,93,Rural Development,children;formal;outerwear;shoes,419,0.61,False,ngo241@example.org
+NGO0242,NGO Disaster 242,Hyderabad,Telangana,17.388907,78.44586,75,66,Disaster Relief,outerwear;children;shoes;accessories;formal,127,0.92,False,ngo242@example.org
+NGO0243,NGO Children 243,Bengaluru,Karnataka,12.981246,77.621306,75,66,Children Education,shoes;accessories;children;formal;outerwear,126,0.94,False,ngo243@example.org
+NGO0244,NGO Children 244,Mumbai,Maharashtra,19.079088,72.87778,75,67,Children Education,formal;accessories;outerwear;children,304,0.69,False,ngo244@example.org
+NGO0245,NGO Elderly 245,Ahmedabad,Gujarat,23.019257,72.600367,75,60,Elderly Care,children;casual;formal;shoes,376,0.94,False,ngo245@example.org
+NGO0246,NGO Homeless 246,Delhi,Delhi,28.749203,77.074727,75,63,Homeless Shelter,children;accessories;outerwear;casual;formal,58,0.6,True,ngo246@example.org
+NGO0247,NGO Women 247,Mumbai,Maharashtra,19.03547,72.904859,75,83,Women Empowerment,outerwear;casual;accessories,332,0.85,True,ngo247@example.org
+NGO0248,NGO Rural 248,Bengaluru,Karnataka,12.990262,77.638427,75,85,Rural Development,shoes;outerwear;formal;children,140,0.88,False,ngo248@example.org
+NGO0249,NGO Homeless 249,Delhi,Delhi,28.65589,77.119056,75,91,Homeless Shelter,shoes;casual;children;formal;accessories,108,0.91,True,ngo249@example.org
+NGO0250,NGO Homeless 250,Bengaluru,Karnataka,12.938889,77.550138,75,65,Homeless Shelter,accessories;shoes;formal;outerwear;children,259,0.61,True,ngo250@example.org
+NGO0251,NGO Children 251,Mumbai,Maharashtra,19.05023,72.842032,75,90,Children Education,formal;outerwear;casual,65,0.63,False,ngo251@example.org
+NGO0252,NGO Rural 252,Delhi,Delhi,28.744508,77.10928,75,93,Rural Development,formal;accessories;children,268,0.62,True,ngo252@example.org
+NGO0253,NGO Disaster 253,Mumbai,Maharashtra,19.091486,72.854149,75,90,Disaster Relief,shoes;children;casual;accessories,416,0.73,False,ngo253@example.org
+NGO0254,NGO Rural 254,Chennai,Tamil Nadu,13.076223,80.25321,75,74,Rural Development,casual;formal;children,436,0.69,False,ngo254@example.org
+NGO0255,NGO Women 255,Hyderabad,Telangana,17.432065,78.467246,75,72,Women Empowerment,accessories;outerwear;children;shoes,123,0.94,False,ngo255@example.org
+NGO0256,NGO Children 256,Surat,Maharashtra,21.205413,72.811085,75,85,Children Education,shoes;accessories;outerwear,104,0.82,False,ngo256@example.org
+NGO0257,NGO Rural 257,Delhi,Delhi,28.690695,77.124418,75,70,Rural Development,children;outerwear;formal,154,0.94,False,ngo257@example.org
+NGO0258,NGO Disaster 258,Bengaluru,Karnataka,12.93649,77.568088,75,85,Disaster Relief,shoes;children;formal;outerwear;casual,265,0.63,False,ngo258@example.org
+NGO0259,NGO Children 259,Bengaluru,Karnataka,12.937918,77.576385,75,63,Children Education,formal;children;accessories;outerwear,433,0.84,False,ngo259@example.org
+NGO0260,NGO Children 260,Hyderabad,Telangana,17.353327,78.482006,75,83,Children Education,children;shoes;outerwear;formal,310,0.74,False,ngo260@example.org
+NGO0261,NGO Rural 261,Hyderabad,Telangana,17.373743,78.471808,75,61,Rural Development,shoes;outerwear;children;accessories;casual,450,0.74,False,ngo261@example.org
+NGO0262,NGO Disaster 262,Kolkata,West Bengal,22.550206,88.321559,75,73,Disaster Relief,accessories;shoes;formal,500,0.75,False,ngo262@example.org
+NGO0263,NGO Elderly 263,Kolkata,West Bengal,22.5668,88.399526,75,64,Elderly Care,casual;outerwear;children,454,0.82,False,ngo263@example.org
+NGO0264,NGO Children 264,Bengaluru,Karnataka,12.929652,77.560564,75,89,Children Education,formal;accessories;children;casual,377,0.67,True,ngo264@example.org
+NGO0265,NGO Disaster 265,Mumbai,Maharashtra,19.123497,72.838585,75,85,Disaster Relief,shoes;outerwear;accessories;children,205,0.78,False,ngo265@example.org
+NGO0266,NGO Elderly 266,Surat,Maharashtra,21.217555,72.793655,75,70,Elderly Care,children;shoes;formal;outerwear,492,0.7,False,ngo266@example.org
+NGO0267,NGO Rural 267,Delhi,Delhi,28.684824,77.094428,75,72,Rural Development,casual;children;formal;outerwear;shoes,435,0.73,False,ngo267@example.org
+NGO0268,NGO Rural 268,Jaipur,Rajasthan,26.877482,75.770928,75,81,Rural Development,accessories;shoes;formal,271,0.9,False,ngo268@example.org
+NGO0269,NGO Children 269,Mumbai,Maharashtra,19.051678,72.906265,75,91,Children Education,formal;accessories;outerwear,254,0.83,False,ngo269@example.org
+NGO0270,NGO Children 270,Chennai,Tamil Nadu,13.096982,80.229494,75,63,Children Education,shoes;outerwear;casual;children;formal,101,0.83,False,ngo270@example.org
+NGO0271,NGO Women 271,Chennai,Tamil Nadu,13.08737,80.228731,75,71,Women Empowerment,accessories;outerwear;formal,287,0.69,False,ngo271@example.org
+NGO0272,NGO Elderly 272,Delhi,Delhi,28.676635,77.120217,75,94,Elderly Care,casual;shoes;outerwear;accessories,306,0.91,False,ngo272@example.org
+NGO0273,NGO Homeless 273,Hyderabad,Telangana,17.387824,78.464423,75,61,Homeless Shelter,children;outerwear;accessories;formal;shoes,324,0.61,False,ngo273@example.org
+NGO0274,NGO Children 274,Bengaluru,Karnataka,13.008217,77.546429,75,60,Children Education,children;accessories;formal;shoes;casual,468,0.64,True,ngo274@example.org
+NGO0275,NGO Elderly 275,Mumbai,Maharashtra,19.0421,72.915516,75,68,Elderly Care,formal;accessories;casual;shoes,150,0.83,False,ngo275@example.org
+NGO0276,NGO Children 276,Mumbai,Maharashtra,19.098621,72.852413,75,62,Children Education,shoes;accessories;casual;outerwear;children,110,0.85,True,ngo276@example.org
+NGO0277,NGO Children 277,Delhi,Delhi,28.728497,77.105289,75,75,Children Education,casual;accessories;children,471,0.93,False,ngo277@example.org
+NGO0278,NGO Disaster 278,Mumbai,Maharashtra,19.097353,72.891886,75,92,Disaster Relief,formal;casual;accessories,247,0.62,True,ngo278@example.org
+NGO0279,NGO Children 279,Delhi,Delhi,28.660348,77.122387,75,63,Children Education,outerwear;accessories;formal;children,354,0.76,True,ngo279@example.org
+NGO0280,NGO Children 280,Mumbai,Maharashtra,19.106759,72.830943,75,83,Children Education,casual;outerwear;accessories;children,157,0.7,False,ngo280@example.org
+NGO0281,NGO Homeless 281,Kolkata,West Bengal,22.54667,88.388921,75,63,Homeless Shelter,casual;children;formal;accessories,432,0.63,False,ngo281@example.org
+NGO0282,NGO Rural 282,Chennai,Tamil Nadu,13.088178,80.225259,75,77,Rural Development,shoes;accessories;outerwear;casual,103,0.91,False,ngo282@example.org
+NGO0283,NGO Elderly 283,Ahmedabad,Gujarat,22.988059,72.620169,75,93,Elderly Care,formal;casual;outerwear;children,400,0.85,True,ngo283@example.org
+NGO0284,NGO Elderly 284,Hyderabad,Telangana,17.360837,78.494883,75,79,Elderly Care,children;formal;outerwear,482,0.94,False,ngo284@example.org
+NGO0285,NGO Children 285,Kolkata,West Bengal,22.555466,88.350366,75,74,Children Education,children;accessories;casual;formal,371,0.64,False,ngo285@example.org
+NGO0286,NGO Women 286,Jaipur,Rajasthan,26.896473,75.77107,75,68,Women Empowerment,formal;accessories;shoes;children;outerwear,411,0.64,False,ngo286@example.org
+NGO0287,NGO Homeless 287,Ahmedabad,Gujarat,23.028311,72.589,75,82,Homeless Shelter,shoes;children;formal,317,0.86,False,ngo287@example.org
+NGO0288,NGO Rural 288,Mumbai,Maharashtra,19.072798,72.903745,75,72,Rural Development,outerwear;formal;accessories;casual,166,0.76,False,ngo288@example.org
+NGO0289,NGO Children 289,Mumbai,Maharashtra,19.028749,72.896726,75,72,Children Education,outerwear;formal;children;accessories;shoes,448,0.82,False,ngo289@example.org
+NGO0290,NGO Disaster 290,Mumbai,Maharashtra,19.04628,72.887272,75,90,Disaster Relief,outerwear;children;shoes;casual,374,0.95,False,ngo290@example.org
+NGO0291,NGO Homeless 291,Bengaluru,Karnataka,12.999089,77.598147,75,66,Homeless Shelter,accessories;formal;children,223,0.89,True,ngo291@example.org
+NGO0292,NGO Children 292,Bengaluru,Karnataka,12.963523,77.630929,75,75,Children Education,accessories;formal;outerwear,143,0.88,True,ngo292@example.org
+NGO0293,NGO Elderly 293,Hyderabad,Telangana,17.406632,78.473334,75,83,Elderly Care,casual;accessories;outerwear,288,0.9,True,ngo293@example.org
+NGO0294,NGO Elderly 294,Mumbai,Maharashtra,19.091133,72.894613,75,86,Elderly Care,accessories;children;outerwear;casual,149,0.88,False,ngo294@example.org
+NGO0295,NGO Children 295,Delhi,Delhi,28.693626,77.071122,75,76,Children Education,casual;children;outerwear;shoes;accessories,250,0.8,False,ngo295@example.org
+NGO0296,NGO Homeless 296,Pune,Maharashtra,18.546742,73.861849,75,77,Homeless Shelter,children;casual;shoes;outerwear;accessories,182,0.74,False,ngo296@example.org
+NGO0297,NGO Elderly 297,Mumbai,Maharashtra,19.106085,72.895924,75,63,Elderly Care,casual;outerwear;children,83,0.75,True,ngo297@example.org
+NGO0298,NGO Elderly 298,Delhi,Delhi,28.73907,77.143939,75,83,Elderly Care,formal;shoes;outerwear;accessories,406,0.86,False,ngo298@example.org
+NGO0299,NGO Homeless 299,Mumbai,Maharashtra,19.031492,72.839244,75,81,Homeless Shelter,formal;shoes;outerwear;children;accessories,202,0.89,False,ngo299@example.org
+NGO0300,NGO Women 300,Mumbai,Maharashtra,19.074034,72.828665,75,93,Women Empowerment,children;outerwear;formal;accessories;shoes,236,0.62,False,ngo300@example.org
+NGO0301,NGO Rural 301,Ahmedabad,Gujarat,22.988154,72.606253,75,86,Rural Development,casual;accessories;formal;outerwear;children,433,0.84,False,ngo301@example.org
+NGO0302,NGO Disaster 302,Pune,Maharashtra,18.499256,73.892228,75,64,Disaster Relief,formal;shoes;casual;accessories;outerwear,83,0.68,True,ngo302@example.org
+NGO0303,NGO Children 303,Delhi,Delhi,28.664814,77.095009,75,69,Children Education,accessories;outerwear;formal;children;shoes,466,0.61,False,ngo303@example.org
+NGO0304,NGO Homeless 304,Mumbai,Maharashtra,19.036093,72.918859,75,86,Homeless Shelter,outerwear;casual;accessories;shoes,293,0.85,False,ngo304@example.org
+NGO0305,NGO Women 305,Hyderabad,Telangana,17.375428,78.516119,75,94,Women Empowerment,shoes;casual;children;formal,391,0.9,False,ngo305@example.org
+NGO0306,NGO Elderly 306,Delhi,Delhi,28.709095,77.061847,75,80,Elderly Care,outerwear;formal;accessories;children,58,0.89,False,ngo306@example.org
+NGO0307,NGO Women 307,Ahmedabad,Gujarat,23.014561,72.598271,75,76,Women Empowerment,accessories;children;casual,301,0.78,False,ngo307@example.org
+NGO0308,NGO Disaster 308,Kolkata,West Bengal,22.534828,88.361146,75,61,Disaster Relief,casual;formal;shoes,222,0.71,True,ngo308@example.org
+NGO0309,NGO Homeless 309,Mumbai,Maharashtra,19.103043,72.918283,75,86,Homeless Shelter,accessories;formal;casual;shoes;children,218,0.88,False,ngo309@example.org
+NGO0310,NGO Disaster 310,Delhi,Delhi,28.691312,77.108779,75,60,Disaster Relief,casual;formal;accessories;children,100,0.72,False,ngo310@example.org
+NGO0311,NGO Rural 311,Mumbai,Maharashtra,19.111408,72.891649,75,62,Rural Development,casual;outerwear;formal;accessories,465,0.81,False,ngo311@example.org
+NGO0312,NGO Elderly 312,Delhi,Delhi,28.692435,77.067851,75,64,Elderly Care,formal;shoes;outerwear;casual,272,0.87,False,ngo312@example.org
+NGO0313,NGO Women 313,Chennai,Tamil Nadu,13.074985,80.266958,75,79,Women Empowerment,outerwear;casual;formal;shoes;accessories,68,0.73,False,ngo313@example.org
+NGO0314,NGO Disaster 314,Mumbai,Maharashtra,19.072069,72.833815,75,79,Disaster Relief,children;outerwear;shoes;accessories;casual,287,0.64,False,ngo314@example.org
+NGO0315,NGO Rural 315,Chennai,Tamil Nadu,13.10817,80.268768,75,85,Rural Development,shoes;accessories;formal;casual,435,0.68,True,ngo315@example.org
+NGO0316,NGO Women 316,Delhi,Delhi,28.702768,77.08319,75,86,Women Empowerment,children;formal;shoes;accessories,321,0.61,False,ngo316@example.org
+NGO0317,NGO Elderly 317,Ahmedabad,Gujarat,23.002151,72.52869,75,90,Elderly Care,outerwear;casual;accessories,307,0.9,False,ngo317@example.org
+NGO0318,NGO Women 318,Hyderabad,Telangana,17.373332,78.4529,75,81,Women Empowerment,accessories;shoes;formal;casual;children,220,0.69,False,ngo318@example.org
+NGO0319,NGO Homeless 319,Hyderabad,Telangana,17.375283,78.45145,75,75,Homeless Shelter,children;shoes;outerwear;casual;formal,145,0.79,False,ngo319@example.org
+NGO0320,NGO Women 320,Surat,Maharashtra,21.165069,72.823961,75,81,Women Empowerment,shoes;children;casual;accessories;formal,55,0.76,False,ngo320@example.org
+NGO0321,NGO Rural 321,Hyderabad,Telangana,17.349382,78.53126,75,70,Rural Development,shoes;formal;casual;accessories;outerwear,155,0.93,False,ngo321@example.org
+NGO0322,NGO Homeless 322,Hyderabad,Telangana,17.43169,78.476789,75,75,Homeless Shelter,casual;shoes;formal,404,0.65,False,ngo322@example.org
+NGO0323,NGO Homeless 323,Delhi,Delhi,28.707001,77.124704,75,90,Homeless Shelter,children;accessories;shoes;outerwear,360,0.62,True,ngo323@example.org
+NGO0324,NGO Homeless 324,Chennai,Tamil Nadu,13.084401,80.314313,75,76,Homeless Shelter,formal;shoes;outerwear;casual;children,352,0.84,False,ngo324@example.org
+NGO0325,NGO Women 325,Mumbai,Maharashtra,19.059461,72.864752,75,78,Women Empowerment,outerwear;casual;shoes,182,0.6,True,ngo325@example.org
+NGO0326,NGO Women 326,Hyderabad,Telangana,17.429359,78.497098,75,90,Women Empowerment,shoes;outerwear;formal;casual;accessories,292,0.67,False,ngo326@example.org
+NGO0327,NGO Homeless 327,Chennai,Tamil Nadu,13.128399,80.253437,75,64,Homeless Shelter,accessories;children;formal;shoes;casual,269,0.93,True,ngo327@example.org
+NGO0328,NGO Homeless 328,Delhi,Delhi,28.722281,77.126287,75,76,Homeless Shelter,shoes;accessories;formal,280,0.62,False,ngo328@example.org
+NGO0329,NGO Elderly 329,Bengaluru,Karnataka,13.009784,77.594581,75,81,Elderly Care,children;casual;accessories;outerwear,226,0.69,False,ngo329@example.org
+NGO0330,NGO Women 330,Kolkata,West Bengal,22.58127,88.400166,75,81,Women Empowerment,casual;shoes;children,475,0.87,False,ngo330@example.org
+NGO0331,NGO Homeless 331,Mumbai,Maharashtra,19.044093,72.848706,75,80,Homeless Shelter,children;formal;shoes;accessories,433,0.89,False,ngo331@example.org
+NGO0332,NGO Women 332,Hyderabad,Telangana,17.353026,78.507317,75,61,Women Empowerment,shoes;accessories;casual,379,0.65,True,ngo332@example.org
+NGO0333,NGO Elderly 333,Mumbai,Maharashtra,19.033501,72.874179,75,73,Elderly Care,children;formal;casual;accessories;outerwear,383,0.91,False,ngo333@example.org
+NGO0334,NGO Women 334,Pune,Maharashtra,18.567271,73.817361,75,70,Women Empowerment,outerwear;children;shoes,79,0.87,False,ngo334@example.org
+NGO0335,NGO Elderly 335,Pune,Maharashtra,18.52472,73.818102,75,77,Elderly Care,casual;outerwear;children;accessories,478,0.79,False,ngo335@example.org
+NGO0336,NGO Homeless 336,Mumbai,Maharashtra,19.043572,72.838057,75,69,Homeless Shelter,children;accessories;shoes;outerwear;formal,346,0.6,False,ngo336@example.org
+NGO0337,NGO Disaster 337,Mumbai,Maharashtra,19.115849,72.902388,75,84,Disaster Relief,children;casual;accessories,456,0.79,True,ngo337@example.org
+NGO0338,NGO Homeless 338,Surat,Maharashtra,21.209248,72.799538,75,89,Homeless Shelter,shoes;formal;children,187,0.77,True,ngo338@example.org
+NGO0339,NGO Homeless 339,Mumbai,Maharashtra,19.080637,72.914535,75,60,Homeless Shelter,casual;children;accessories;formal,287,0.91,True,ngo339@example.org
+NGO0340,NGO Women 340,Ahmedabad,Gujarat,23.053122,72.529439,75,92,Women Empowerment,outerwear;children;shoes,278,0.91,True,ngo340@example.org
+NGO0341,NGO Elderly 341,Ahmedabad,Gujarat,23.041025,72.615536,75,93,Elderly Care,formal;shoes;accessories,348,0.67,False,ngo341@example.org
+NGO0342,NGO Elderly 342,Bengaluru,Karnataka,12.967484,77.569981,75,76,Elderly Care,accessories;formal;shoes,242,0.8,True,ngo342@example.org
+NGO0343,NGO Homeless 343,Kolkata,West Bengal,22.566657,88.37022,75,93,Homeless Shelter,accessories;formal;casual;outerwear;children,271,0.94,True,ngo343@example.org
+NGO0344,NGO Homeless 344,Bengaluru,Karnataka,13.01739,77.547851,75,90,Homeless Shelter,children;shoes;formal;casual;accessories,437,0.93,False,ngo344@example.org
+NGO0345,NGO Disaster 345,Mumbai,Maharashtra,19.114098,72.889278,75,88,Disaster Relief,outerwear;accessories;children;formal,468,0.95,False,ngo345@example.org
+NGO0346,NGO Women 346,Mumbai,Maharashtra,19.086362,72.901516,75,80,Women Empowerment,children;casual;accessories;formal,115,0.76,False,ngo346@example.org
+NGO0347,NGO Children 347,Surat,Maharashtra,21.169526,72.835192,75,69,Children Education,accessories;outerwear;children,131,0.91,True,ngo347@example.org
+NGO0348,NGO Elderly 348,Kolkata,West Bengal,22.544821,88.379122,75,66,Elderly Care,casual;accessories;outerwear;formal;children,445,0.8,False,ngo348@example.org
+NGO0349,NGO Homeless 349,Mumbai,Maharashtra,19.109045,72.899553,75,75,Homeless Shelter,outerwear;formal;children,252,0.83,False,ngo349@example.org
+NGO0350,NGO Elderly 350,Bengaluru,Karnataka,12.93822,77.609052,75,67,Elderly Care,formal;accessories;shoes,155,0.81,False,ngo350@example.org
+NGO0351,NGO Homeless 351,Pune,Maharashtra,18.53306,73.844063,75,77,Homeless Shelter,outerwear;accessories;casual,420,0.6,False,ngo351@example.org
+NGO0352,NGO Elderly 352,Delhi,Delhi,28.654379,77.127318,75,80,Elderly Care,outerwear;children;casual,435,0.74,True,ngo352@example.org
+NGO0353,NGO Children 353,Mumbai,Maharashtra,19.080564,72.894211,75,62,Children Education,casual;shoes;accessories,339,0.94,False,ngo353@example.org
+NGO0354,NGO Elderly 354,Pune,Maharashtra,18.48699,73.883865,75,92,Elderly Care,casual;shoes;children;formal;accessories,447,0.89,False,ngo354@example.org
+NGO0355,NGO Elderly 355,Ahmedabad,Gujarat,22.99632,72.524657,75,88,Elderly Care,casual;shoes;outerwear;children,327,0.8,True,ngo355@example.org
+NGO0356,NGO Women 356,Pune,Maharashtra,18.487735,73.822388,75,66,Women Empowerment,accessories;formal;shoes,176,0.67,True,ngo356@example.org
+NGO0357,NGO Women 357,Jaipur,Rajasthan,26.886868,75.744024,75,71,Women Empowerment,casual;formal;shoes,464,0.73,False,ngo357@example.org
+NGO0358,NGO Rural 358,Delhi,Delhi,28.751443,77.063852,75,71,Rural Development,formal;casual;accessories;children;outerwear,165,0.95,False,ngo358@example.org
+NGO0359,NGO Women 359,Delhi,Delhi,28.725891,77.142246,75,61,Women Empowerment,casual;shoes;children;outerwear,487,0.74,False,ngo359@example.org
+NGO0360,NGO Women 360,Hyderabad,Telangana,17.355815,78.456064,75,65,Women Empowerment,outerwear;formal;casual,148,0.91,False,ngo360@example.org
+NGO0361,NGO Homeless 361,Kolkata,West Bengal,22.562011,88.330221,75,71,Homeless Shelter,casual;outerwear;children;shoes,117,0.6,True,ngo361@example.org
+NGO0362,NGO Rural 362,Delhi,Delhi,28.728762,77.106337,75,82,Rural Development,formal;casual;outerwear,168,0.64,False,ngo362@example.org
+NGO0363,NGO Children 363,Chennai,Tamil Nadu,13.041747,80.30867,75,80,Children Education,accessories;children;shoes;formal,277,0.87,False,ngo363@example.org
+NGO0364,NGO Women 364,Delhi,Delhi,28.741557,77.112614,75,77,Women Empowerment,formal;children;shoes;accessories,78,0.64,False,ngo364@example.org
+NGO0365,NGO Homeless 365,Jaipur,Rajasthan,26.902549,75.744825,75,91,Homeless Shelter,formal;casual;outerwear;children;accessories,208,0.81,False,ngo365@example.org
+NGO0366,NGO Disaster 366,Mumbai,Maharashtra,19.116641,72.866093,75,86,Disaster Relief,formal;shoes;outerwear;casual;accessories,446,0.9,True,ngo366@example.org
+NGO0367,NGO Children 367,Pune,Maharashtra,18.560569,73.84089,75,73,Children Education,outerwear;casual;children;formal;accessories,350,0.65,False,ngo367@example.org
+NGO0368,NGO Elderly 368,Bengaluru,Karnataka,12.991899,77.554587,75,83,Elderly Care,shoes;outerwear;children,168,0.85,False,ngo368@example.org
+NGO0369,NGO Elderly 369,Jaipur,Rajasthan,26.947897,75.764707,75,90,Elderly Care,formal;casual;children,127,0.83,False,ngo369@example.org
+NGO0370,NGO Rural 370,Delhi,Delhi,28.664389,77.143071,75,78,Rural Development,children;outerwear;casual;formal,63,0.91,False,ngo370@example.org
+NGO0371,NGO Children 371,Mumbai,Maharashtra,19.106865,72.850557,75,90,Children Education,formal;shoes;outerwear;casual,342,0.81,False,ngo371@example.org
+NGO0372,NGO Women 372,Delhi,Delhi,28.667843,77.058608,75,62,Women Empowerment,children;shoes;formal;casual,411,0.64,False,ngo372@example.org
+NGO0373,NGO Elderly 373,Hyderabad,Telangana,17.421006,78.472163,75,60,Elderly Care,shoes;outerwear;formal;children,98,0.69,False,ngo373@example.org
+NGO0374,NGO Rural 374,Mumbai,Maharashtra,19.089985,72.857651,75,78,Rural Development,casual;formal;shoes;accessories;outerwear,480,0.62,False,ngo374@example.org
+NGO0375,NGO Elderly 375,Bengaluru,Karnataka,12.980728,77.608371,75,83,Elderly Care,children;casual;formal,288,0.81,False,ngo375@example.org
+NGO0376,NGO Women 376,Delhi,Delhi,28.728225,77.138497,75,84,Women Empowerment,accessories;outerwear;shoes,97,0.78,False,ngo376@example.org
+NGO0377,NGO Elderly 377,Hyderabad,Telangana,17.360437,78.51649,75,73,Elderly Care,outerwear;accessories;children,408,0.93,True,ngo377@example.org
+NGO0378,NGO Elderly 378,Pune,Maharashtra,18.543995,73.903613,75,63,Elderly Care,shoes;outerwear;children,445,0.79,False,ngo378@example.org
+NGO0379,NGO Disaster 379,Mumbai,Maharashtra,19.075271,72.86592,75,60,Disaster Relief,outerwear;formal;children;accessories;shoes,151,0.94,False,ngo379@example.org
+NGO0380,NGO Homeless 380,Chennai,Tamil Nadu,13.091591,80.319318,75,90,Homeless Shelter,shoes;accessories;formal;casual;outerwear,231,0.63,True,ngo380@example.org
+NGO0381,NGO Elderly 381,Mumbai,Maharashtra,19.072727,72.88199,75,82,Elderly Care,accessories;outerwear;children;casual;shoes,271,0.7,False,ngo381@example.org
+NGO0382,NGO Disaster 382,Pune,Maharashtra,18.548961,73.842628,75,84,Disaster Relief,children;accessories;shoes;outerwear;casual,321,0.67,False,ngo382@example.org
+NGO0383,NGO Homeless 383,Surat,Maharashtra,21.152264,72.824824,75,64,Homeless Shelter,accessories;shoes;children;outerwear;formal,119,0.74,False,ngo383@example.org
+NGO0384,NGO Women 384,Mumbai,Maharashtra,19.076792,72.86749,75,68,Women Empowerment,shoes;accessories;formal;outerwear;casual,387,0.8,False,ngo384@example.org
+NGO0385,NGO Rural 385,Delhi,Delhi,28.746498,77.138726,75,81,Rural Development,children;shoes;casual;accessories;outerwear,497,0.71,False,ngo385@example.org
+NGO0386,NGO Women 386,Mumbai,Maharashtra,19.08456,72.844577,75,61,Women Empowerment,outerwear;casual;formal,138,0.66,False,ngo386@example.org
+NGO0387,NGO Rural 387,Mumbai,Maharashtra,19.036629,72.846035,75,94,Rural Development,children;casual;shoes;formal;outerwear,457,0.83,False,ngo387@example.org
+NGO0388,NGO Women 388,Mumbai,Maharashtra,19.114292,72.857688,75,84,Women Empowerment,accessories;casual;children;outerwear,332,0.74,False,ngo388@example.org
+NGO0389,NGO Women 389,Ahmedabad,Gujarat,23.037112,72.530464,75,78,Women Empowerment,children;casual;outerwear,455,0.66,False,ngo389@example.org
+NGO0390,NGO Children 390,Mumbai,Maharashtra,19.082973,72.8452,75,77,Children Education,shoes;formal;children,453,0.6,False,ngo390@example.org
+NGO0391,NGO Women 391,Delhi,Delhi,28.737248,77.096838,75,85,Women Empowerment,accessories;outerwear;shoes;formal,259,0.74,False,ngo391@example.org
+NGO0392,NGO Children 392,Ahmedabad,Gujarat,23.061686,72.604203,75,86,Children Education,accessories;casual;outerwear;formal,347,0.73,False,ngo392@example.org
+NGO0393,NGO Children 393,Mumbai,Maharashtra,19.073721,72.856204,75,92,Children Education,shoes;accessories;children;formal,59,0.85,True,ngo393@example.org
+NGO0394,NGO Women 394,Mumbai,Maharashtra,19.102026,72.885192,75,61,Women Empowerment,casual;formal;outerwear,239,0.87,False,ngo394@example.org
+NGO0395,NGO Children 395,Mumbai,Maharashtra,19.055788,72.874068,75,75,Children Education,accessories;children;outerwear;casual,353,0.68,True,ngo395@example.org
+NGO0396,NGO Disaster 396,Hyderabad,Telangana,17.376987,78.438827,75,66,Disaster Relief,casual;formal;outerwear;children;accessories,123,0.76,True,ngo396@example.org
+NGO0397,NGO Rural 397,Delhi,Delhi,28.682199,77.06359,75,62,Rural Development,accessories;outerwear;shoes;children;casual,433,0.75,True,ngo397@example.org
+NGO0398,NGO Elderly 398,Bengaluru,Karnataka,12.965193,77.55758,75,65,Elderly Care,shoes;outerwear;children,161,0.85,False,ngo398@example.org
+NGO0399,NGO Women 399,Mumbai,Maharashtra,19.083244,72.850527,75,88,Women Empowerment,shoes;children;casual;formal,152,0.69,True,ngo399@example.org
+NGO0400,NGO Women 400,Bengaluru,Karnataka,12.964161,77.559261,75,72,Women Empowerment,outerwear;accessories;formal,394,0.64,False,ngo400@example.org

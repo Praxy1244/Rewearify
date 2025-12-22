@@ -2,7 +2,7 @@
 import React, { useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { Toaster } from './components/ui/toaster';
@@ -45,6 +45,7 @@ const ScreenReaderAnnouncer = () => {
 import Navbar from './components/Layout/Navbar';
 import Footer from './components/Layout/Footer';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
+import RecommendationsFAB from './pages/donor/RecommendationsFAB';
 
 // Pages
 import Landing from './pages/Landing';
@@ -56,6 +57,7 @@ import DonationDetails from './pages/donor/DonationDetails';
 import DonationEdit from './pages/donor/DonationEdit';
 import BrowseNeeds from "./pages/donor/BrowseNeeds";
 import AIInsights from './pages/donor/AIInsights';
+import PersonalizedRecommendations from './pages/donor/PersonalizedRecommendations';
 import Notifications from './pages/Notifications'; 
 import ResetPassword from "./pages/auth/ResetPassword";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -78,16 +80,15 @@ import VerifyEmail from "./pages/auth/VerifyEmail";
 import SelectRole from "./pages/auth/SelectRole"; 
 import FraudDetection from './pages/admin/FraudDetection';
 import Forecasting from './pages/admin/Forecasting';
-import LogisticsDashboard from './pages/admin/LogisticsDashboard'; // 1. Import the page
+import LogisticsDashboard from './pages/admin/LogisticsDashboard';
 import PublicDonationDetails from './pages/PublicDonationDetails';
+import NGOClustering from './pages/admin/NGOClustering';
 
 
-
-
-
-// ✅ Wrapper component to control Footer visibility
+// ✅ Wrapper component to control Footer visibility and FAB
 function AppContent() {
   const location = useLocation();
+  const { user } = useAuth();
 
   const showFooterPage = ["/"];
 
@@ -171,6 +172,13 @@ function AppContent() {
               <AIInsights />
             </ProtectedRoute> } />
 
+          {/* ✨ NEW: Personalized Recommendations Route */}
+          <Route path="/donor/recommendations" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <PersonalizedRecommendations />
+            </ProtectedRoute>
+          } />
+
 
           {/* Recipient Routes */}
           <Route path="/recipient/browseItems" element={
@@ -198,10 +206,10 @@ function AppContent() {
           }/>
 
           <Route path="/recipient/create-request" element={
-  <ProtectedRoute allowedRoles={['recipient']}>
-    <CreateRequest />
-  </ProtectedRoute>
-} />
+            <ProtectedRoute allowedRoles={['recipient']}>
+              <CreateRequest />
+            </ProtectedRoute>
+          } />
 
 
           
@@ -244,10 +252,15 @@ function AppContent() {
               <FraudDetection />
             </ProtectedRoute> } />
 
-            <Route path="/admin/forecasting" element={
+          <Route path="/admin/forecasting" element={
               <ProtectedRoute allowedRoles={['admin']}>
               <Forecasting />
             </ProtectedRoute> } />
+
+            <Route path="/admin/clustering" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+             <NGOClustering />
+            </ProtectedRoute>} />
 
 
           {/* 💡 UNIFIED PROFILE ROUTES */}
@@ -282,7 +295,7 @@ function AppContent() {
             </div>
           } />
 
-           <Route path="/verify-email/:token" element={<VerifyEmail />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -298,6 +311,9 @@ function AppContent() {
           <Route path="/donations/:id" element={<PublicDonationDetails />} />
         </Routes>
       </main>
+
+      {/* ✨ Show Floating Action Button only for donors */}
+      {user?.role === 'donor' && <RecommendationsFAB />}
 
       {/* ✅ Show Footer only if not in hidden pages */}
       {showFooterPage.includes(location.pathname) && <Footer />}
@@ -320,16 +336,16 @@ function App() {
             </div>
             <Toaster />
            <HotToaster 
-  position="top-right"
-  reverseOrder={false}
-  toastOptions={{
-    duration: 5000,
-    style: {
-      background: '#fff',
-      color: '#333',
-    },
-  }}
-/>
+              position="top-right"
+              reverseOrder={false}
+              toastOptions={{
+                duration: 5000,
+                style: {
+                  background: '#fff',
+                  color: '#333',
+                },
+              }}
+            />
 
           </BrowserRouter>
         </div>
