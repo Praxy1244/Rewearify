@@ -38,6 +38,7 @@ class NGODataSyncer {
       skipped: 0,
       errors: 0
     };
+    this.shouldCloseConnection = false;
   }
 
   /**
@@ -45,11 +46,18 @@ class NGODataSyncer {
    */
   async connect() {
     try {
+      // Check if already connected
+      if (mongoose.connection.readyState === 1) {
+        console.log('\u2705 Using existing MongoDB connection\n');
+        return;
+      }
+
       const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify';
       console.log('\ud83d\udd0c Connecting to MongoDB...');
-      console.log(`   URI: ${mongoURI.replace(/:\/ \/([^:]+):([^@]+)@/, '://*****:*****@')}`);
+      console.log(`   URI: ${mongoURI.replace(/:\/\/([^:]+):([^@]+)@/, '://*****:*****@')}`);
       await mongoose.connect(mongoURI);
       console.log('\u2705 Connected to MongoDB\n');
+      this.shouldCloseConnection = true;
     } catch (error) {
       console.error('\u274c MongoDB connection error:', error.message);
       throw error;
@@ -220,11 +228,7 @@ class NGODataSyncer {
     console.log('='.repeat(60) + '\n');
 
     if (this.stats.exported > 0) {
-      console.log('\u2705 Sync completed successfully!');
-      console.log(`\n\ud83d\udd04 Next steps:`);
-      console.log(`   1. Restart your AI service to pick up the new data`);
-      console.log(`   2. Run clustering: python ai_service/services/clustering.py`);
-      console.log(`   3. Test clustering endpoint: GET /api/ai/clusters\n`);
+      console.log('\u2705 Sync completed successfully!\n');
     } else {
       console.warn('\u26a0\ufe0f  No NGOs were exported. Check your data and try again.\n');
     }
@@ -235,11 +239,7 @@ class NGODataSyncer {
    */
   async sync() {
     try {
-      console.log('\n' + '='.repeat(60));
-      console.log('\ud83d\udd04 NGO DATA SYNC - MongoDB to CSV');
-      console.log('='.repeat(60) + '\n');
-
-      // Connect to database
+      // Connect to database (reuses existing connection if available)
       await this.connect();
 
       // Create backup of existing CSV
@@ -249,10 +249,9 @@ class NGODataSyncer {
       const ngos = await this.fetchNGOs();
 
       // Transform to CSV format
-      console.log('\ud83d\udd04 Transforming data to CSV format...');
       const ngoData = ngos
         .map(ngo => this.transformToCSV(ngo))
-        .filter(row => row !== null); // Remove nulls (skipped entries)
+        .filter(row => row !== null);
 
       console.log(`   \u2705 Transformed ${ngoData.length} NGOs\n`);
 
@@ -266,26 +265,40 @@ class NGODataSyncer {
       // Print summary
       this.printStats();
 
-      // Close database connection
-      await mongoose.connection.close();
-      console.log('\ud83d\udd0c Database connection closed\n');
+      // Only close connection if we opened it
+      if (this.shouldCloseConnection) {
+        await mongoose.connection.close();
+        console.log('\ud83d\udd0c Database connection closed\n');
+      }
+
+      return { success: true, exported: this.stats.exported };
 
     } catch (error) {
       console.error('\n\u274c SYNC FAILED:', error.message);
-      console.error(error.stack);
-      await mongoose.connection.close();
-      process.exit(1);
+      
+      // Only close connection if we opened it
+      if (this.shouldCloseConnection && mongoose.connection.readyState === 1) {
+        await mongoose.connection.close();
+      }
+      
+      throw error;
     }
   }
 }
 
-// Always run when script is executed
-const syncer = new NGODataSyncer();
-syncer.sync().then(() => {
-  process.exit(0);
-}).catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+// ONLY run when executed directly (not when imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log('\n' + '='.repeat(60));
+  console.log('\ud83d\udd04 NGO DATA SYNC - MongoDB to CSV');
+  console.log('='.repeat(60) + '\n');
+  
+  const syncer = new NGODataSyncer();
+  syncer.sync().then(() => {
+    process.exit(0);
+  }).catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}
 
 export default NGODataSyncer;
