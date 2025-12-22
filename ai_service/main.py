@@ -6,6 +6,7 @@ import uvicorn
 import os
 import sys
 import pandas as pd
+import pickle
 
 
 # Import services
@@ -23,8 +24,8 @@ sys.path.append(ROOT_DIR)
 
 app = FastAPI(
     title="Rewearify AI Service",
-    description="AI-powered fraud detection, smart suggestions, NGO matching, and recommendations",
-    version="5.0.0"
+    description="AI-powered fraud detection, smart suggestions, NGO matching, clustering, and recommendations",
+    version="6.0.0"
 )
 
 
@@ -43,12 +44,13 @@ fraud_detector = None
 matcher = None
 recommender = None
 forecaster = None
+cluster_stats = None  # NEW: Clustering data
 
 
 @app.on_event("startup")
 async def startup_event():
     """Load AI services on startup"""
-    global fraud_detector, matcher, recommender, forecaster
+    global fraud_detector, matcher, recommender, forecaster, cluster_stats
     
     print("🚀 Initializing AI Services...")
     
@@ -85,6 +87,22 @@ async def startup_event():
         except Exception as rec_error:
             print(f"⚠️ Recommendation engine failed to load: {rec_error}")
             recommender = None
+        
+        # NEW: Load clustering data
+        try:
+            models_path = os.path.join(ROOT_DIR, "ai_service", "models")
+            cluster_stats_path = os.path.join(models_path, "cluster_stats.pkl")
+            
+            if os.path.exists(cluster_stats_path):
+                with open(cluster_stats_path, 'rb') as f:
+                    cluster_stats = pickle.load(f)
+                print(f"✅ Clustering data loaded: {len(cluster_stats)} clusters")
+            else:
+                print("⚠️ No clustering data found. Run clustering.py first.")
+                cluster_stats = {}
+        except Exception as cluster_error:
+            print(f"⚠️ Clustering data failed to load: {cluster_error}")
+            cluster_stats = {}
         
         print("\n✅ All services ready!")
         
@@ -168,14 +186,15 @@ def read_root():
     return {
         "status": "running",
         "service": "Rewearify AI",
-        "version": "5.0.0",
+        "version": "6.0.0",
         "services": {
             "fraud_detection": "operational" if fraud_detector and fraud_detector.is_trained else "not_trained",
             "smart_suggestions": "operational",
             "ngo_matching": "operational" if matcher else "unavailable",
             "request_matching": "operational" if matcher else "unavailable",
             "forecasting": "operational" if forecaster else "unavailable",
-            "recommendations": "operational" if recommender else "unavailable"
+            "recommendations": "operational" if recommender else "unavailable",
+            "clustering": "operational" if cluster_stats else "unavailable"
         },
         "endpoints": {
             "fraud_check": "/api/ai/check-fraud",
@@ -183,7 +202,8 @@ def read_root():
             "ngo_matching": "/api/ai/match-donations",
             "request_matching": "/match-requests",
             "forecasting": "/forecast",
-            "recommendations_hybrid": "/recommendations/hybrid"
+            "recommendations_hybrid": "/recommendations/hybrid",
+            "clustering": "/clusters"
         }
     }
 
@@ -211,8 +231,70 @@ def health_check():
         "recommender": {
             "loaded": recommender is not None,
             "donors_profiled": len(recommender.donor_profiles) if recommender else 0
+        },
+        "clustering": {
+            "loaded": cluster_stats is not None,
+            "total_clusters": len(cluster_stats) if cluster_stats else 0
         }
     }
+
+
+# ==================== NEW: CLUSTERING ENDPOINTS ====================
+
+
+@app.get("/clusters")
+def get_clusters():
+    """Get all NGO clusters"""
+    if cluster_stats is None or len(cluster_stats) == 0:
+        raise HTTPException(
+            status_code=503, 
+            detail="Clustering data not available. Run clustering.py first."
+        )
+    
+    try:
+        print(f"\n📊 Fetching {len(cluster_stats)} clusters")
+        
+        return {
+            "success": True,
+            "clusters": cluster_stats,
+            "total_clusters": len(cluster_stats),
+            "clustering_algorithm": "Two-Stage (DBSCAN + KMeans)"
+        }
+    
+    except Exception as e:
+        print(f"❌ Clustering error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Clustering error: {str(e)}")
+
+
+@app.get("/clusters/{cluster_id}")
+def get_cluster_details(cluster_id: str):
+    """Get details for a specific cluster"""
+    if cluster_stats is None or len(cluster_stats) == 0:
+        raise HTTPException(
+            status_code=503, 
+            detail="Clustering data not available. Run clustering.py first."
+        )
+    
+    if cluster_id not in cluster_stats:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cluster '{cluster_id}' not found"
+        )
+    
+    try:
+        print(f"\n🎯 Fetching details for cluster: {cluster_id}")
+        
+        return {
+            "success": True,
+            "cluster": cluster_stats[cluster_id]
+        }
+    
+    except Exception as e:
+        print(f"❌ Cluster details error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# ==================== END CLUSTERING ENDPOINTS ====================
 
 
 # --- Fraud Detection ---
@@ -607,7 +689,7 @@ def get_popular_ngos(limit: int = 10):
 
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 Starting Rewearify AI Service v5.0")
+    print("🚀 Starting Rewearify AI Service v6.0")
     print("="*60)
     print("\n📍 API Documentation: http://localhost:8000/docs")
     print("📍 Health Check: http://localhost:8000/health")
@@ -615,11 +697,12 @@ if __name__ == "__main__":
     print("   ✅ Fraud Detection - /api/ai/check-fraud")
     print("   ✅ Smart Suggestions - /analyze-donation")
     print("   ✅ NGO Matching - /api/ai/match-donations")
-    print("   ✅ Request Matching - /match-requests (NEW)")
+    print("   ✅ Request Matching - /match-requests")
     print("   ✅ Demand Forecasting - /forecast")
     print("   ✅ Seasonal Trends - /seasonal-trends/{type}")
     print("   ✅ Supply Gap Analysis - /supply-gap")
     print("   ✅ NGO Recommendations - /recommendations/hybrid")
+    print("   ✅ NGO Clustering - /clusters (NEW)")
     print("\n" + "="*60 + "\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
