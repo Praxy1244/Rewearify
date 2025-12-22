@@ -20,7 +20,8 @@ import User from '../models/User.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '../../../.env') });
+// Load environment variables from backend/.env
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Sample location data for Karnataka cities
 const SAMPLE_LOCATIONS = [
@@ -103,11 +104,12 @@ class NGOLocationFixer {
   async connect() {
     try {
       const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify';
-      console.log('\n🔌 Connecting to MongoDB...');
+      console.log('\n\ud83d\udd0c Connecting to MongoDB...');
+      console.log(`   URI: ${mongoURI.replace(/:\/\/([^:]+):([^@]+)@/, '://*****:*****@')}`);
       await mongoose.connect(mongoURI);
-      console.log('✅ Connected to MongoDB\n');
+      console.log('\u2705 Connected to MongoDB\n');
     } catch (error) {
-      console.error('❌ MongoDB connection error:', error.message);
+      console.error('\u274c MongoDB connection error:', error.message);
       throw error;
     }
   }
@@ -115,58 +117,59 @@ class NGOLocationFixer {
   async fixNGOLocations() {
     try {
       console.log('============================================================');
-      console.log('🔧 FIXING NGO LOCATIONS & CLUSTERING DATA');
+      console.log('\ud83d\udd27 FIXING NGO LOCATIONS & CLUSTERING DATA');
       console.log('============================================================\n');
 
       // Fetch all recipient users
-      console.log('📊 Fetching recipient users...');
+      console.log('\ud83d\udcca Fetching recipient users...');
       const recipients = await User.find({ role: 'recipient' });
       
       this.stats.total = recipients.length;
       console.log(`   Found ${recipients.length} recipient users\n`);
 
       if (recipients.length === 0) {
-        console.log('⚠️  No recipient users found!\n');
+        console.log('\u26a0\ufe0f  No recipient users found!\n');
         return;
       }
 
-      console.log('🔄 Updating NGO data...\n');
+      console.log('\ud83d\udd04 Updating NGO data...\n');
 
-      // Update each NGO
+      // Update each NGO using direct update to bypass geocoding middleware
       for (let i = 0; i < recipients.length; i++) {
         const ngo = recipients[i];
         const locationData = SAMPLE_LOCATIONS[i % SAMPLE_LOCATIONS.length];
         const profileData = SAMPLE_PROFILES[i % SAMPLE_PROFILES.length];
 
         try {
-          // Update location
-          ngo.location = {
-            address: `${i + 1}, Sample Street, ${locationData.city}`,
-            city: locationData.city,
-            state: locationData.state,
-            country: locationData.country,
-            zipCode: locationData.zipCode,
-            coordinates: {
-              type: 'Point',
-              coordinates: locationData.coordinates
-            }
-          };
+          // Use findByIdAndUpdate to bypass pre-save hooks that might interfere
+          await User.findByIdAndUpdate(
+            ngo._id,
+            {
+              $set: {
+                'location.address': `${i + 1}, Sample Street, ${locationData.city}`,
+                'location.city': locationData.city,
+                'location.state': locationData.state,
+                'location.country': locationData.country,
+                'location.zipCode': locationData.zipCode,
+                'location.coordinates': {
+                  type: 'Point',
+                  coordinates: locationData.coordinates
+                },
+                'recipientProfile.specialFocus': profileData.specialFocus,
+                'recipientProfile.capacityPerWeek': profileData.capacityPerWeek,
+                'recipientProfile.urgentNeed': profileData.urgentNeed,
+                'recipientProfile.cause': profileData.cause,
+                'recipientProfile.operatingHours': profileData.operatingHours,
+                'recipientProfile.preferredDays': profileData.preferredDays,
+                'organization.name': ngo.organization?.name || ngo.name,
+                'organization.type': 'NGO',
+                'organization.registrationNumber': ngo.organization?.registrationNumber || `REG${Date.now()}${i}`
+              }
+            },
+            { new: true, runValidators: false } // Skip validators to avoid geocoding
+          );
 
-          // Update recipient profile
-          ngo.recipientProfile = profileData;
-
-          // Set organization data if missing
-          if (!ngo.organization || !ngo.organization.name) {
-            ngo.organization = {
-              name: ngo.name,
-              type: 'NGO',
-              registrationNumber: `REG${Date.now()}${i}`
-            };
-          }
-
-          await ngo.save();
-
-          console.log(`✅ Updated: ${ngo.name}`);
+          console.log(`\u2705 Updated: ${ngo.name}`);
           console.log(`   Location: ${locationData.city}, Karnataka`);
           console.log(`   Coordinates: [${locationData.coordinates.join(', ')}]`);
           console.log(`   Capacity: ${profileData.capacityPerWeek} items/week`);
@@ -176,7 +179,7 @@ class NGOLocationFixer {
 
           this.stats.updated++;
         } catch (error) {
-          console.error(`❌ Error updating ${ngo.name}:`, error.message);
+          console.error(`\u274c Error updating ${ngo.name}:`, error.message);
           this.stats.errors++;
         }
       }
@@ -184,14 +187,14 @@ class NGOLocationFixer {
       this.printSummary();
 
     } catch (error) {
-      console.error('❌ Error fixing locations:', error.message);
+      console.error('\u274c Error fixing locations:', error.message);
       throw error;
     }
   }
 
   printSummary() {
     console.log('\n' + '='.repeat(60));
-    console.log('📊 UPDATE SUMMARY');
+    console.log('\ud83d\udcca UPDATE SUMMARY');
     console.log('='.repeat(60));
     console.log(`Total NGOs:              ${this.stats.total}`);
     console.log(`Successfully updated:    ${this.stats.updated}`);
@@ -200,8 +203,8 @@ class NGOLocationFixer {
     console.log('='.repeat(60) + '\n');
 
     if (this.stats.updated > 0) {
-      console.log('✅ NGO locations fixed successfully!\n');
-      console.log('🔄 Next steps:');
+      console.log('\u2705 NGO locations fixed successfully!\n');
+      console.log('\ud83d\udd04 Next steps:');
       console.log('   1. Run: npm run sync:ngos');
       console.log('   2. Verify CSV file created with valid coordinates');
       console.log('   3. Test clustering feature\n');
@@ -213,10 +216,10 @@ class NGOLocationFixer {
       await this.connect();
       await this.fixNGOLocations();
       await mongoose.connection.close();
-      console.log('🔌 Database connection closed\n');
+      console.log('\ud83d\udd0c Database connection closed\n');
       process.exit(0);
     } catch (error) {
-      console.error('\n❌ Script failed:', error);
+      console.error('\n\u274c Script failed:', error);
       await mongoose.connection.close();
       process.exit(1);
     }
