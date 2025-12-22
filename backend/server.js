@@ -27,6 +27,7 @@ import aiRoutes from './src/routes/ai.js';
 import publicRoutes from './src/routes/public.js';
 import recommendationRoutes from './src/routes/recommendations.js';
 import matchingRoutes from './src/routes/matching.js';
+import clusteringRoutes from './src/routes/clustering.js';
 
 
 
@@ -115,6 +116,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/matching', matchingRoutes);
+app.use('/api/clustering', clusteringRoutes);
 
 
 
@@ -156,4 +158,3 @@ server.listen(PORT, () => {
 };
 
 startServer();
-
