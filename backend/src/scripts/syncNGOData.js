@@ -9,7 +9,7 @@
  *   node backend/src/scripts/syncNGOData.js
  * 
  * Or from package.json:
- *   npm run sync-ngos
+ *   npm run sync:ngos
  */
 
 import mongoose from 'mongoose';
@@ -47,6 +47,7 @@ class NGODataSyncer {
     try {
       const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rewearify';
       console.log('🔌 Connecting to MongoDB...');
+      console.log(`   URI: ${mongoURI.replace(/:\/\/([^:]+):([^@]+)@/, '://*****:*****@')}`);
       await mongoose.connect(mongoURI);
       console.log('✅ Connected to MongoDB\n');
     } catch (error) {
@@ -152,6 +153,7 @@ class NGODataSyncer {
       const dataDir = path.dirname(OUTPUT_PATH);
       if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
+        console.log(`   Created directory: ${dataDir}`);
       }
 
       // Create CSV header
@@ -268,20 +270,19 @@ class NGODataSyncer {
     } catch (error) {
       console.error('\n❌ SYNC FAILED:', error.message);
       console.error(error.stack);
+      await mongoose.connection.close();
       process.exit(1);
     }
   }
 }
 
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const syncer = new NGODataSyncer();
-  syncer.sync().then(() => {
-    process.exit(0);
-  }).catch(error => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
-}
+// Always run when script is executed
+const syncer = new NGODataSyncer();
+syncer.sync().then(() => {
+  process.exit(0);
+}).catch(error => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
 
 export default NGODataSyncer;
