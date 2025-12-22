@@ -6,6 +6,8 @@ export { default as userService } from './userService';
 export { default as aiService } from './aiService';
 export { default as adminService } from './adminService';
 export { default as notificationService } from './notificationService';
+export { default as matchingService } from './matchingService';
+
 
 // Re-export for convenience
 import authService from './authService';

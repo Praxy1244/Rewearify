@@ -79,6 +79,7 @@ import SelectRole from "./pages/auth/SelectRole";
 import FraudDetection from './pages/admin/FraudDetection';
 import Forecasting from './pages/admin/Forecasting';
 import LogisticsDashboard from './pages/admin/LogisticsDashboard'; // 1. Import the page
+import PublicDonationDetails from './pages/PublicDonationDetails';
 
 
 
@@ -294,6 +295,7 @@ function AppContent() {
               </ProtectedRoute>
             } 
           />
+          <Route path="/donations/:id" element={<PublicDonationDetails />} />
         </Routes>
       </main>
 

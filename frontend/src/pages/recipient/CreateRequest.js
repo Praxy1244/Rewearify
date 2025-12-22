@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/button';
@@ -7,9 +7,11 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { Badge } from '../../components/ui/badge';
+import { ArrowLeft, Save, AlertCircle, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestService } from '../../services';
+import aiService from '../../services/aiService';
 
 // Category mapping (same as donation form)
 const categoryMap = {
@@ -51,6 +53,16 @@ const CreateRequest = () => {
 
   const [subcategoryOptions, setSubcategoryOptions] = useState([]);
 
+  // ✅ NEW: AI Suggestions State
+  const [aiSuggestions, setAISuggestions] = useState({
+    titles: [],
+    descriptions: [],
+    subcategories: [],
+    tags: []
+  });
+  const [fetchingSuggestions, setFetchingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const categories = [
     { value: 'outerwear', label: 'Outerwear & Coats' },
     { value: 'formal', label: 'Formal & Business' },
@@ -88,6 +100,44 @@ const CreateRequest = () => {
     }
     setFormData(prev => ({ ...prev, subcategory: '' }));
   }, [formData.category]);
+
+  // ✅ NEW: Fetch AI Suggestions when category changes
+useEffect(() => {
+    const fetchAISuggestions = async () => {
+      if (!formData.category) {
+        setAISuggestions({ titles: [], descriptions: [], subcategories: [], tags: [] });
+        return;
+      }
+
+      setFetchingSuggestions(true);
+      try {
+        // ✅ UPDATED: Pass mode: 'request'
+        const response = await aiService.analyzeDonation({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          condition: 'good',
+          mode: 'request'  // ✅ THIS IS THE KEY CHANGE
+        });
+        
+        if (response.success && response.data && response.data.suggestions) {
+          setAISuggestions(response.data.suggestions);
+          setShowSuggestions(true);
+        }
+      } catch (error) {
+        console.error("AI Suggestion error:", error);
+      } finally {
+        setFetchingSuggestions(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchAISuggestions();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.category]);
+
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -130,95 +180,183 @@ const CreateRequest = () => {
     return true;
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!validateForm()) return;
+    if (!validateForm()) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    // ✅ Format sizes as array of objects
-    const formattedSizes = formData.sizes.length > 0 
-      ? formData.sizes.map(size => ({
-          size: size,
-          quantity: Math.floor(formData.quantityNeeded / formData.sizes.length) || 1
-        }))
-      : [{ size: 'Various', quantity: formData.quantityNeeded }];
+    try {
+      // Format sizes as array of objects
+      const formattedSizes = formData.sizes.length > 0 
+        ? formData.sizes.map(size => ({
+            size: size,
+            quantity: Math.floor(formData.quantityNeeded / formData.sizes.length) || 1
+          }))
+        : [{ size: 'Various', quantity: formData.quantityNeeded }];
 
-    // ✅ Calculate deadline (default to 30 days if not provided)
-    const neededByDate = formData.deadline 
-      ? new Date(formData.deadline)
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      // Calculate deadline (default to 30 days if not provided)
+      const neededByDate = formData.deadline 
+        ? new Date(formData.deadline)
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    // ✅ Map to backend expected structure
-    const requestPayload = {
-      title: formData.title.trim(),
-      description: formData.description.trim(),
-      category: formData.category,
-      subcategory: formData.subcategory,
-      urgency: formData.urgency,
-      quantity: formData.quantityNeeded,
-      sizes: formattedSizes,
-      condition: {
-        acceptable: formData.preferredConditions,
-        minimum: formData.preferredConditions.includes('fair') ? 'fair' : 'good'
-      },
-      beneficiaries: {
-        count: formData.beneficiaries,
-        ageGroup: 'mixed',
-        gender: 'mixed'
-      },
-      location: {
-        address: user?.location?.address || 'Not specified',
-        city: user?.location?.city || 'Not specified',
-        state: user?.location?.state || 'Not specified',
-        country: user?.location?.country || 'India',
-        coordinates: user?.location?.coordinates || {
-          type: 'Point',
-          coordinates: [0, 0]
+      // Map to backend expected structure
+      const requestPayload = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        subcategory: formData.subcategory,
+        urgency: formData.urgency,
+        quantity: formData.quantityNeeded,
+        sizes: formattedSizes,
+        condition: {
+          acceptable: formData.preferredConditions,
+          minimum: formData.preferredConditions.includes('fair') ? 'fair' : 'good'
+        },
+        beneficiaries: {
+          count: formData.beneficiaries,
+          ageGroup: 'mixed',
+          gender: 'mixed'
+        },
+        location: {
+          address: user?.location?.address || 'Not specified',
+          city: user?.location?.city || 'Not specified',
+          state: user?.location?.state || 'Not specified',
+          country: user?.location?.country || 'India',
+          coordinates: user?.location?.coordinates || {
+            type: 'Point',
+            coordinates: [0, 0]
+          }
+        },
+        timeline: {
+          neededBy: neededByDate,
+          flexible: !formData.deadline
+        },
+        logistics: {
+          canPickup: true,
+          pickupRadius: 25,
+          needsDelivery: false,
+          hasTransport: false
         }
-      },
-      timeline: {
-        neededBy: neededByDate,
-        flexible: !formData.deadline // If no deadline specified, it's flexible
-      },
-      logistics: {
-        canPickup: true,
-        pickupRadius: 25,
-        needsDelivery: false,
-        hasTransport: false
+      };
+
+      console.log('Sending request payload:', requestPayload);
+
+      const response = await requestService.createRequest(requestPayload);
+
+      if (response.success) {
+        toast.success('Request created successfully!');
+        navigate('/recipient/my-requests');
+      } else {
+        toast.error(response.message || 'Failed to create request');
       }
-    };
-
-    console.log('Sending request payload:', requestPayload);
-
-    const response = await requestService.createRequest(requestPayload);
-
-    if (response.success) {
-      toast.success('Request created successfully!');
-      navigate('/recipient/my-requests');
-    } else {
-      toast.error(response.message || 'Failed to create request');
+    } catch (error) {
+      console.error('Create request error:', error);
+      
+      if (error.errors && Array.isArray(error.errors)) {
+        error.errors.forEach(err => {
+          toast.error(`${err.field}: ${err.message}`);
+        });
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error(error.message || 'Failed to create request');
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Create request error:', error);
+  };
+
+  // ✅ NEW: Render AI Suggestion Components
+  const renderTitleSuggestions = () => {
+    if (!showSuggestions || aiSuggestions.titles.length === 0) return null;
+    return (
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-3 w-3 text-purple-600" />
+          <span className="text-xs text-purple-600 font-medium">AI Suggestions:</span>
+          {fetchingSuggestions && <span className="text-xs text-gray-500">(loading...)</span>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {aiSuggestions.titles.map((suggestion, idx) => (
+            <Button
+              key={idx}
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleInputChange('title', suggestion)}
+              className="text-xs h-7 px-2 hover:bg-purple-50 hover:border-purple-300"
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDescriptionSuggestions = () => {
+    if (!showSuggestions || aiSuggestions.descriptions.length === 0) return null;
+    return (
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-3 w-3 text-purple-600" />
+          <span className="text-xs text-purple-600 font-medium">AI Suggestions:</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {aiSuggestions.descriptions.map((suggestion, idx) => (
+            <Button
+              key={idx}
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleInputChange('description', suggestion)}
+              className="text-xs h-auto py-1 px-2 whitespace-normal text-left hover:bg-purple-50 hover:border-purple-300"
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSubcategorySuggestions = () => {
+    if (!showSuggestions || aiSuggestions.subcategories.length === 0) return null;
     
-    // ✅ Handle validation errors
-    if (error.errors && Array.isArray(error.errors)) {
-      error.errors.forEach(err => {
-        toast.error(`${err.field}: ${err.message}`);
-      });
-    } else if (error.response?.data?.message) {
-      toast.error(error.response.data.message);
-    } else {
-      toast.error(error.message || 'Failed to create request');
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
+    // Filter suggestions to only show ones that exist in dropdown
+    const validSuggestions = aiSuggestions.subcategories.filter(suggestion =>
+      subcategoryOptions.includes(suggestion)
+    );
+    
+    if (validSuggestions.length === 0) return null;
+    
+    return (
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-3 w-3 text-purple-600" />
+          <span className="text-xs text-purple-600 font-medium">Suggested sub-categories:</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {validSuggestions.map((suggestion, idx) => (
+            <Badge
+              key={idx}
+              variant="secondary"
+              className="cursor-pointer hover:bg-purple-100"
+              onClick={() => {
+                if (subcategoryOptions.includes(suggestion)) {
+                  handleInputChange('subcategory', suggestion);
+                }
+              }}
+            >
+              {suggestion}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -232,7 +370,10 @@ const handleSubmit = async (e) => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Create New Request</h1>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            Create New Request
+            <Sparkles className="h-6 w-6 text-purple-600" />
+          </h1>
           <p className="text-gray-600 mt-2">Let donors know what items you need for your beneficiaries</p>
         </div>
 
@@ -253,6 +394,7 @@ const handleSubmit = async (e) => {
                   className="mt-1"
                   required
                 />
+                {renderTitleSuggestions()}
               </div>
 
               {/* Description */}
@@ -267,6 +409,7 @@ const handleSubmit = async (e) => {
                   className="mt-1"
                   required
                 />
+                {renderDescriptionSuggestions()}
               </div>
 
               {/* Category and Subcategory */}
@@ -305,6 +448,7 @@ const handleSubmit = async (e) => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {renderSubcategorySuggestions()}
                 </div>
               </div>
 

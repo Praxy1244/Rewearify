@@ -1,27 +1,32 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
 import sys
 import pandas as pd
 
+
 # Import services
 from services.fraud_detection import FraudDetector
 from services.suggestions import generate_smart_suggestions
 from services.matching import DonationMatcher
 from services.recommendations import initialize_recommendation_engine
+from services.forecasting import DemandForecaster
+
 
 # Setup paths
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
 
+
 app = FastAPI(
     title="Rewearify AI Service",
     description="AI-powered fraud detection, smart suggestions, NGO matching, and recommendations",
-    version="4.0.0"
+    version="5.0.0"
 )
+
 
 # Enable CORS
 app.add_middleware(
@@ -32,15 +37,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Global services
 fraud_detector = None
 matcher = None
 recommender = None
+forecaster = None
+
 
 @app.on_event("startup")
 async def startup_event():
     """Load AI services on startup"""
-    global fraud_detector, matcher, recommender
+    global fraud_detector, matcher, recommender, forecaster
     
     print("🚀 Initializing AI Services...")
     
@@ -55,31 +63,39 @@ async def startup_event():
         
         # Initialize NGO matcher
         matcher = DonationMatcher()
-        print(f"✅ NGO Matcher loaded with {len(matcher.ngos_df)} NGOs")
+        print(f"✅ NGO Matcher loaded")
         
-        # ✅ TRY to initialize recommendation engine, but don't fail if it errors
+        # Initialize forecaster
+        try:
+            forecaster = DemandForecaster()
+            forecaster.is_trained = True
+            print("✅ Demand forecaster loaded")
+        except Exception as forecast_error:
+            print(f"⚠️ Forecaster failed to load: {forecast_error}")
+            forecaster = None
+        
+        # Initialize recommendation engine
         try:
             data_path = os.path.join(ROOT_DIR, "data")
             ngos_df = pd.read_csv(os.path.join(data_path, "ngos.csv"))
             donations_df = pd.read_csv(os.path.join(data_path, "donations.csv"))
             
-            print(f"📊 Donations CSV columns: {donations_df.columns.tolist()}")
-            
             recommender = initialize_recommendation_engine(ngos_df, donations_df)
             print(f"✅ Recommendation engine loaded")
         except Exception as rec_error:
             print(f"⚠️ Recommendation engine failed to load: {rec_error}")
-            print("   Continuing without recommendations (matching still works)")
             recommender = None
         
-        print("\n✅ Core services ready!")
+        print("\n✅ All services ready!")
         
     except Exception as e:
         print(f"❌ Error loading core services: {e}")
         import traceback
         traceback.print_exc()
 
+
 # --- Data Models ---
+
 
 class FraudCheckRequest(BaseModel):
     donor_id: str
@@ -87,11 +103,14 @@ class FraudCheckRequest(BaseModel):
     donor_data: Dict[str, Any]
     model_name: str = Field(default="random_forest")
 
+
 class SmartSuggestionRequest(BaseModel):
     category: str
     condition: str
     title: Optional[str] = ""
     description: Optional[str] = ""
+    mode: Optional[str] = "donation"  # ✅ "donation" or "request"
+
 
 class DonationMatchRequest(BaseModel):
     donation_id: Optional[str] = "NEW"
@@ -103,33 +122,71 @@ class DonationMatchRequest(BaseModel):
     description: Optional[str] = ""
     max_distance: Optional[int] = 50
 
+
+class RequestMatchRequest(BaseModel):
+    requestId: str
+    category: str
+    quantity: int = Field(..., gt=0)
+    urgency: str = "medium"
+    latitude: float
+    longitude: float
+    description: Optional[str] = ""
+    max_distance: Optional[int] = 50
+    maxMatches: Optional[int] = 5
+
+
+class MatchingRequest(BaseModel):
+    """NEW: For donation-request matching"""
+    donation: dict
+    requests: list
+
+
+class ForecastRequest(BaseModel):
+    clothing_type: str
+    city: str
+    periods: Optional[int] = 30
+
+
+class SupplyGapRequest(BaseModel):
+    clothing_type: str
+    city: str
+    current_supply: int
+    periods: Optional[int] = 30
+
+
 class HybridRecommendationRequest(BaseModel):
     donor_id: str
     location: Optional[str] = None
     limit: Optional[int] = 10
 
+
 # --- Root & Health Endpoints ---
+
 
 @app.get("/")
 def read_root():
     return {
         "status": "running",
         "service": "Rewearify AI",
-        "version": "4.0.0",
+        "version": "5.0.0",
         "services": {
             "fraud_detection": "operational" if fraud_detector and fraud_detector.is_trained else "not_trained",
             "smart_suggestions": "operational",
-            "ngo_matching": "operational" if matcher and not matcher.ngos_df.empty else "no_data",
+            "ngo_matching": "operational" if matcher else "unavailable",
+            "request_matching": "operational" if matcher else "unavailable",
+            "forecasting": "operational" if forecaster else "unavailable",
             "recommendations": "operational" if recommender else "unavailable"
         },
         "endpoints": {
             "fraud_check": "/api/ai/check-fraud",
             "smart_suggestions": "/analyze-donation",
             "ngo_matching": "/api/ai/match-donations",
-            "recommendations_hybrid": "/recommendations/hybrid",
-            "recommendations_popular": "/recommendations/popular"
+            "request_matching": "/match-requests",
+            "forecasting": "/forecast",
+            "recommendations_hybrid": "/recommendations/hybrid"
         }
     }
+
 
 @app.get("/health")
 def health_check():
@@ -143,9 +200,13 @@ def health_check():
             "loaded": True,
             "status": "operational"
         },
-        "ngo_matcher": {
+        "matcher": {
             "loaded": matcher is not None,
-            "ngos_loaded": len(matcher.ngos_df) if matcher and not matcher.ngos_df.empty else 0
+            "status": "operational" if matcher else "unavailable"
+        },
+        "forecaster": {
+            "loaded": forecaster is not None,
+            "models_trained": len(forecaster.models) if forecaster else 0
         },
         "recommender": {
             "loaded": recommender is not None,
@@ -153,7 +214,9 @@ def health_check():
         }
     }
 
+
 # --- Fraud Detection ---
+
 
 @app.post("/api/ai/check-fraud")
 def check_fraud(request: FraudCheckRequest):
@@ -198,16 +261,19 @@ def check_fraud(request: FraudCheckRequest):
         print(f"❌ Fraud detection error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Fraud detection error: {str(e)}")
 
+
 # --- Smart Suggestions ---
+
 
 def _generate_suggestions(request: SmartSuggestionRequest):
     try:
-        print(f"\n💡 Smart suggestions: {request.category}, {request.condition}")
+        print(f"\n💡 Smart suggestions [{request.mode}]: {request.category}, {request.condition}")
         
         suggestions = generate_smart_suggestions(
             category=request.category,
             condition=request.condition,
-            context=f"{request.title} {request.description}".strip()
+            context=f"{request.title} {request.description}".strip(),
+            mode=request.mode
         )
         
         print(f"✅ Generated {len(suggestions['titles'])} suggestions")
@@ -223,20 +289,24 @@ def _generate_suggestions(request: SmartSuggestionRequest):
         print(f"❌ Smart suggestions error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+
 @app.post("/api/ai/analyze-donation")
 def analyze_donation_full(request: SmartSuggestionRequest):
     return _generate_suggestions(request)
+
 
 @app.post("/analyze-donation")
 def analyze_donation_short(request: SmartSuggestionRequest):
     return _generate_suggestions(request)
 
+
 # --- NGO Matching (Donation-Specific) ---
+
 
 @app.post("/api/ai/match-donations")
 def match_donations(request: DonationMatchRequest):
-    """Find NGOs that can ACCEPT this specific donation"""
-    if not matcher or matcher.ngos_df is None or matcher.ngos_df.empty:
+    """Find NGOs that can ACCEPT this specific donation (LEGACY)"""
+    if not matcher:
         raise HTTPException(status_code=503, detail="Matching service not available")
     
     try:
@@ -274,50 +344,214 @@ def match_donations(request: DonationMatchRequest):
         print(f"❌ Matching error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Matching error: {str(e)}")
 
+
+# ==================== NEW: DONATION-REQUEST MATCHING ====================
+
+
+@app.post("/match-requests")
+async def match_requests(data: MatchingRequest):
+    """Find best REQUEST matches for a donation"""
+    if not matcher:
+        raise HTTPException(status_code=503, detail="Matching service not available")
+    
+    try:
+        print(f"\n🔍 Finding request matches for donation: {data.donation.get('title', 'Untitled')}")
+        
+        matches = matcher.find_matches_for_request(
+            donation=data.donation,
+            requests=data.requests,
+            max_matches=5
+        )
+        
+        print(f"✅ Found {len(matches)} matches")
+        
+        return {
+            "success": True,
+            "data": {
+                "matches": matches,
+                "total_matches": len(matches)
+            }
+        }
+    
+    except Exception as e:
+        print(f"❌ Matching error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Matching failed: {str(e)}")
+
+
+# --- Placeholder for Old Endpoint (backward compatibility) ---
+
+
+@app.post("/find-matches")
+def find_donation_matches(request: RequestMatchRequest):
+    """DEPRECATED: Use /match-requests instead"""
+    return {
+        "success": False,
+        "message": "This endpoint is deprecated. Use /match-requests with full donation and request data.",
+        "requestId": request.requestId,
+        "matches": []
+    }
+
+
+# --- Forecasting Endpoints ---
+
+
+@app.post("/forecast")
+def get_forecast(request: ForecastRequest):
+    """Get demand forecast for specific category and city"""
+    if not forecaster:
+        raise HTTPException(status_code=503, detail="Forecasting service not available")
+    
+    try:
+        print(f"\n📈 Forecast request: {request.clothing_type} in {request.city}")
+        
+        summary = forecaster.get_forecast_summary(
+            clothing_type=request.clothing_type,
+            city=request.city,
+            periods=request.periods
+        )
+        
+        if not summary:
+            return {
+                "success": False,
+                "error": "Insufficient data for forecast",
+                "message": f"Not enough historical data for {request.clothing_type} in {request.city}"
+            }
+        
+        print(f"✅ Forecast generated: {summary['total_predicted_demand']} items over {request.periods} days")
+        
+        return {
+            "success": True,
+            "data": summary
+        }
+        
+    except Exception as e:
+        print(f"❌ Forecasting error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Forecasting error: {str(e)}")
+
+
+@app.get("/seasonal-trends/{clothing_type}")
+def get_seasonal_trends(clothing_type: str):
+    """Get seasonal trends for a clothing category"""
+    if not forecaster:
+        raise HTTPException(status_code=503, detail="Forecasting service not available")
+    
+    try:
+        print(f"\n📊 Seasonal trends request: {clothing_type}")
+        
+        trends = forecaster.get_seasonal_trends(clothing_type)
+        
+        if not trends:
+            return {
+                "success": False,
+                "error": "No data available",
+                "message": f"No historical data for {clothing_type}"
+            }
+        
+        print(f"✅ Trends generated: {trends['total_donations']} total donations")
+        
+        return {
+            "success": True,
+            "data": trends
+        }
+        
+    except Exception as e:
+        print(f"❌ Trends error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Trends error: {str(e)}")
+
+
+@app.post("/supply-gap")
+def analyze_supply_gap(request: SupplyGapRequest):
+    """Analyze supply-demand gap"""
+    if not forecaster:
+        raise HTTPException(status_code=503, detail="Forecasting service not available")
+    
+    try:
+        print(f"\n⚖️ Supply gap analysis: {request.clothing_type} in {request.city}")
+        
+        # Get forecast first
+        forecast = forecaster.forecast(
+            clothing_type=request.clothing_type,
+            city=request.city,
+            periods=request.periods
+        )
+        
+        if forecast is None:
+            return {
+                "success": False,
+                "error": "Cannot generate forecast",
+                "message": f"Insufficient data for {request.clothing_type} in {request.city}"
+            }
+        
+        # Analyze gap
+        gap_analysis = forecaster.detect_supply_gap(forecast, request.current_supply)
+        
+        print(f"✅ Gap analysis: {gap_analysis['status']} ({gap_analysis['gap']} items)")
+        
+        return {
+            "success": True,
+            "data": gap_analysis
+        }
+        
+    except Exception as e:
+        print(f"❌ Supply gap error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Supply gap error: {str(e)}")
+
+
+@app.get("/forecast-categories")
+def get_forecast_categories():
+    """Get available categories and cities for forecasting"""
+    return {
+        "success": True,
+        "data": {
+            "categories": ["Winter Wear", "Men's Wear", "Women's Wear", "Kids Wear"],
+            "cities": ["Mumbai", "Delhi", "Bengaluru"]
+        }
+    }
+
+
 # --- NGO Recommendations (User Profile-Based) ---
+
 
 @app.post("/recommendations/hybrid")
 def get_hybrid_recommendations(request: HybridRecommendationRequest):
     """Get personalized NGO recommendations for a donor"""
     
-    # Fallback if recommender not available
     if not recommender:
-        print("⚠️ Recommender unavailable, using popular NGOs from matcher")
         try:
-            ngos = matcher.ngos_df.sort_values(by='trust_score', ascending=False).head(request.limit)
-            recommendations = []
-            for _, ngo in ngos.iterrows():
-                recommendations.append({
-                    '_id': ngo['_id'],
-                    'name': ngo['name'],
-                    'city': ngo.get('city', 'Unknown'),
-                    'trust_score': ngo.get('trust_score', 75),
-                    'recommendation_score': 0.8,
-                    'recommendation_reason': 'Highly rated NGO'
-                })
-            
-            return {
-                "success": True,
-                "data": {
-                    "recommendations": recommendations,
-                    "count": len(recommendations),
-                    "method": "fallback_popular"
+            if matcher and hasattr(matcher, 'ngos_df') and not matcher.ngos_df.empty:
+                ngos = matcher.ngos_df.sort_values(by='trust_score', ascending=False).head(request.limit)
+                recommendations = []
+                for _, ngo in ngos.iterrows():
+                    recommendations.append({
+                        '_id': ngo['_id'],
+                        'name': ngo['name'],
+                        'city': ngo.get('city', 'Unknown'),
+                        'trust_score': ngo.get('trust_score', 75),
+                        'recommendation_score': 0.8,
+                        'recommendation_reason': 'Highly rated NGO'
+                    })
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "recommendations": recommendations,
+                        "count": len(recommendations),
+                        "method": "fallback_popular"
+                    }
                 }
-            }
         except Exception as e:
-            raise HTTPException(status_code=503, detail="Recommendation unavailable")
-    
-    # Use recommender if available
-    try:
-        print(f"\n🎯 Hybrid recommendations for: {request.donor_id}")
+            pass
         
+        raise HTTPException(status_code=503, detail="Recommendation unavailable")
+    
+    try:
         recommendations = recommender.get_hybrid_recommendations(
             donor_id=request.donor_id,
             donor_location=request.location,
             n=request.limit
         )
-        
-        print(f"✅ Generated {len(recommendations)} recommendations")
         
         return {
             "success": True,
@@ -329,17 +563,20 @@ def get_hybrid_recommendations(request: HybridRecommendationRequest):
         }
     
     except Exception as e:
-        print(f"❌ Recommendation error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
 
 @app.get("/recommendations/popular")
 def get_popular_ngos(limit: int = 10):
     """Get most popular/highly-rated NGOs"""
     
+    if not matcher or not hasattr(matcher, 'ngos_df') or matcher.ngos_df.empty:
+        return {
+            "success": False,
+            "message": "No NGO data available"
+        }
+    
     try:
-        print(f"\n⭐ Getting {limit} popular NGOs...")
-        
-        # Use matcher NGOs sorted by trust score
         ngos = matcher.ngos_df.sort_values(by='trust_score', ascending=False).head(limit)
         
         popular_ngos = []
@@ -353,8 +590,6 @@ def get_popular_ngos(limit: int = 10):
                 'recommendation_reason': 'Highly rated and trusted'
             })
         
-        print(f"✅ Returning {len(popular_ngos)} popular NGOs")
-        
         return {
             "success": True,
             "data": {
@@ -364,69 +599,15 @@ def get_popular_ngos(limit: int = 10):
         }
     
     except Exception as e:
-        print(f"❌ Popular NGOs error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-@app.get("/recommendations/donor-profile/{donor_id}")
-def get_donor_profile(donor_id: str):
-    """Get donor's preference profile"""
-    
-    if not recommender:
-        return {
-            "success": True,
-            "data": {
-                "donor_id": donor_id,
-                "profile": None,
-                "insights": {
-                    "is_new_donor": True,
-                    "message": "Profile system unavailable"
-                }
-            }
-        }
-    
-    try:
-        print(f"\n👤 Getting profile for: {donor_id}")
-        
-        if donor_id not in recommender.donor_profiles:
-            return {
-                "success": True,
-                "data": {
-                    "donor_id": donor_id,
-                    "profile": None,
-                    "insights": {
-                        "is_new_donor": True,
-                        "message": "No donation history yet"
-                    }
-                }
-            }
-        
-        profile = recommender.donor_profiles[donor_id]
-        
-        print(f"✅ Profile found: {profile['total_donations']} donations")
-        
-        return {
-            "success": True,
-            "data": {
-                "donor_id": donor_id,
-                "profile": profile,
-                "insights": {
-                    "is_new_donor": False,
-                    "total_donations": profile['total_donations'],
-                    "favorite_categories": list(profile['categories'].keys())[:3],
-                    "preferred_locations": list(profile['preferred_locations'].keys())[:3]
-                }
-            }
-        }
-    
-    except Exception as e:
-        print(f"❌ Profile error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 # --- Run the app ---
 
+
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 Starting Rewearify AI Service v4.0")
+    print("🚀 Starting Rewearify AI Service v5.0")
     print("="*60)
     print("\n📍 API Documentation: http://localhost:8000/docs")
     print("📍 Health Check: http://localhost:8000/health")
@@ -434,9 +615,11 @@ if __name__ == "__main__":
     print("   ✅ Fraud Detection - /api/ai/check-fraud")
     print("   ✅ Smart Suggestions - /analyze-donation")
     print("   ✅ NGO Matching - /api/ai/match-donations")
-    print("      Purpose: Find NGOs that accept THIS donation")
+    print("   ✅ Request Matching - /match-requests (NEW)")
+    print("   ✅ Demand Forecasting - /forecast")
+    print("   ✅ Seasonal Trends - /seasonal-trends/{type}")
+    print("   ✅ Supply Gap Analysis - /supply-gap")
     print("   ✅ NGO Recommendations - /recommendations/hybrid")
-    print("      Purpose: Suggest NGOs based on donor history")
     print("\n" + "="*60 + "\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)

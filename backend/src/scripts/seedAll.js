@@ -244,14 +244,119 @@ async function seedAll() {
     
     console.log('   Status breakdown:', statusCounts);
 
-    // ==================== SUMMARY ====================
+        // ==================== SEED REQUESTS ====================
+    console.log('='.repeat(50));
+    console.log('STEP 3: Seeding Requests');
+    console.log('='.repeat(50));
+
+    const Request = (await import('../models/Request.js')).default;
+    await Request.deleteMany({});
+    console.log('🗑️  Cleared existing requests');
+
+    const recipients = insertedUsers.filter(u => u.role === 'recipient');
+    
+    const requestCategories = {
+      outerwear: {
+        subcategories: ['Jacket', 'Coat', 'Sweater', 'Vest'],
+        titles: ['Winter Jackets Needed', 'Warm Coats Required', 'Sweaters for Children'],
+      },
+      formal: {
+        subcategories: ['Suit', 'Dress Shirt', 'Blouse', 'Trousers'],
+        titles: ['Professional Attire Needed', 'Business Clothing Required'],
+      },
+      casual: {
+        subcategories: ['T-Shirt', 'Jeans', 'Kurta'],
+        titles: ['Everyday Clothing Needed', 'Casual Wear Required'],
+      },
+      children: {
+        subcategories: ['Infant Set', 'Toddler Outfit', 'Youth T-Shirt'],
+        titles: ['Children Clothing Needed', 'Kids Wear Required'],
+      },
+      household: {
+        subcategories: ['Blanket', 'Bedsheet', 'Towel'],
+        titles: ['Blankets Needed', 'Household Linens Required'],
+      }
+    };
+
+    const requests = [];
+    const urgencyLevels = ['low', 'medium', 'high'];
+
+    for (let i = 0; i < 100; i++) {
+      const recipient = recipients[i % recipients.length];
+      const categoryKeys = Object.keys(requestCategories);
+      const category = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
+      const categoryData = requestCategories[category];
+      
+      const subcategory = categoryData.subcategories[Math.floor(Math.random() * categoryData.subcategories.length)];
+      const title = categoryData.titles[Math.floor(Math.random() * categoryData.titles.length)];
+      
+      const quantity = Math.floor(Math.random() * 50) + 10;
+      const quantityReceived = Math.random() > 0.7 ? Math.floor(Math.random() * quantity * 0.5) : 0;
+      
+      let status = 'active';
+      if (quantityReceived >= quantity) status = 'completed';
+      else if (quantityReceived > 0) status = 'partially_fulfilled';
+      
+      const createdAt = new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000);
+      
+      requests.push({
+        requester: recipient._id,
+        title,
+        description: `We urgently need ${subcategory}s for our community program.`,
+        category,
+        subcategory,
+        urgency: urgencyLevels[Math.floor(Math.random() * urgencyLevels.length)],
+        quantity,
+        quantityReceived,
+        sizes: [{ size: 'Various', quantity }],
+        condition: {
+          acceptable: ['excellent', 'good', 'fair'],
+          minimum: 'fair'
+        },
+        beneficiaries: {
+          count: Math.floor(Math.random() * 200) + 20,
+          ageGroup: 'mixed',
+          gender: 'mixed'
+        },
+        location: recipient.location,
+        timeline: {
+          neededBy: new Date(createdAt.getTime() + 60 * 24 * 60 * 60 * 1000),
+          flexible: true
+        },
+        logistics: {
+          canPickup: true,
+          pickupRadius: 25,
+          needsDelivery: false,
+          hasTransport: false
+        },
+        status,
+        createdAt,
+        updatedAt: new Date(),
+        visibility: 'public'
+      });
+    }
+
+    const insertedRequests = await Request.insertMany(requests);
+    console.log(`✅ Created ${insertedRequests.length} requests`);
+    
+    const requestStatusCounts = insertedRequests.reduce((acc, r) => {
+      acc[r.status] = (acc[r.status] || 0) + 1;
+      return acc;
+    }, {});
+    
+    console.log('   Status breakdown:', requestStatusCounts);
+
+
+       // ==================== SUMMARY ====================
     console.log('\n' + '='.repeat(50));
     console.log('🎉 ALL DATA SEEDED SUCCESSFULLY!');
     console.log('='.repeat(50));
     console.log(`\n📊 Database Summary:`);
     console.log(`   Total Users: ${insertedUsers.length}`);
-    console.log(`   Total Donations: ${insertedDonations.length}\n`);
+    console.log(`   Total Donations: ${insertedDonations.length}`);
+    console.log(`   Total Requests: ${insertedRequests.length}\n`);  // ✅ ADD THIS
     console.log('✅ Ready to test AI models!\n');
+
 
     await mongoose.connection.close();
     process.exit(0);

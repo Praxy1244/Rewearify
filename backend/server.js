@@ -26,6 +26,8 @@ import notificationRoutes from './src/routes/notifications.js';
 import aiRoutes from './src/routes/ai.js';
 import publicRoutes from './src/routes/public.js';
 import recommendationRoutes from './src/routes/recommendations.js';
+import matchingRoutes from './src/routes/matching.js';
+
 
 
 // Import scheduled tasks
@@ -112,6 +114,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/matching', matchingRoutes);
+
 
 
 socketService.initialize(io);
