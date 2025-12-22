@@ -24,7 +24,6 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['donor', 'recipient', 'admin', 'pending'],
-    // --- 💡 FIX: Change the default role ---
     default: 'pending', 
   },
   social: {
@@ -52,7 +51,51 @@ const userSchema = new mongoose.Schema({
     name: { type: String, trim: true },
     type: { type: String, enum: ['NGO', 'Charity', 'Community Group', 'School', 'Other'] },
     registrationNumber: { type: String, trim: true },
-    
+  },
+  // ✨ NEW: Recipient/NGO Profile for AI Clustering
+  recipientProfile: {
+    // Special focus - what types of clothing the NGO accepts
+    specialFocus: {
+      type: [String],
+      enum: ["Men's Wear", "Women's Wear", "Kids Wear", "Winter Wear", "Footwear", "Accessories", "All types"],
+      default: []
+    },
+    // Capacity - how many items the NGO can handle per week
+    capacityPerWeek: { 
+      type: Number, 
+      default: 100,
+      min: 0,
+      max: 1000
+    },
+    // Urgent need flag - does the NGO have urgent requirements
+    urgentNeed: { 
+      type: Boolean, 
+      default: false 
+    },
+    // Primary cause/mission of the NGO
+    cause: {
+      type: String,
+      enum: ['Education', 'Healthcare', 'Poverty', 'Women Empowerment', 'Child Welfare', 'Disaster Relief', 'Environment', 'General'],
+      default: 'General'
+    },
+    // Acceptance rate - percentage of requests accepted (0-1)
+    acceptanceRate: { 
+      type: Number, 
+      default: 0.8,
+      min: 0, 
+      max: 1 
+    },
+    // Operating hours
+    operatingHours: {
+      type: String,
+      default: '9 AM - 5 PM'
+    },
+    // Preferred donation days
+    preferredDays: {
+      type: [String],
+      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      default: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    }
   },
   profile: {
     bio: { type: String, default: '', maxlength: 500 },
@@ -90,8 +133,7 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// --- 💡 REFACTORED METHODS SECTION ---
-// Grouping all methods in a single object assignment is a more robust pattern.
+// --- Methods Section ---
 userSchema.methods = {
   // Method to compare passwords
   comparePassword: async function(candidatePassword) {
@@ -111,24 +153,47 @@ userSchema.methods = {
     if (this.security.loginAttempts >= 5 && !this.isLocked) {
       this.security.lockUntil = Date.now() + 2 * 60 * 60 * 1000; // Lock for 2 hours
     }
-    return this.save({ validateBeforeSave: false }); // Save and return the promise
+    return this.save({ validateBeforeSave: false });
   },
 
   // Method to reset login attempts
   resetLoginAttempts: function() {
     this.security.loginAttempts = 0;
     this.security.lockUntil = undefined;
-    return this.save({ validateBeforeSave: false }); // Save and return the promise
+    return this.save({ validateBeforeSave: false });
   },
 
   // Method to update last active timestamp
   updateLastActive: function() {
     this.lastActive = new Date();
-    return this.save({ validateBeforeSave: false }); // Save and return the promise
+    return this.save({ validateBeforeSave: false });
+  },
+
+  // ✨ NEW: Method to calculate acceptance rate based on statistics
+  calculateAcceptanceRate: function() {
+    if (this.statistics.totalRequests === 0) return 0.8; // Default
+    const rate = this.statistics.totalDonations / this.statistics.totalRequests;
+    return Math.min(Math.max(rate, 0), 1); // Clamp between 0 and 1
+  },
+
+  // ✨ NEW: Method to get NGO data for AI clustering
+  getClusteringData: function() {
+    return {
+      ngo_id: this._id.toString(),
+      name: this.name,
+      city: this.location.city || 'Unknown',
+      latitude: this.location.coordinates?.coordinates?.[1] || 0,
+      longitude: this.location.coordinates?.coordinates?.[0] || 0,
+      special_focus: this.recipientProfile?.specialFocus?.join(', ') || 'All types',
+      capacity_per_week: this.recipientProfile?.capacityPerWeek || 100,
+      urgent_need: this.recipientProfile?.urgentNeed || false,
+      cause: this.recipientProfile?.cause || 'General',
+      acceptance_rate: this.recipientProfile?.acceptanceRate || this.calculateAcceptanceRate()
+    };
   }
 };
-// --- END OF REFACTORED METHODS ---
 
+// Virtual for account lock status
 userSchema.virtual('isLocked').get(function() {
   return !!(this.security.lockUntil && this.security.lockUntil > Date.now());
 });
@@ -165,12 +230,18 @@ userSchema.pre('save', async function(next) {
         }
     } catch(err) {
         console.error('Geocoding error during save:', err);
-        this.location.coordinates = { type: 'Point', coordinates: [0, 0] }; // Fallback
+        this.location.coordinates = { type: 'Point', coordinates: [0, 0] };
     }
   }
-  next(); // Make sure to call next() even if geocoding wasn't run
+  next();
 });
 
+// ✨ NEW: Auto-calculate acceptance rate before save
+userSchema.pre('save', function(next) {
+  if (this.role === 'recipient' && this.isModified('statistics')) {
+    this.recipientProfile.acceptanceRate = this.calculateAcceptanceRate();
+  }
+  next();
+});
 
 export default mongoose.model('User', userSchema);
-
