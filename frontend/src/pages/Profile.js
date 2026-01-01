@@ -14,18 +14,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
+import ProfilePictureUpload from '../components/ProfilePictureUpload';
+
 import { 
-  User, Shield, Key, Bell, Palette, Save, Camera, Loader2, 
+  User, Shield, Key, Bell, Palette, Save, Loader2, 
   Brain, Sparkles, Building2, MapPin, Globe, Lock
 } from 'lucide-react';
 
 const Profile = () => {
   const { user, updateUserContext } = useAuth();
   const { toast } = useToast();
-  const fileInputRef = useRef(null);
+  
 
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  
   const [aiProfile, setAIProfile] = useState(null);
 
   // --- FORM STATES ---
@@ -74,12 +76,7 @@ const Profile = () => {
     animationsEnabled: true
   });
 
-  // Helper to fix image URLs
-  const getImageUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    return `http://localhost:5000${path}`;
-  };
+  
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -271,37 +268,36 @@ const Profile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-8">
-              {/* Avatar */}
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-24 w-24 border-4 border-white shadow-sm">
-                    <AvatarImage src={getImageUrl(user.profile?.profilePicture?.url)} />
-                    <AvatarFallback className="text-2xl bg-green-100 text-green-700">
-                      {user.name?.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <Button
-                    size="icon" variant="secondary"
-                    className="absolute bottom-0 right-0 rounded-full shadow-md h-8 w-8"
-                    onClick={() => fileInputRef.current.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                  </Button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">{user.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="capitalize">{user.role}</Badge>
-                    {user.role === 'recipient' && (
-                      <Badge className={user.organization?.verified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                        {user.organization?.verified ? "Verified NGO" : "Pending Verification"}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
+              {/* Profile Picture Upload */}
+<div className="flex flex-col md:flex-row items-center md:items-start gap-6 p-6 bg-gray-50 rounded-lg">
+  <ProfilePictureUpload 
+    currentImage={user?.profile?.profilePicture?.url}
+    onUploadSuccess={(newUrl) => {
+      // Update local user context
+      updateUserContext({
+        ...user,
+        profile: {
+          ...user.profile,
+          profilePicture: { url: newUrl }
+        }
+      });
+    }}
+  />
+  
+  <div className="flex-1 text-center md:text-left">
+    <h3 className="text-xl font-semibold">{user.name}</h3>
+    <p className="text-sm text-gray-500">{user.email}</p>
+    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
+      <Badge variant="secondary" className="capitalize">{user.role}</Badge>
+      {user.role === 'recipient' && (
+        <Badge className={user.verification?.isOrganizationVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+          {user.verification?.isOrganizationVerified ? "Verified NGO" : "Pending Verification"}
+        </Badge>
+      )}
+    </div>
+  </div>
+</div>
+
 
               <Separator />
 

@@ -7,9 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
-import { Search, Building2, Heart, MapPin, Sparkles, Loader2, Info } from 'lucide-react';
+import { Search, Building2, Heart, Sparkles, Loader2 } from 'lucide-react';
 import NGOCard from '../../components/NGOCard';
-import NeedCard from '../../components/NeedCard';
+import RequestCard from '../../components/RequestCard'; // ✅ NEW: Import RequestCard
 import { requestService } from '../../services'; 
 import { toast } from 'sonner';
 
@@ -22,7 +22,7 @@ const BrowseNeeds = () => {
   // Data States
   const [needs, setNeeds] = useState([]);
   const [ngos, setNgos] = useState([]);
-  const [recommendations, setRecommendations] = useState([]); // 💡 AI Data
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Modal States
@@ -44,7 +44,7 @@ const BrowseNeeds = () => {
         if (response.success) setNeeds(response.data.requests || []);
         
       } else if (activeTab === 'suggested') {
-        // 2. 💡 Fetch AI Recommendations (User-based)
+        // 2. Fetch AI Recommendations
         const response = await fetch('http://localhost:5000/api/recommendations', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -72,7 +72,6 @@ const BrowseNeeds = () => {
   };
 
   const handleDonate = (target) => {
-    // Handle both direct NGO objects and Request objects
     const targetNgo = target.requester || target;
     
     const ngoData = {
@@ -91,12 +90,10 @@ const BrowseNeeds = () => {
     setModalType(type);
   };
 
-  // Unified Filter Logic
   const filterItems = (items) => {
     return items.filter(item => {
       const name = item.title || item.name || item.organization?.name || '';
       const city = item.location?.city || item.city || '';
-      // Handle category arrays (NGOs) or strings (Requests)
       const itemCats = item.categories || item.accepted_clothing_types?.split(';') || [item.category];
       
       const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -166,37 +163,41 @@ const BrowseNeeds = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* 1. Community Needs Tab */}
+        {/* 1. Community Needs Tab - ✅ NOW USES RequestCard */}
         <TabsContent value="needs">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
           ) : filterItems(needs).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filterItems(needs).map(need => (
-                <NeedCard 
+                <RequestCard 
                   key={need._id} 
                   request={need} 
-                  onDonate={handleDonate} 
-                  onView={(item) => handleViewDetails(item, 'need')}
                 />
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">No active needs found matching your criteria.</div>
+            <div className="text-center py-12 text-gray-500">
+              No active needs found matching your criteria.
+            </div>
           )}
         </TabsContent>
 
-        {/* 2. 💡 Suggested NGOs Tab (AI) */}
+        {/* 2. Suggested NGOs Tab */}
         <TabsContent value="suggested">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-purple-600" /></div>
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
           ) : filterItems(recommendations).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filterItems(recommendations).map(ngo => (
                 <NGOCard 
                   key={ngo._id || ngo.id} 
                   ngo={ngo} 
-                  matchScore={ngo.recommendation_score} // Pass match score
+                  matchScore={ngo.recommendation_score}
                   onSelect={() => handleViewDetails(ngo, 'ngo')}
                 />
               ))}
@@ -205,15 +206,19 @@ const BrowseNeeds = () => {
             <div className="text-center py-12">
               <Sparkles className="h-12 w-12 mx-auto text-purple-200 mb-3" />
               <p className="text-gray-600 font-medium">No specific recommendations yet.</p>
-              <p className="text-gray-500 text-sm mt-1">Try making a few donations to help our AI understand your preferences!</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Try making a few donations to help our AI understand your preferences!
+              </p>
             </div>
           )}
         </TabsContent>
 
-        {/* 3. Partner NGOs Tab (Browse) */}
+        {/* 3. Partner NGOs Tab */}
         <TabsContent value="ngos">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
           ) : filterItems(ngos).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filterItems(ngos).map(ngo => (
@@ -225,7 +230,9 @@ const BrowseNeeds = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">No NGOs found matching your criteria.</div>
+            <div className="text-center py-12 text-gray-500">
+              No NGOs found matching your criteria.
+            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -235,7 +242,11 @@ const BrowseNeeds = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              {modalType === 'ngo' ? <Building2 className="h-5 w-5 text-blue-600" /> : <Heart className="h-5 w-5 text-red-600" />}
+              {modalType === 'ngo' ? (
+                <Building2 className="h-5 w-5 text-blue-600" />
+              ) : (
+                <Heart className="h-5 w-5 text-red-600" />
+              )}
               {modalType === 'ngo' ? selectedItem?.name : selectedItem?.title}
             </DialogTitle>
             <DialogDescription>
@@ -245,39 +256,37 @@ const BrowseNeeds = () => {
 
           {selectedItem && (
             <div className="space-y-4 mt-2">
-              {/* AI Reason (Only for Suggested Tab) */}
               {modalType === 'ngo' && selectedItem.recommendation_reason && (
                 <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg text-sm text-purple-900 flex items-start gap-2">
-                   <Sparkles className="h-4 w-4 mt-0.5 text-purple-600" />
-                   <div>
-                     <strong>AI Recommendation:</strong> {selectedItem.recommendation_reason}
-                   </div>
+                  <Sparkles className="h-4 w-4 mt-0.5 text-purple-600" />
+                  <div>
+                    <strong>AI Recommendation:</strong> {selectedItem.recommendation_reason}
+                  </div>
                 </div>
               )}
 
               <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-700">
-                 {selectedItem.description}
+                {selectedItem.description}
               </div>
 
-              {/* Dynamic Details Grid */}
               <div className="grid grid-cols-2 gap-4 text-sm">
-                 {modalType === 'need' ? (
-                   <>
-                     <div><strong>Quantity:</strong> {selectedItem.quantity} items</div>
-                     <div><strong>Urgency:</strong> {selectedItem.urgency}</div>
-                     <div><strong>Category:</strong> {selectedItem.category}</div>
-                     <div><strong>Location:</strong> {selectedItem.location?.city}</div>
-                   </>
-                 ) : (
-                   <>
-                     <div><strong>Trust Score:</strong> {selectedItem.trust_score}/5</div>
-                     <div><strong>Impact:</strong> {selectedItem.impact_score}/5</div>
-                     <div><strong>Verified:</strong> {selectedItem.verified ? 'Yes' : 'Pending'}</div>
-                     {selectedItem.location && (
-                        <div><strong>Location:</strong> {selectedItem.location.city || selectedItem.city}</div>
-                     )}
-                   </>
-                 )}
+                {modalType === 'need' ? (
+                  <>
+                    <div><strong>Quantity:</strong> {selectedItem.quantity} items</div>
+                    <div><strong>Urgency:</strong> {selectedItem.urgency}</div>
+                    <div><strong>Category:</strong> {selectedItem.category}</div>
+                    <div><strong>Location:</strong> {selectedItem.location?.city}</div>
+                  </>
+                ) : (
+                  <>
+                    <div><strong>Trust Score:</strong> {selectedItem.trust_score}/5</div>
+                    <div><strong>Impact:</strong> {selectedItem.impact_score}/5</div>
+                    <div><strong>Verified:</strong> {selectedItem.verified ? 'Yes' : 'Pending'}</div>
+                    {selectedItem.location && (
+                      <div><strong>Location:</strong> {selectedItem.location.city || selectedItem.city}</div>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="flex gap-3 mt-4">

@@ -59,6 +59,7 @@ const donationSchema = new mongoose.Schema({
     trim: true,
     maxlength: [1000, 'Description cannot exceed 1000 characters']
   },
+  
   category: {
     type: String,
     required: [true, 'Category is required'],
@@ -351,10 +352,11 @@ donationSchema.virtual('activeRequestsCount', {
 });
 
 // Pre middleware
+// Update this existing middleware to include profile picture
 donationSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'donor',
-    select: 'name email profile.profilePicture location.city contact.phone statistics.rating'
+    select: 'name email profile.profilePicture location.city contact.phone statistics.rating' // ✅ Ensure this includes profile.profilePicture
   });
   next();
 });

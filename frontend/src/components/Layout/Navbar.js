@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNotifications } from '../../contexts/NotificationContext'; // ✨ ADDED
-import { notificationService } from '../../services';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { Button } from '../ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import RewearifyLogo from '../../components/Layout/RewearifyLogo';
-import NotificationBell from './NotificationBell'; // ✨ ADDED
+import NotificationBell from './NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,29 +14,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
-import { 
-  Bell, 
-  User, 
-  LogOut, 
-  Settings,
-  Heart,
-  Leaf,
-  Menu,
-  X
-} from 'lucide-react';
+import { User, LogOut, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  // ✨ UPDATED: Use real-time notification context
-  const { 
-    notifications, 
-    unreadCount, 
-    isConnected  // Socket connection status
-  } = useNotifications();
 
   const handleLogout = () => {
     logout();
@@ -68,8 +51,8 @@ const Navbar = () => {
         return [
           { path: '/recipient-dashboard', label: 'Dashboard' },
           { path: '/recipient/browseItems', label: 'Browse Items' },
-          { path: '/recipient/my-requests', label: 'My Requests' },
-          { path: '/recipient/organizations', label: 'Organizations' }
+          { path: '/recipient/my-requests', label: 'My Requests' }
+          // ❌ REMOVED: Organizations link
         ];
       case 'admin':
         return [
@@ -86,46 +69,14 @@ const Navbar = () => {
 
   const navLinks = getNavLinks();
   
-  // 💡 UPDATE: Simplified paths
   const getProfilePath = () => {
     if (!user) return "/login";
-    // All roles now go to the same profile page
     switch (user.role) {
       case "donor": return "/donor/profile";
       case "recipient": return "/recipient/profile";
       case "admin": return "/admin/profile";
       default: return "/profile";
     }
-  };
-
-  const getNotificationsPath = () => {
-    if (!user) return "/login";
-    switch (user.role) {
-      case "donor": return "/donor/notifications";
-      case "recipient": return "/recipient/notifications";
-      case "admin": return "/admin/notifications";
-      default: return "/notifications";
-    }
-  };
-
-  const getSettingsPath = () => {
-    if (!user) return "/login";
-    switch (user.role) {
-      case "donor": return "/donor/settings";
-      case "recipient": return "/recipient/settings";
-      case "admin": return "/admin/settings";
-      default: return "/settings";
-    }
-  };
-
-  const formatNotificationTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    return date.toLocaleDateString();
   };
 
   return (
@@ -158,7 +109,7 @@ const Navbar = () => {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                {/* ✨ REPLACED OLD NOTIFICATION DROPDOWN WITH NEW NOTIFICATION BELL */}
+                {/* Notification Bell */}
                 <NotificationBell />
 
                 {/* User Menu */}
@@ -166,9 +117,12 @@ const Navbar = () => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="flex items-center space-x-2 h-auto p-1">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.profilePicture} alt={user.name} />
-                        <AvatarFallback>
-                          {user?.name?.charAt(0) || "?"}
+                        <AvatarImage 
+                          src={user?.profile?.profilePicture?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=4F46E5&color=fff&size=200`}
+                          alt={user?.name || 'User'} 
+                        />
+                        <AvatarFallback className="bg-green-100 text-green-700">
+                          {user?.name?.charAt(0)?.toUpperCase() || "?"}
                         </AvatarFallback>
                       </Avatar>
                       <div className="hidden sm:block text-left">

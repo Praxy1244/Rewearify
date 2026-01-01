@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from '../../components/ui/textarea';
 import { adminService } from '../../services';
 import { toast } from 'sonner';
-
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 const ManageDonations = () => {
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -329,20 +329,23 @@ const ManageDonations = () => {
                 filteredDonations.map((donation) => (
                   <TableRow key={donation._id}>
                     <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden">
-                          <img 
-                            src={donation.images?.[0]?.url || 'https://placehold.co/40x40/E2E8F0/4A5568?text=Img'} 
-                            alt={donation.title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{donation.title}</p>
-                          <p className="text-xs text-gray-500 capitalize">{donation.category}</p>
-                        </div>
-                      </div>
-                    </TableCell>
+  <div className="flex items-center space-x-3">
+    {/* ✅ UPDATED: Show donor profile picture instead of donation image */}
+    <Avatar className="h-10 w-10 border-2 border-gray-200">
+      <AvatarImage 
+        src={donation.donor?.profile?.profilePicture?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(donation.donor?.name || 'Donor')}&background=4F46E5&color=fff&size=200`}
+        alt={donation.donor?.name || 'Donor'} 
+      />
+      <AvatarFallback className="bg-blue-100 text-blue-700">
+        {donation.donor?.name?.charAt(0)?.toUpperCase() || 'D'}
+      </AvatarFallback>
+    </Avatar>
+    <div>
+      <p className="font-medium text-sm">{donation.title}</p>
+      <p className="text-xs text-gray-500 capitalize">{donation.category}</p>
+    </div>
+  </div>
+</TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium text-sm">{donation.donor?.name || 'Unknown'}</p>

@@ -63,7 +63,6 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import BrowseItems from "./pages/recipient/BrowseItems";
 import MyRequests from "./pages/recipient/MyRequests";
-import Organizations from "./pages/recipient/Organizations";
 import RequestDetail from './pages/recipient/RequestDetail';
 import CreateRequest from './pages/recipient/CreateRequest';
 import Dashboard from './pages/Dashboard';
@@ -187,12 +186,7 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          <Route path="/recipient/organizations" element={
-            <ProtectedRoute allowedRoles={['recipient']}>
-             <Organizations />
-            </ProtectedRoute>
-          } />
-
+         
           <Route path="/recipient/my-requests" element={
             <ProtectedRoute allowedRoles={['recipient']}>
              <MyRequests />

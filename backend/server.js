@@ -28,6 +28,7 @@ import publicRoutes from './src/routes/public.js';
 import recommendationRoutes from './src/routes/recommendations.js';
 import matchingRoutes from './src/routes/matching.js';
 import clusteringRoutes from './src/routes/clustering.js';
+import uploadRoutes from './src/routes/upload.js';
 
 
 
@@ -117,7 +118,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/matching', matchingRoutes);
 app.use('/api/clustering', clusteringRoutes);
-
+app.use('/api/upload', uploadRoutes);
 
 
 socketService.initialize(io);

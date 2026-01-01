@@ -2,11 +2,16 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { MapPin, Package, Calendar, Eye, AlertTriangle } from 'lucide-react'; // ✅ Add AlertTriangle
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { MapPin, Package, Calendar, Eye, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const DonationCard = ({ donation }) => {
   const navigate = useNavigate();
+
+  // Get donor's profile picture with fallback
+  const donorImage = donation.donor?.profile?.profilePicture?.url || 
+                     `https://ui-avatars.com/api/?name=${encodeURIComponent(donation.donor?.name || 'Donor')}&background=4F46E5&color=fff&size=200`;
 
   const getConditionColor = (condition) => {
     switch (condition) {
@@ -21,12 +26,10 @@ const DonationCard = ({ donation }) => {
     }
   };
 
-  // ✅ NEW: Get risk badge styling
   const getRiskBadge = () => {
     const riskScore = donation.riskScore || 0;
     const riskLevel = donation.riskLevel || 'low';
     
-    // High risk: score > 0.7 OR riskLevel === 'high'/'critical'
     if (riskScore > 0.7 || ['high', 'critical'].includes(riskLevel)) {
       return (
         <Badge className="bg-red-600 text-white flex items-center gap-1">
@@ -36,7 +39,6 @@ const DonationCard = ({ donation }) => {
       );
     }
     
-    // Medium risk: score > 0.3
     if (riskScore > 0.3 || riskLevel === 'medium') {
       return (
         <Badge className="bg-yellow-500 text-white flex items-center gap-1">
@@ -46,12 +48,28 @@ const DonationCard = ({ donation }) => {
       );
     }
     
-    return null; // No badge for low risk
+    return null;
   };
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
+        {/* Donor Info with Profile Picture */}
+        <div className="flex items-center gap-3 mb-3">
+          <Avatar className="h-10 w-10 border-2 border-gray-200">
+            <AvatarImage src={donorImage} alt={donation.donor?.name || 'Donor'} />
+            <AvatarFallback className="bg-blue-100 text-blue-700">
+              {donation.donor?.name?.charAt(0)?.toUpperCase() || 'D'}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm truncate">{donation.donor?.name}</p>
+            <p className="text-xs text-gray-500 truncate">
+              {donation.donor?.location?.city || 'Unknown City'}
+            </p>
+          </div>
+        </div>
+
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg line-clamp-2">
             {donation.title}
@@ -60,14 +78,13 @@ const DonationCard = ({ donation }) => {
             <Badge className={getConditionColor(donation.condition)}>
               {donation.condition}
             </Badge>
-            {/* ✅ NEW: Show risk badge */}
             {getRiskBadge()}
           </div>
         </div>
       </CardHeader>
       
       <CardContent className="space-y-3">
-        {/* ✅ NEW: Show fraud warning for high risk */}
+        {/* Fraud warning for high risk */}
         {(donation.riskScore > 0.7 || ['high', 'critical'].includes(donation.riskLevel)) && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
             <p className="text-xs text-red-800 flex items-center gap-2">

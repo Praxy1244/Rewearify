@@ -278,10 +278,11 @@ requestSchema.virtual('donations', {
 requestSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'requester',
-    select: 'name email profile.profilePicture organization location.city contact.phone statistics.rating'
+    select: 'name email profile.profilePicture organization location.city' // ✅ Ensure this includes profile.profilePicture
   });
   next();
 });
+
 
 // Method to increment view count
 requestSchema.methods.incrementViews = async function() {

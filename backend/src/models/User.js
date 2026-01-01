@@ -97,12 +97,15 @@ const userSchema = new mongoose.Schema({
       default: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     }
   },
-  profile: {
-    bio: { type: String, default: '', maxlength: 500 },
-    profilePicture: {
-      url: { type: String, default: '' },
-    },
+  // Find this section (around line 68) and UPDATE it:
+profile: {
+  bio: { type: String, default: '', maxlength: 500 },
+  profilePicture: {
+    url: { type: String, default: '' },
+    publicId: { type: String, default: '' }, // ✅ ADD THIS LINE
   },
+},
+
   verification: {
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
