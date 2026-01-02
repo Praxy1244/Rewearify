@@ -70,6 +70,7 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
 
     // Execute query
     const donations = await Donation.find(query)
+    .populate('donor', 'name profile.profilePicture location.city statistics.rating')
       .sort(sortObj)
       .limit(limit * 1)
       .skip((page - 1) * limit);

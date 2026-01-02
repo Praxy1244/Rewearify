@@ -34,42 +34,43 @@ const BrowseNeeds = () => {
   }, [activeTab]);
 
   const fetchData = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
+  setLoading(true);
+  try {
+    const token = localStorage.getItem('token');
 
-      if (activeTab === 'needs') {
-        // 1. Fetch Requests for donor's donations using specialized endpoint
-        const response = await requestService.getPendingRequestsForDonor();
-        if (response.success) setNeeds(response.data.requests || []);
-        
-      } else if (activeTab === 'suggested') {
-        // 2. Fetch AI Recommendations
-        const response = await fetch('http://localhost:5000/api/recommendations', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (data.success && data.data && data.data.recommendations) {
-          setRecommendations(data.data.recommendations);
-        }
-
-      } else if (activeTab === 'ngos') {
-        // 3. Fetch All NGOs
-        const response = await fetch('http://localhost:5000/api/ngos', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setNgos(data.ngos || data.data || []);
-        }
+    if (activeTab === 'needs') {
+      // 1. Fetch general community requests (NOT donation-specific)
+      const response = await requestService.getCommunityRequests();
+      if (response.success) setNeeds(response.data || []);
+      
+    } else if (activeTab === 'suggested') {
+      // 2. Fetch AI Recommendations
+      const response = await fetch('http://localhost:5000/api/recommendations', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success && data.data && data.data.recommendations) {
+        setRecommendations(data.data.recommendations);
       }
-    } catch (error) {
-      console.error('Fetch error:', error);
-      toast.error("Failed to load data");
-    } finally {
-      setLoading(false);
+
+    } else if (activeTab === 'ngos') {
+      // 3. Fetch All NGOs
+      const response = await fetch('http://localhost:5000/api/ngos', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setNgos(data.ngos || data.data || []);
+      }
     }
-  };
+  } catch (error) {
+    console.error('Fetch error:', error);
+    toast.error("Failed to load data");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleDonate = (target) => {
     const targetNgo = target.requester || target;

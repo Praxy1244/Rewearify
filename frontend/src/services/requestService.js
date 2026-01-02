@@ -95,6 +95,16 @@ const requestService = {
       throw error;
     }
   },
+// Get general community requests (not linked to specific donations)
+getCommunityRequests: async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters);
+    return await api.get(`/requests/community?${params}`);
+  } catch (error) {
+    console.error('Get community requests error:', error);
+    throw error;
+  }
+},
 
   // ==================== NEW: DONOR RESPONSE METHODS ====================
   

@@ -320,42 +320,70 @@ const handleRequest = (item) => {
                   className="w-full h-full object-cover"
                 />
               </div>
-              
               <CardContent className="p-6 flex-1 flex flex-col">
-                <div className="mb-3 flex-1">
-                  <h3 className="font-semibold text-lg mb-2 text-gray-900">{item.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">{item.description}</p>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Quantity:</span>
-                    <Badge variant="secondary">{item.quantity} items</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Quality:</span>
-                    <Badge className={getQualityColor(item.condition)}>
-                      {item.condition}
-                    </Badge>
-                  </div>
+  <div className="mb-3 flex-1">
+    <h3 className="font-semibold text-lg mb-2 text-gray-900">{item.title}</h3>
+    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{item.description}</p>
+  </div>
+  
+  <div className="space-y-3">
+    {/* ✅ ADD: Donor Information */}
+    {item.donor && (
+      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+        <p className="text-xs text-gray-600 mb-1">Donated by</p>
+        <div className="flex items-center gap-2">
+          {item.donor.profile?.profilePicture?.url ? (
+            <img 
+              src={item.donor.profile.profilePicture.url} 
+              alt={item.donor.name}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center">
+              <span className="text-blue-700 font-semibold text-sm">
+                {item.donor.name?.charAt(0)?.toUpperCase() || 'D'}
+              </span>
+            </div>
+          )}
+          <div>
+            <p className="font-medium text-sm text-gray-900">{item.donor.name}</p>
+            {item.donor.location?.city && (
+              <p className="text-xs text-gray-600">{item.donor.location.city}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-600">Quantity:</span>
+      <Badge variant="secondary">{item.quantity} items</Badge>
+    </div>
+    
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-600">Quality:</span>
+      <Badge className={getQualityColor(item.condition)}>
+        {item.condition}
+      </Badge>
+    </div>
 
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{item.location?.city || 'Unknown'}</span>
-                  </div>
-                </div>
-                
-                <div className="mt-6">
-                  <Button 
-                    onClick={() => handleRequest(item)} 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Heart className="w-4 h-4 mr-2" />
-                    Request Item
-                  </Button>
-                </div>
-              </CardContent>
+    <div className="flex items-center space-x-2 text-sm text-gray-600">
+      <MapPin className="w-4 h-4" />
+      <span>{item.location?.city || 'Unknown'}</span>
+    </div>
+  </div>
+  
+  <div className="mt-6">
+    <Button 
+      onClick={() => handleRequest(item)} 
+      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+    >
+      <Heart className="w-4 h-4 mr-2" />
+      Request Item
+    </Button>
+  </div>
+</CardContent>
+
             </Card>
           ))}
         </div>

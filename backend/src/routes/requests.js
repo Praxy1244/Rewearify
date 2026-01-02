@@ -110,6 +110,54 @@ router.get('/donor/pending', protect, restrictTo('donor'), async (req, res) => {
     return fail(res, 'Failed to get pending requests', 500);
   }
 });
+// @desc    Get general community requests (not linked to specific donations)
+// @route   GET /api/requests/community
+// @access  Public
+router.get('/community', async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      category,
+      urgency,
+      sortBy = 'urgency',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build query for GENERAL requests only (no specific donation)
+    let query = { 
+      status: 'active',
+      donation: null  // Only general community requests
+    };
+    
+    if (category) query.category = category;
+    if (urgency) query.urgency = { $in: urgency.split(',') };
+
+    // Sort by urgency first, then creation date
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === 'urgency') {
+      sortObj['createdAt'] = -1; // Secondary sort by date
+    }
+
+    const requests = await Request.find(query)
+      .sort(sortObj)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('requester', 'name profile.profilePicture organization location.city statistics.rating');
+
+    const total = await Request.countDocuments(query);
+
+    return paginated(res, requests, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total
+    }, 'Community requests retrieved successfully');
+  } catch (error) {
+    console.error('Get community requests error:', error);
+    return fail(res, 'Failed to get community requests', 500);
+  }
+});
 
 // @desc    Get user's requests
 // @route   GET /api/requests/user/:userId
@@ -230,29 +278,40 @@ router.post('/',
       });
 
       // If request is for a specific donation, notify the donor
-      if (request.donation) {
-        const donation = await Donation.findById(request.donation).populate('donor', 'name email');
-        
-        if (donation) {
-          request.status = 'pending_donor';
-          await request.save();
+      // If request is for a specific donation, notify the donor
+// If request is for a specific donation, notify the donor
+if (request.donation) {
+  const donation = await Donation.findById(request.donation).populate('donor', 'name email');
+  
+  if (donation) {
+    // ✅ FIX: Initialize donorResponse with pending status
+    request.donorResponse = {
+      status: 'pending',
+      respondedAt: null,
+      respondedBy: null,
+      acceptanceNote: '',
+      rejectionReason: ''
+    };
+    request.status = 'pending_donor';
+    await request.save();
 
-          // Notify the donor about the request
-          await Notification.createAndSend({
-            recipient: donation.donor._id,
-            type: 'new_donation_request',
-            title: 'New Request for Your Donation! 📦',
-            message: `${req.user.name} has requested your donation "${donation.title}"`,
-            data: {
-              requestId: request._id,
-              donationId: donation._id,
-              requesterName: req.user.name,
-              actionUrl: `/donor/my-donations`
-            },
-            channels: { inApp: true, email: true }
-          });
-        }
-      }
+    // Notify the donor about the request
+    await Notification.createAndSend({
+      recipient: donation.donor._id,
+      type: 'new_donation_request',
+      title: 'New Request for Your Donation! 📦',
+      message: `${req.user.name} has requested your donation "${donation.title}"`,
+      data: {
+        requestId: request._id,
+        donationId: donation._id,
+        requesterName: req.user.name,
+        actionUrl: `/donor/donation-requests`
+      },
+      channels: { inApp: true, email: true }
+    });
+  }
+}
+
 
       // Find potential matches using AI if no specific donation
       if (!request.donation) {
