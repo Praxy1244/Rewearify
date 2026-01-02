@@ -152,12 +152,52 @@ const requestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'active', 'matched', 'fulfilled', 'cancelled', 'expired'],
+    enum: ['draft', 'active', 'pending_donor', 'accepted', 'rejected', 'pickup_scheduled', 'in_transit', 'delivered', 'fulfilled', 'cancelled', 'expired'],
     default: 'active'
   },
   donation: {
     type: mongoose.Schema.ObjectId,
     ref: 'Donation'
+  },
+  donorResponse: {
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
+    },
+    respondedAt: Date,
+    respondedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    },
+    rejectionReason: String,
+    acceptanceNote: String
+  },
+  pickupDelivery: {
+    method: {
+      type: String,
+      enum: ['pickup', 'delivery'],
+    },
+    address: String,
+    city: String,
+    state: String,
+    zipCode: String,
+    contactPerson: String,
+    contactPhone: String,
+    preferredDate: Date,
+    preferredTimeSlot: String,
+    specialInstructions: String,
+    coordinates: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number],
+        default: [0, 0]
+      }
+    }
   },
   matching: {
     matchedAt: Date,
@@ -228,6 +268,11 @@ const requestSchema = new mongoose.Schema({
       type: mongoose.Schema.ObjectId,
       ref: 'User'
     },
+    deliveredAt: Date,
+    deliveryConfirmedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    },
     feedback: {
       rating: {
         type: Number,
@@ -235,12 +280,18 @@ const requestSchema = new mongoose.Schema({
         max: 5
       },
       comment: String,
-      photos: [String]
+      photos: [String],
+      submittedAt: Date
     },
     impact: {
       beneficiariesHelped: Number,
       impactStory: String,
       photos: [String]
+    },
+    completedAt: Date,
+    completedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
     }
   },
   tags: [String],

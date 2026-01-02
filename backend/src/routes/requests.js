@@ -131,16 +131,43 @@ router.post('/',
         $inc: { 'statistics.totalRequests': 1 }
       });
 
-      // Find potential matches using AI
-      try {
-        await findPotentialMatches(request._id);
-      } catch (matchError) {
-        console.error('Error finding matches:', matchError);
+      // If request is for a specific donation, notify the donor
+      if (request.donation) {
+        const donation = await Donation.findById(request.donation).populate('donor', 'name email');
+        
+        if (donation) {
+          request.status = 'pending_donor';
+          await request.save();
+
+          // Notify the donor about the request
+          await Notification.createAndSend({
+            recipient: donation.donor._id,
+            type: 'new_donation_request',
+            title: 'New Request for Your Donation! 📦',
+            message: `${req.user.name} has requested your donation "${donation.title}"`,
+            data: {
+              requestId: request._id,
+              donationId: donation._id,
+              requesterName: req.user.name,
+              actionUrl: `/donor/my-donations`
+            },
+            channels: { inApp: true, email: true }
+          });
+        }
       }
 
-      // Notify nearby donors about urgent requests
-      if (request.urgency === 'high' || request.urgency === 'critical') {
-        await notifyNearbyDonors(request);
+      // Find potential matches using AI if no specific donation
+      if (!request.donation) {
+        try {
+          await findPotentialMatches(request._id);
+        } catch (matchError) {
+          console.error('Error finding matches:', matchError);
+        }
+
+        // Notify nearby donors about urgent requests
+        if (request.urgency === 'high' || request.urgency === 'critical') {
+          await notifyNearbyDonors(request);
+        }
       }
 
       return created(res, { request }, 'Request created successfully');
@@ -371,5 +398,421 @@ async function notifyNearbyDonors(request) {
     console.error('Error notifying nearby donors:', error);
   }
 }
+
+
+// ==================== NEW: DONOR RESPONSE ENDPOINTS ====================
+
+// @desc    Get pending requests for donor's donations
+// @route   GET /api/requests/donor/pending
+// @access  Private (Donor)
+router.get('/donor/pending', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    // Get all donations by this donor
+    const donations = await Donation.find({ donor: req.user.id, status: 'approved' }).select('_id');
+    const donationIds = donations.map(d => d._id);
+
+    // Find requests for these donations where donor hasn't responded
+    const requests = await Request.find({
+      donation: { $in: donationIds },
+      'donorResponse.status': 'pending',
+      status: { $in: ['active', 'pending_donor'] }
+    })
+    .populate('donation', 'title images category quantity')
+    .populate('requester', 'name profile.profilePicture organization location.city')
+    .sort({ createdAt: -1 });
+
+    return ok(res, { requests }, 'Pending requests retrieved successfully');
+  } catch (error) {
+    console.error('Get pending requests error:', error);
+    return fail(res, 'Failed to get pending requests', 500);
+  }
+});
+
+// @desc    Donor accepts a request
+// @route   POST /api/requests/:id/accept
+// @access  Private (Donor)
+router.post('/:id/accept', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id).populate('donation');
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check if the donor owns the donation
+    if (!request.donation) {
+      return fail(res, 'No donation linked to this request', 400);
+    }
+
+    if (request.donation.donor._id.toString() !== req.user.id) {
+      return fail(res, 'Not authorized to accept this request', 403);
+    }
+
+    // Update request status
+    request.donorResponse = {
+      status: 'accepted',
+      respondedAt: new Date(),
+      respondedBy: req.user.id,
+      acceptanceNote: req.body.note || ''
+    };
+    request.status = 'accepted';
+
+    await request.save();
+
+    // Notify recipient
+    await Notification.createAndSend({
+      recipient: request.requester._id,
+      type: 'request_accepted',
+      title: 'Request Accepted! 🎉',
+      message: `${req.user.name} has accepted your request for "${request.donation.title}"`,
+      data: {
+        requestId: request._id,
+        donationId: request.donation._id,
+        actionUrl: `/recipient/my-requests/${request._id}`
+      },
+      channels: { inApp: true, email: true }
+    });
+
+    return ok(res, { request }, 'Request accepted successfully');
+  } catch (error) {
+    console.error('Accept request error:', error);
+    return fail(res, 'Failed to accept request', 500);
+  }
+});
+
+// @desc    Donor rejects a request
+// @route   POST /api/requests/:id/reject
+// @access  Private (Donor)
+router.post('/:id/reject', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return fail(res, 'Rejection reason is required', 400);
+    }
+
+    const request = await Request.findById(req.params.id).populate('donation');
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check if the donor owns the donation
+    if (!request.donation || request.donation.donor._id.toString() !== req.user.id) {
+      return fail(res, 'Not authorized to reject this request', 403);
+    }
+
+    // Update request status
+    request.donorResponse = {
+      status: 'rejected',
+      respondedAt: new Date(),
+      respondedBy: req.user.id,
+      rejectionReason: reason
+    };
+    request.status = 'rejected';
+
+    await request.save();
+
+    // Notify recipient
+    await Notification.createAndSend({
+      recipient: request.requester._id,
+      type: 'request_rejected',
+      title: 'Request Status Update',
+      message: `Your request for "${request.donation.title}" was not accepted. Reason: ${reason}`,
+      data: {
+        requestId: request._id,
+        donationId: request.donation._id,
+        actionUrl: `/recipient/my-requests`
+      },
+      channels: { inApp: true, email: true }
+    });
+
+    return ok(res, { request }, 'Request rejected');
+  } catch (error) {
+    console.error('Reject request error:', error);
+    return fail(res, 'Failed to reject request', 500);
+  }
+});
+
+// @desc    Donor provides pickup/delivery details
+// @route   POST /api/requests/:id/logistics
+// @access  Private (Donor)
+router.post('/:id/logistics', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id).populate('donation');
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check if the donor owns the donation
+    if (!request.donation || request.donation.donor._id.toString() !== req.user.id) {
+      return fail(res, 'Not authorized to update logistics', 403);
+    }
+
+    // Check if request is accepted
+    if (request.donorResponse?.status !== 'accepted') {
+      return fail(res, 'Request must be accepted first', 400);
+    }
+
+    const { method, address, city, state, zipCode, contactPerson, contactPhone, preferredDate, preferredTimeSlot, specialInstructions } = req.body;
+
+    if (!method || !['pickup', 'delivery'].includes(method)) {
+      return fail(res, 'Invalid delivery method. Must be "pickup" or "delivery"', 400);
+    }
+
+    if (!address || !city || !contactPhone) {
+      return fail(res, 'Address, city, and contact phone are required', 400);
+    }
+
+    // Update pickup/delivery details
+    request.pickupDelivery = {
+      method,
+      address,
+      city,
+      state: state || request.donation.location.state,
+      zipCode,
+      contactPerson: contactPerson || req.user.name,
+      contactPhone,
+      preferredDate: preferredDate ? new Date(preferredDate) : null,
+      preferredTimeSlot,
+      specialInstructions
+    };
+
+    request.status = 'pickup_scheduled';
+
+    await request.save();
+
+    // Notify recipient with pickup/delivery details
+    await Notification.createAndSend({
+      recipient: request.requester._id,
+      type: 'logistics_scheduled',
+      title: method === 'pickup' ? 'Pickup Details Available' : 'Delivery Scheduled',
+      message: `${req.user.name} has provided ${method} details for your request`,
+      data: {
+        requestId: request._id,
+        method,
+        address,
+        contactPhone,
+        actionUrl: `/recipient/my-requests/${request._id}`
+      },
+      channels: { inApp: true, email: true }
+    });
+
+    return ok(res, { request }, 'Logistics details updated successfully');
+  } catch (error) {
+    console.error('Update logistics error:', error);
+    return fail(res, 'Failed to update logistics', 500);
+  }
+});
+
+// @desc    Update request status (in_transit, delivered)
+// @route   PUT /api/requests/:id/status
+// @access  Private (Donor, Recipient, or Admin)
+router.put('/:id/status', protect, async (req, res) => {
+  try {
+    const { status, note } = req.body;
+    
+    if (!status) {
+      return fail(res, 'Status is required', 400);
+    }
+
+    const validStatuses = ['in_transit', 'delivered'];
+    if (!validStatuses.includes(status)) {
+      return fail(res, 'Invalid status. Must be "in_transit" or "delivered"', 400);
+    }
+
+    const request = await Request.findById(req.params.id).populate('donation');
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check authorization
+    const isDonor = request.donation && request.donation.donor._id.toString() === req.user.id;
+    const isRecipient = request.requester._id.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isDonor && !isRecipient && !isAdmin) {
+      return fail(res, 'Not authorized to update this request status', 403);
+    }
+
+    // Update status
+    request.status = status;
+
+    if (status === 'delivered') {
+      request.fulfillment = {
+        ...request.fulfillment,
+        deliveredAt: new Date(),
+        deliveryConfirmedBy: req.user.id
+      };
+    }
+
+    await request.save();
+
+    // Notify relevant parties
+    const notificationRecipients = [];
+    if (!isDonor && request.donation) notificationRecipients.push(request.donation.donor._id);
+    if (!isRecipient) notificationRecipients.push(request.requester._id);
+
+    for (const recipientId of notificationRecipients) {
+      await Notification.createAndSend({
+        recipient: recipientId,
+        type: 'status_update',
+        title: 'Request Status Updated',
+        message: `Request status updated to: ${status.replace('_', ' ')}${note ? `. Note: ${note}` : ''}`,
+        data: {
+          requestId: request._id,
+          status,
+          actionUrl: req.user.role === 'recipient' ? `/recipient/my-requests/${request._id}` : `/donor/my-donations`
+        },
+        channels: { inApp: true, email: false }
+      });
+    }
+
+    return ok(res, { request }, 'Status updated successfully');
+  } catch (error) {
+    console.error('Update status error:', error);
+    return fail(res, 'Failed to update status', 500);
+  }
+});
+
+// @desc    Recipient submits feedback
+// @route   POST /api/requests/:id/feedback
+// @access  Private (Recipient)
+router.post('/:id/feedback', protect, restrictTo('recipient'), async (req, res) => {
+  try {
+    const { rating, comment, photos, beneficiariesHelped, impactStory } = req.body;
+    
+    const request = await Request.findById(req.params.id);
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check ownership
+    if (request.requester._id.toString() !== req.user.id) {
+      return fail(res, 'Not authorized to submit feedback for this request', 403);
+    }
+
+    // Check if delivered
+    if (request.status !== 'delivered') {
+      return fail(res, 'Can only submit feedback after delivery confirmation', 400);
+    }
+
+    if (!rating || rating < 1 || rating > 5) {
+      return fail(res, 'Valid rating (1-5) is required', 400);
+    }
+
+    // Update feedback
+    request.fulfillment = {
+      ...request.fulfillment,
+      feedback: {
+        rating,
+        comment: comment || '',
+        photos: photos || [],
+        submittedAt: new Date()
+      },
+      impact: {
+        beneficiariesHelped: beneficiariesHelped || 0,
+        impactStory: impactStory || '',
+        photos: photos || []
+      }
+    };
+
+    await request.save();
+
+    // Notify admin about feedback submission
+    const admins = await User.find({ role: 'admin', status: 'active' });
+    for (const admin of admins) {
+      await Notification.createAndSend({
+        recipient: admin._id,
+        type: 'feedback_submitted',
+        title: 'New Feedback Submitted',
+        message: `Feedback received for request "${request.title}" - Rating: ${rating}/5`,
+        data: {
+          requestId: request._id,
+          rating,
+          actionUrl: `/admin/requests`
+        },
+        channels: { inApp: true, email: false }
+      });
+    }
+
+    return ok(res, { request }, 'Feedback submitted successfully');
+  } catch (error) {
+    console.error('Submit feedback error:', error);
+    return fail(res, 'Failed to submit feedback', 500);
+  }
+});
+
+// @desc    Admin marks request as completed
+// @route   PUT /api/requests/:id/complete
+// @access  Private (Admin)
+router.put('/:id/complete', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id).populate('donation');
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check if feedback is submitted
+    if (!request.fulfillment?.feedback?.submittedAt) {
+      return fail(res, 'Cannot complete request without feedback', 400);
+    }
+
+    // Update status
+    request.status = 'fulfilled';
+    request.fulfillment.completedAt = new Date();
+    request.fulfillment.completedBy = req.user.id;
+
+    await request.save();
+
+    // Update donation status to completed if linked
+    if (request.donation) {
+      await Donation.findByIdAndUpdate(request.donation._id, {
+        status: 'completed',
+        'completion.completedAt': new Date(),
+        'completion.completedBy': req.user.id
+      });
+    }
+
+    // Notify donor and recipient
+    const notifications = [
+      {
+        recipient: request.requester._id,
+        title: 'Request Completed! ✅',
+        message: `Your request "${request.title}" has been marked as completed. Thank you for your feedback!`
+      }
+    ];
+
+    if (request.donation) {
+      notifications.push({
+        recipient: request.donation.donor._id,
+        title: 'Donation Completed! 🎉',
+        message: `Your donation "${request.donation.title}" has been successfully completed. Thank you for your generosity!`
+      });
+    }
+
+    for (const notif of notifications) {
+      await Notification.createAndSend({
+        ...notif,
+        type: 'request_completed',
+        data: {
+          requestId: request._id,
+          actionUrl: `/profile`
+        },
+        channels: { inApp: true, email: true }
+      });
+    }
+
+    return ok(res, { request }, 'Request marked as completed');
+  } catch (error) {
+    console.error('Complete request error:', error);
+    return fail(res, 'Failed to complete request', 500);
+  }
+});
+
 
 export default router;

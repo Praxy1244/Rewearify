@@ -83,6 +83,78 @@ const requestService = {
       console.error('Get active requests error:', error);
       throw error;
     }
+  },
+
+  // ==================== NEW: DONOR RESPONSE METHODS ====================
+  
+  // Get pending requests for donor's donations
+  getPendingRequestsForDonor: async () => {
+    try {
+      return await api.get('/requests/donor/pending');
+    } catch (error) {
+      console.error('Get pending donor requests error:', error);
+      throw error;
+    }
+  },
+
+  // Donor accepts a request
+  acceptRequest: async (requestId, note = '') => {
+    try {
+      return await api.post(`/requests/${requestId}/accept`, { note });
+    } catch (error) {
+      console.error('Accept request error:', error);
+      throw error;
+    }
+  },
+
+  // Donor rejects a request
+  rejectRequest: async (requestId, reason) => {
+    try {
+      return await api.post(`/requests/${requestId}/reject`, { reason });
+    } catch (error) {
+      console.error('Reject request error:', error);
+      throw error;
+    }
+  },
+
+  // Donor provides pickup/delivery details
+  provideLogistics: async (requestId, logisticsData) => {
+    try {
+      return await api.post(`/requests/${requestId}/logistics`, logisticsData);
+    } catch (error) {
+      console.error('Provide logistics error:', error);
+      throw error;
+    }
+  },
+
+  // Update request status (in_transit, delivered)
+  updateRequestStatus: async (requestId, status, note = '') => {
+    try {
+      return await api.put(`/requests/${requestId}/status`, { status, note });
+    } catch (error) {
+      console.error('Update request status error:', error);
+      throw error;
+    }
+  },
+
+  // Recipient submits feedback
+  submitFeedback: async (requestId, feedbackData) => {
+    try {
+      return await api.post(`/requests/${requestId}/feedback`, feedbackData);
+    } catch (error) {
+      console.error('Submit feedback error:', error);
+      throw error;
+    }
+  },
+
+  // Admin marks request as completed
+  adminCompleteRequest: async (requestId) => {
+    try {
+      return await api.put(`/requests/${requestId}/complete`);
+    } catch (error) {
+      console.error('Admin complete request error:', error);
+      throw error;
+    }
   }
 };
 
