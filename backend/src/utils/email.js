@@ -152,6 +152,120 @@ export const emailTemplates = {
         <p>Best regards,<br>The ReWearify Team</p>
       </div>
     `
+  }),
+
+  // Congratulations email for donors
+  congratulations: (donorName, recipientName, rating, comment, beneficiariesHelped, impactStory, totalDonations, totalBeneficiaries, newAchievements, requestId) => ({
+    subject: `🎉 Congratulations ${donorName}! Your donation made a real impact!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2px; border-radius: 12px;">
+        <div style="background: white; padding: 40px; border-radius: 10px;">
+          <!-- Header -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #667eea; font-size: 32px; margin: 0;">🎉 Congratulations!</h1>
+            <p style="color: #4b5563; font-size: 18px; margin: 10px 0 0 0;">You've Made a Real Difference!</p>
+          </div>
+
+          <!-- Greeting -->
+          <p style="color: #1f2937; font-size: 16px; line-height: 1.6;">Hi <strong>${donorName}</strong>,</p>
+          <p style="color: #1f2937; font-size: 16px; line-height: 1.6;">
+            We're thrilled to share that your donation has been successfully received and is making a real impact! 
+            <strong>${recipientName}</strong> has shared their heartfelt feedback.
+          </p>
+
+          <!-- Rating Section -->
+          <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 10px; margin: 25px 0; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 10px;">
+              ${'⭐'.repeat(rating)}${'☆'.repeat(5 - rating)}
+            </div>
+            <p style="color: #92400e; font-size: 24px; font-weight: bold; margin: 0;">${rating}.0 / 5.0 Rating</p>
+            <p style="color: #78350f; font-size: 14px; margin: 10px 0 0 0;">From ${recipientName}</p>
+          </div>
+
+          <!-- Feedback Comment -->
+          ${comment ? `
+          <div style="background: #f9fafb; padding: 20px; border-left: 4px solid #667eea; border-radius: 6px; margin: 20px 0;">
+            <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px 0; font-weight: 600;">💬 Recipient's Feedback:</p>
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.6; margin: 0; font-style: italic;">"${comment}"</p>
+          </div>
+          ` : ''}
+
+          <!-- Impact Stats -->
+          <div style="background: #f0fdf4; padding: 25px; border-radius: 10px; margin: 25px 0;">
+            <h2 style="color: #059669; font-size: 20px; margin: 0 0 20px 0; text-align: center;">📊 Impact Summary</h2>
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;">
+              <div style="text-align: center;">
+                <p style="color: #059669; font-size: 36px; font-weight: bold; margin: 0;">${beneficiariesHelped || 0}</p>
+                <p style="color: #047857; font-size: 14px; margin: 5px 0 0 0;">Lives Touched</p>
+              </div>
+              ${impactStory ? `
+              <div style="text-align: center; flex: 1; min-width: 200px;">
+                <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px 0;">📖 Impact Story:</p>
+                <p style="color: #1f2937; font-size: 14px; line-height: 1.5; margin: 0;">${impactStory}</p>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Lifetime Stats -->
+          <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); padding: 25px; border-radius: 10px; margin: 25px 0;">
+            <h2 style="color: #1e40af; font-size: 20px; margin: 0 0 20px 0; text-align: center;">🏆 Your Lifetime Impact</h2>
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+              <div>
+                <p style="color: #1e40af; font-size: 32px; font-weight: bold; margin: 0;">${totalDonations}</p>
+                <p style="color: #1e3a8a; font-size: 14px; margin: 5px 0 0 0;">Total Donations</p>
+              </div>
+              <div>
+                <p style="color: #1e40af; font-size: 32px; font-weight: bold; margin: 0;">${totalBeneficiaries}</p>
+                <p style="color: #1e3a8a; font-size: 14px; margin: 5px 0 0 0;">Total Lives Helped</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- New Achievements -->
+          ${newAchievements && newAchievements.length > 0 ? `
+          <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 10px; margin: 25px 0;">
+            <h2 style="color: #92400e; font-size: 20px; margin: 0 0 20px 0; text-align: center;">🎖️ New Achievements Unlocked!</h2>
+            ${newAchievements.map(achievement => `
+              <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0; display: flex; align-items: center; gap: 15px;">
+                <div style="font-size: 36px;">${achievement.icon}</div>
+                <div>
+                  <p style="color: #1f2937; font-size: 16px; font-weight: bold; margin: 0;">${achievement.title}</p>
+                  <p style="color: #6b7280; font-size: 14px; margin: 5px 0 0 0;">${achievement.description}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+
+          <!-- Call to Action -->
+          <div style="text-align: center; margin: 35px 0;">
+            <a href="${process.env.FRONTEND_URL}/donor/congratulations/${requestId}" 
+               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; display: inline-block; font-size: 16px; font-weight: 600;">
+              🎉 View Full Impact Report
+            </a>
+          </div>
+
+          <!-- Closing -->
+          <div style="border-top: 2px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.6;">
+              Thank you for being an incredible part of our community! Your generosity is changing lives and creating a better world.
+            </p>
+            <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+              With gratitude,<br>
+              <strong style="color: #667eea;">The ReWearify Team</strong>
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #9ca3af; font-size: 12px;">
+              Keep making a difference! Every donation matters. 💙
+            </p>
+          </div>
+        </div>
+      </div>
+    `
   })
 };
 

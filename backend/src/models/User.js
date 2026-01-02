@@ -123,7 +123,21 @@ profile: {
   statistics: {
     totalDonations: { type: Number, default: 0 },
     totalRequests: { type: Number, default: 0 },
+    rating: { type: Number, default: 0, min: 0, max: 5 },
+    totalRatings: { type: Number, default: 0 },
+    totalBeneficiariesHelped: { type: Number, default: 0 },
+    completedDonations: { type: Number, default: 0 }
   },
+  achievements: [{
+    type: {
+      type: String,
+      enum: ['first_donation', 'generous_giver', 'super_donor', 'community_hero', 'five_star', 'hundred_lives', 'veteran_donor']
+    },
+    earnedAt: { type: Date, default: Date.now },
+    title: String,
+    description: String,
+    icon: String
+  }],
   status: {
     type: String,
     enum: ['active', 'inactive', 'suspended', 'banned'],

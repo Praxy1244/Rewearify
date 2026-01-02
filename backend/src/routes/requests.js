@@ -7,6 +7,8 @@ import { ok, fail, created, paginated } from '../utils/response.js';
 import { protect, restrictTo, adminOrOwner } from '../middleware/auth.js';
 import { requestValidations, searchValidations, handleValidationErrors } from '../utils/validation.js';
 import axios from 'axios';
+import { sendTemplateEmail } from '../utils/email.js';
+import { checkNewAchievements } from '../utils/achievements.js';
 
 const router = express.Router();
 
@@ -745,7 +747,7 @@ router.post('/:id/feedback', protect, restrictTo('recipient'), async (req, res) 
   try {
     const { rating, comment, photos, beneficiariesHelped, impactStory } = req.body;
     
-    const request = await Request.findById(req.params.id);
+    const request = await Request.findById(req.params.id).populate('donation');
     
     if (!request) {
       return fail(res, 'Request not found', 404);
@@ -783,6 +785,77 @@ router.post('/:id/feedback', protect, restrictTo('recipient'), async (req, res) 
 
     await request.save();
 
+    // 🎉 UPDATE DONOR STATISTICS AND TRIGGER CONGRATULATIONS
+    if (request.donation && request.donation.donor) {
+      const donor = await User.findById(request.donation.donor._id);
+      
+      if (donor) {
+        // Calculate new average rating
+        const currentTotalRating = donor.statistics.rating * donor.statistics.totalRatings;
+        const newTotalRatings = donor.statistics.totalRatings + 1;
+        const newAverageRating = (currentTotalRating + rating) / newTotalRatings;
+        
+        // Update donor statistics
+        const updatedStats = {
+          rating: parseFloat(newAverageRating.toFixed(2)),
+          totalRatings: newTotalRatings,
+          totalBeneficiariesHelped: donor.statistics.totalBeneficiariesHelped + (beneficiariesHelped || 0),
+          completedDonations: donor.statistics.completedDonations + 1,
+          totalDonations: donor.statistics.totalDonations
+        };
+        
+        // Check for new achievements
+        const newAchievements = checkNewAchievements(donor, updatedStats);
+        
+        // Update donor record
+        donor.statistics = updatedStats;
+        if (newAchievements.length > 0) {
+          donor.achievements = [...(donor.achievements || []), ...newAchievements];
+        }
+        await donor.save();
+        
+        // Send congratulations notification (in-app)
+        await Notification.createAndSend({
+          recipient: donor._id,
+          type: 'congratulations',
+          title: '🎉 Congratulations! Your donation made an impact!',
+          message: `${req.user.name} rated your donation ${rating}/5 stars${newAchievements.length > 0 ? ` and you've earned ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!` : '!'}`,
+          data: {
+            requestId: request._id,
+            rating,
+            beneficiariesHelped,
+            newAchievements: newAchievements.length,
+            actionUrl: `/donor/congratulations/${request._id}`
+          },
+          channels: { inApp: true, email: false }
+        });
+        
+        // Send congratulations email
+        try {
+          await sendTemplateEmail(
+            donor.email,
+            'congratulations',
+            {
+              donorName: donor.name,
+              recipientName: req.user.name,
+              rating,
+              comment: comment || '',
+              beneficiariesHelped: beneficiariesHelped || 0,
+              impactStory: impactStory || '',
+              totalDonations: updatedStats.completedDonations,
+              totalBeneficiaries: updatedStats.totalBeneficiariesHelped,
+              newAchievements,
+              requestId: request._id
+            }
+          );
+          console.log(`✅ Congratulations email sent to donor: ${donor.email}`);
+        } catch (emailError) {
+          console.error('Failed to send congratulations email:', emailError);
+          // Don't fail the request if email fails
+        }
+      }
+    }
+
     // Notify admin about feedback submission
     const admins = await User.find({ role: 'admin', status: 'active' });
     for (const admin of admins) {
@@ -800,7 +873,7 @@ router.post('/:id/feedback', protect, restrictTo('recipient'), async (req, res) 
       });
     }
 
-    return ok(res, { request }, 'Feedback submitted successfully');
+    return ok(res, { request }, 'Feedback submitted successfully! Donor has been congratulated.');
   } catch (error) {
     console.error('Submit feedback error:', error);
     return fail(res, 'Failed to submit feedback', 500);
@@ -872,6 +945,71 @@ router.put('/:id/complete', protect, restrictTo('admin'), async (req, res) => {
   } catch (error) {
     console.error('Complete request error:', error);
     return fail(res, 'Failed to complete request', 500);
+  }
+});
+
+// @desc    Get congratulations details for donor
+// @route   GET /api/requests/:id/congratulations
+// @access  Private (Donor)
+router.get('/:id/congratulations', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id)
+      .populate('donation')
+      .populate('requester', 'name profile.profilePicture organization');
+    
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    // Check if the donor owns the donation
+    if (!request.donation || request.donation.donor._id.toString() !== req.user.id) {
+      return fail(res, 'Not authorized to view congratulations for this request', 403);
+    }
+
+    // Get donor details with stats
+    const donor = await User.findById(req.user.id);
+    
+    // Prepare congratulations data
+    const congratulationsData = {
+      request: {
+        id: request._id,
+        title: request.title,
+        category: request.category,
+        quantity: request.quantity,
+        status: request.status
+      },
+      recipient: {
+        name: request.requester.name,
+        profilePicture: request.requester.profile?.profilePicture?.url || '',
+        organization: request.requester.organization?.name || ''
+      },
+      donation: {
+        title: request.donation.title,
+        images: request.donation.images || []
+      },
+      feedback: {
+        rating: request.fulfillment?.feedback?.rating || 0,
+        comment: request.fulfillment?.feedback?.comment || '',
+        submittedAt: request.fulfillment?.feedback?.submittedAt || null
+      },
+      impact: {
+        beneficiariesHelped: request.fulfillment?.impact?.beneficiariesHelped || 0,
+        impactStory: request.fulfillment?.impact?.impactStory || '',
+        photos: request.fulfillment?.impact?.photos || []
+      },
+      donorStats: {
+        rating: donor.statistics?.rating || 0,
+        totalRatings: donor.statistics?.totalRatings || 0,
+        completedDonations: donor.statistics?.completedDonations || 0,
+        totalBeneficiariesHelped: donor.statistics?.totalBeneficiariesHelped || 0
+      },
+      achievements: donor.achievements || []
+    };
+
+    return ok(res, congratulationsData, 'Congratulations data retrieved successfully');
+  } catch (error) {
+    console.error('Get congratulations error:', error);
+    return fail(res, 'Failed to get congratulations data', 500);
   }
 });
 

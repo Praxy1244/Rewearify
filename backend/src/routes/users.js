@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import { ok, fail, paginated } from '../utils/response.js';
 import { protect, restrictTo, adminOrOwner } from '../middleware/auth.js';
 import { userValidations, handleValidationErrors } from '../utils/validation.js';
+import { getAchievementProgress } from '../utils/achievements.js';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -500,6 +501,35 @@ router.put('/:id', protect, adminOrOwner('id'), userValidations.updateProfile, h
   } catch (error) {
     console.error('Update profile error:', error);
     return fail(res, 'Failed to update profile', 500);
+  }
+});
+
+// @desc    Get donor achievements and stats
+// @route   GET /api/users/:id/achievements
+// @access  Private (Owner or Public for donors)
+router.get('/:id/achievements', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('name statistics achievements role');
+    
+    if (!user) {
+      return fail(res, 'User not found', 404);
+    }
+
+    // Only show achievements for donors
+    if (user.role !== 'donor') {
+      return fail(res, 'Achievements are only available for donors', 400);
+    }
+
+    const achievementProgress = getAchievementProgress(user.statistics || {});
+
+    return ok(res, {
+      statistics: user.statistics,
+      achievements: user.achievements || [],
+      progress: achievementProgress
+    }, 'Achievements retrieved successfully');
+  } catch (error) {
+    console.error('Get achievements error:', error);
+    return fail(res, 'Failed to get achievements', 500);
   }
 });
 
