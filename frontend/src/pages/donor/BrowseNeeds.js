@@ -39,8 +39,8 @@ const BrowseNeeds = () => {
       const token = localStorage.getItem('token');
 
       if (activeTab === 'needs') {
-        // 1. Fetch Requests
-        const response = await requestService.getRequests({ status: 'active,pending_donor' });
+        // 1. Fetch Requests for donor's donations using specialized endpoint
+        const response = await requestService.getPendingRequestsForDonor();
         if (response.success) setNeeds(response.data.requests || []);
         
       } else if (activeTab === 'suggested') {
@@ -174,13 +174,15 @@ const BrowseNeeds = () => {
               {filterItems(needs).map(need => (
                 <RequestCard 
                   key={need._id} 
-                  request={need} 
+                  request={need}
+                  showDonorActions={true}
+                  onRespond={() => navigate('/donor/donation-requests')}
                 />
               ))}
             </div>
           ) : (
             <div className="text-center py-12 text-gray-500">
-              No active needs found matching your criteria.
+              No pending requests for your donations.
             </div>
           )}
         </TabsContent>

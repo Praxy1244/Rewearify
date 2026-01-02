@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { MapPin, Package, Calendar, Eye, Building2, CheckCircle } from 'lucide-react';
+import { MapPin, Package, Calendar, Eye, Building2, CheckCircle, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const RequestCard = ({ request }) => {
+const RequestCard = ({ request, showDonorActions = false, onRespond }) => {
   const navigate = useNavigate();
 
   // Get NGO's profile picture with fallback
@@ -96,14 +96,32 @@ const RequestCard = ({ request }) => {
           )}
         </div>
 
-        <Button 
-          onClick={() => navigate(`/requests/${request._id}`)} 
-          className="w-full mt-2"
-          variant="outline"
-        >
-          <Eye className="h-4 w-4 mr-2" />
-          View Details
-        </Button>
+        {showDonorActions ? (
+          <div className="flex gap-2 mt-2">
+            <Button 
+              onClick={() => onRespond(request)} 
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              <Heart className="h-4 w-4 mr-2" />
+              Respond
+            </Button>
+            <Button 
+              onClick={() => navigate(`/requests/${request._id}`)} 
+              variant="outline"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <Button 
+            onClick={() => navigate(`/requests/${request._id}`)} 
+            className="w-full mt-2"
+            variant="outline"
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            View Details
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
