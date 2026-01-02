@@ -25,6 +25,13 @@ const notificationSchema = new mongoose.Schema({
       'match_suggestion',
       'system_update',
       'account_verified',
+      'new_donation_request',      // ✅ ADD THIS
+    'request_accepted',            // ✅ ADD THIS
+    'request_rejected',            // ✅ ADD THIS
+    'logistics_scheduled',         // ✅ ADD THIS
+    'status_update',               // ✅ ADD THIS
+    'feedback_submitted',          // ✅ ADD THIS
+    'request_completed',           // ✅ ADD THIS
       'password_changed',
       'login_alert',
       'reminder',
