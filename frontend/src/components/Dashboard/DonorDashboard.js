@@ -157,12 +157,15 @@ const DonorDashboard = () => {
             <Card>
               <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Button className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/donate')}>
                     <Plus className="h-6 w-6" /><span>Create Donation</span>
                   </Button>
                   <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/my-donations')}>
                     <Package className="h-6 w-6" /><span>My Donations</span>
+                  </Button>
+                  <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/donation-requests')}>
+                    <Users className="h-6 w-6" /><span>View Requests</span>
                   </Button>
                   <Button variant="outline" className="w-full h-auto py-6 flex flex-col items-center gap-2" onClick={() => navigate('/donor/browseNeeds')}>
                     <Heart className="h-6 w-6" /><span>Browse Needs</span>

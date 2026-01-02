@@ -58,6 +58,7 @@ import DonationEdit from './pages/donor/DonationEdit';
 import BrowseNeeds from "./pages/donor/BrowseNeeds";
 import AIInsights from './pages/donor/AIInsights';
 import PersonalizedRecommendations from './pages/donor/PersonalizedRecommendations';
+import DonationRequests from './pages/donor/DonationRequests';
 import Notifications from './pages/Notifications'; 
 import ResetPassword from "./pages/auth/ResetPassword";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -175,6 +176,13 @@ function AppContent() {
           <Route path="/donor/recommendations" element={
             <ProtectedRoute allowedRoles={['donor']}>
               <PersonalizedRecommendations />
+            </ProtectedRoute>
+          } />
+
+          {/* ✨ NEW: Donation Requests Route */}
+          <Route path="/donor/donation-requests" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <DonationRequests />
             </ProtectedRoute>
           } />
 

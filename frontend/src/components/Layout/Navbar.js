@@ -45,6 +45,7 @@ const Navbar = () => {
           { path: '/donor-dashboard', label: 'Dashboard' },
           { path: '/donor/donate', label: 'New Donation' },
           { path: '/donor/my-donations', label: 'My Donations' },
+          { path: '/donor/donation-requests', label: 'Requests' },
           { path: '/donor/browseNeeds', label: 'Browse Needs' }
         ];
       case 'recipient':
