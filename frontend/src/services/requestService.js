@@ -85,6 +85,17 @@ const requestService = {
     }
   },
 
+  // Alias for getActiveRequests (used by BrowseNeeds)
+  getRequests: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams(filters);
+      return await api.get(`/requests?${params}`);
+    } catch (error) {
+      console.error('Get requests error:', error);
+      throw error;
+    }
+  },
+
   // ==================== NEW: DONOR RESPONSE METHODS ====================
   
   // Get pending requests for donor's donations

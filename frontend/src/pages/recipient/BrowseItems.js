@@ -193,7 +193,7 @@ const handleRequest = (item) => {
       },
       
       // ✅ OPTIONAL: Link to donation (if backend supports it)
-      relatedDonation: selectedItem._id
+      donation: selectedItem._id
     };
     
     console.log('📦 Submitting request payload:', requestPayload);

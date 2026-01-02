@@ -83,6 +83,104 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
   }
 });
 
+// ==================== DONOR RESPONSE ENDPOINTS (Must be before /:id route) ====================
+
+// @desc    Get pending requests for donor's donations
+// @route   GET /api/requests/donor/pending
+// @access  Private (Donor)
+router.get('/donor/pending', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    // Get all donations by this donor
+    const donations = await Donation.find({ donor: req.user.id, status: 'approved' }).select('_id');
+    const donationIds = donations.map(d => d._id);
+
+    // Find requests for these donations where donor hasn't responded
+    const requests = await Request.find({
+      donation: { $in: donationIds },
+      'donorResponse.status': 'pending',
+      status: { $in: ['active', 'pending_donor'] }
+    })
+    .populate('donation', 'title images category quantity')
+    .populate('requester', 'name profile.profilePicture organization location.city')
+    .sort({ createdAt: -1 });
+
+    return ok(res, { requests }, 'Pending requests retrieved successfully');
+  } catch (error) {
+    console.error('Get pending requests error:', error);
+    return fail(res, 'Failed to get pending requests', 500);
+  }
+});
+
+// @desc    Get user's requests
+// @route   GET /api/requests/user/:userId
+// @access  Private (Owner or Admin)
+router.get('/user/:userId', protect, adminOrOwner('userId'), async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    
+    let query = { requester: req.params.userId };
+    if (status) query.status = status;
+
+    const requests = await Request.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('donation', 'title images status');
+
+    const total = await Request.countDocuments(query);
+
+    return paginated(res, requests, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total
+    }, 'User requests retrieved successfully');
+  } catch (error) {
+    console.error('Get user requests error:', error);
+    return fail(res, 'Failed to get user requests', 500);
+  }
+});
+
+// @desc    Get urgent requests
+// @route   GET /api/requests/urgent
+// @access  Public
+router.get('/urgent', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const urgentRequests = await Request.getUrgent(parseInt(limit));
+
+    return ok(res, { requests: urgentRequests }, 'Urgent requests retrieved successfully');
+  } catch (error) {
+    console.error('Get urgent requests error:', error);
+    return fail(res, 'Failed to get urgent requests', 500);
+  }
+});
+
+// @desc    Get nearby requests for donor
+// @route   GET /api/requests/nearby
+// @access  Private (Donor)
+router.get('/nearby', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const { lat, lng, radius = 25, limit = 20 } = req.query;
+
+    if (!lat || !lng) {
+      return fail(res, 'Latitude and longitude are required', 400);
+    }
+
+    const coordinates = [parseFloat(lng), parseFloat(lat)];
+    const maxDistance = radius * 1000; // Convert km to meters
+
+    const nearbyRequests = await Request.findNearby(coordinates, maxDistance)
+      .limit(parseInt(limit))
+      .sort({ urgency: -1, 'timeline.neededBy': 1 });
+
+    return ok(res, { requests: nearbyRequests }, 'Nearby requests retrieved successfully');
+  } catch (error) {
+    console.error('Get nearby requests error:', error);
+    return fail(res, 'Failed to get nearby requests', 500);
+  }
+});
+
 // @desc    Get single request
 // @route   GET /api/requests/:id
 // @access  Public
@@ -253,76 +351,6 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
-// @desc    Get user's requests
-// @route   GET /api/requests/user/:userId
-// @access  Private (Owner or Admin)
-router.get('/user/:userId', protect, adminOrOwner('userId'), async (req, res) => {
-  try {
-    const { page = 1, limit = 20, status } = req.query;
-    
-    let query = { requester: req.params.userId };
-    if (status) query.status = status;
-
-    const requests = await Request.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('donation', 'title images status');
-
-    const total = await Request.countDocuments(query);
-
-    return paginated(res, requests, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total
-    }, 'User requests retrieved successfully');
-  } catch (error) {
-    console.error('Get user requests error:', error);
-    return fail(res, 'Failed to get user requests', 500);
-  }
-});
-
-// @desc    Get urgent requests
-// @route   GET /api/requests/urgent
-// @access  Public
-router.get('/urgent', async (req, res) => {
-  try {
-    const { limit = 10 } = req.query;
-
-    const urgentRequests = await Request.getUrgent(parseInt(limit));
-
-    return ok(res, { requests: urgentRequests }, 'Urgent requests retrieved successfully');
-  } catch (error) {
-    console.error('Get urgent requests error:', error);
-    return fail(res, 'Failed to get urgent requests', 500);
-  }
-});
-
-// @desc    Get nearby requests for donor
-// @route   GET /api/requests/nearby
-// @access  Private (Donor)
-router.get('/nearby', protect, restrictTo('donor'), async (req, res) => {
-  try {
-    const { lat, lng, radius = 25, limit = 20 } = req.query;
-
-    if (!lat || !lng) {
-      return fail(res, 'Latitude and longitude are required', 400);
-    }
-
-    const coordinates = [parseFloat(lng), parseFloat(lat)];
-    const maxDistance = radius * 1000; // Convert km to meters
-
-    const nearbyRequests = await Request.findNearby(coordinates, maxDistance)
-      .limit(parseInt(limit))
-      .sort({ urgency: -1, 'timeline.neededBy': 1 });
-
-    return ok(res, { requests: nearbyRequests }, 'Nearby requests retrieved successfully');
-  } catch (error) {
-    console.error('Get nearby requests error:', error);
-    return fail(res, 'Failed to get nearby requests', 500);
-  }
-});
-
 // Helper function to find potential matches
 async function findPotentialMatches(requestId) {
   try {
@@ -400,33 +428,7 @@ async function notifyNearbyDonors(request) {
 }
 
 
-// ==================== NEW: DONOR RESPONSE ENDPOINTS ====================
-
-// @desc    Get pending requests for donor's donations
-// @route   GET /api/requests/donor/pending
-// @access  Private (Donor)
-router.get('/donor/pending', protect, restrictTo('donor'), async (req, res) => {
-  try {
-    // Get all donations by this donor
-    const donations = await Donation.find({ donor: req.user.id, status: 'approved' }).select('_id');
-    const donationIds = donations.map(d => d._id);
-
-    // Find requests for these donations where donor hasn't responded
-    const requests = await Request.find({
-      donation: { $in: donationIds },
-      'donorResponse.status': 'pending',
-      status: { $in: ['active', 'pending_donor'] }
-    })
-    .populate('donation', 'title images category quantity')
-    .populate('requester', 'name profile.profilePicture organization location.city')
-    .sort({ createdAt: -1 });
-
-    return ok(res, { requests }, 'Pending requests retrieved successfully');
-  } catch (error) {
-    console.error('Get pending requests error:', error);
-    return fail(res, 'Failed to get pending requests', 500);
-  }
-});
+// ==================== DONOR RESPONSE ENDPOINTS CONTINUED ====================
 
 // @desc    Donor accepts a request
 // @route   POST /api/requests/:id/accept

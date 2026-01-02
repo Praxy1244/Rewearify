@@ -40,7 +40,7 @@ const BrowseNeeds = () => {
 
       if (activeTab === 'needs') {
         // 1. Fetch Requests
-        const response = await requestService.getRequests({ status: 'active' });
+        const response = await requestService.getRequests({ status: 'active,pending_donor' });
         if (response.success) setNeeds(response.data.requests || []);
         
       } else if (activeTab === 'suggested') {
