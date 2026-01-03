@@ -172,14 +172,27 @@ const BrowseNeeds = () => {
             </div>
           ) : filterItems(needs).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterItems(needs).map(need => (
-                <RequestCard 
-                  key={need._id} 
-                  request={need}
-                  showDonorActions={true}
-                  onRespond={() => navigate('/donor/donation-requests')}
-                />
-              ))}
+             {filterItems(needs).map(need => (
+  <RequestCard 
+    key={need._id} 
+    request={need}
+    showDonorActions={true}
+    onRespond={(request) => {
+      // Extract NGO information from the request
+      const ngoData = {
+        id: request.requester._id,
+        name: request.requester.organization?.name || request.requester.name,
+        city: request.requester.location?.city
+      };
+      
+      // Navigate to donation form with NGO pre-selected
+      navigate('/donor/donate', { 
+        state: { targetNgo: ngoData } 
+      });
+    }}
+  />
+))}
+
             </div>
           ) : (
             <div className="text-center py-12 text-gray-500">

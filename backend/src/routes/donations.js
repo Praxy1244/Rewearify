@@ -467,104 +467,149 @@ router.put('/:id/admin-approve', protect, restrictTo('admin'), async (req, res) 
   try {
     console.log(`🔍 Admin ${req.user.name} attempting to approve donation ${req.params.id}`);
 
-    // Find donation and populate NGO and donor details
-    const donation = await Donation.findById(req.params.id)
-      .populate('preferences.preferredRecipients', 'name email organization location')
-      .populate('donor', 'name email');
+    // ✅ FIX: Find without populate (the model pre-hook will handle it)
+    const donation = await Donation.findById(req.params.id);
 
     if (!donation) {
       console.log(`❌ Donation ${req.params.id} not found`);
       return fail(res, 'Donation not found', 404);
     }
 
-    // Check if already approved
-    if (donation.status === 'approved') {
-      return fail(res, 'Donation already approved', 400);
+    console.log(`📋 Current donation status: ${donation.status}`);
+    console.log(`📋 Is flagged: ${donation.isFlagged}`);
+    console.log(`📋 Preferred recipients count:`, donation.preferences?.preferredRecipients?.length || 0);
+
+    // ✅ Check if donation is in a valid state for approval
+    const validStates = ['pending', 'flagged'];
+    if (!validStates.includes(donation.status)) {
+      console.log(`❌ Cannot approve donation with status: ${donation.status}`);
+      return fail(res, `Cannot approve donation with status "${donation.status}". Must be pending or flagged.`, 400);
     }
 
-    // Update donation status
+    // ✅ FIX: Update using the model method to avoid conflicts
     donation.status = 'approved';
     donation.approvedBy = req.user.id;
     donation.approvedAt = new Date();
+    
+    // ✅ Update moderation fields as well
+    donation.moderation = donation.moderation || {};
+    donation.moderation.approvedBy = req.user.id;
+    donation.moderation.approvedAt = new Date();
+    
+    // Clear flag if it was flagged
+    if (donation.isFlagged) {
+      donation.isFlagged = false;
+      donation.flagReason = 'Approved by admin after review';
+    }
+    
     await donation.save();
 
     console.log(`✅ Donation ${donation._id} approved by admin ${req.user.name}`);
 
     const socketService = req.app.get('socketService');
 
-    // If donor selected a specific NGO, notify them
+    // ✅ If donor selected a specific NGO, notify them
     if (donation.preferences?.preferredRecipients && 
         donation.preferences.preferredRecipients.length > 0) {
       
-      const targetedNGO = donation.preferences.preferredRecipients[0];
+      const targetNGOId = donation.preferences.preferredRecipients[0];
       
-      console.log(`📧 Notifying targeted NGO: ${targetedNGO.organization?.name || targetedNGO.name}`);
+      console.log(`📧 Fetching NGO details for ID: ${targetNGOId}`);
       
-      // Create notification for NGO
-      const ngoNotification = await Notification.create({
-        recipient: targetedNGO._id,
-        type: 'donation_offer',
-        title: '🎁 New Donation Offer',
-        message: `A donor has offered you: "${donation.title}". Please review and accept.`,
-        data: {
-          donationId: donation._id,
-          donorId: donation.donor._id,
-          donorName: donation.donor.name,
-          requiresAcceptance: true,
-          actionUrl: `/recipient/donations/${donation._id}`
-        },
-        channels: { inApp: true, email: true, push: false }
-      });
+      try {
+        // ✅ FIX: Fetch NGO separately instead of relying on populate
+        const targetNGO = await User.findById(targetNGOId).select('name email organization location');
+        
+        if (targetNGO) {
+          console.log(`📧 Notifying targeted NGO: ${targetNGO.organization?.name || targetNGO.name}`);
+          
+          // Create notification for NGO
+          const ngoNotification = await Notification.create({
+            recipient: targetNGO._id,
+            type: 'donation_offer',
+            title: '🎁 New Donation Offer',
+            message: `A donor has offered you: "${donation.title}". Please review and accept.`,
+            data: {
+              donationId: donation._id,
+              donorId: donation.donor._id || donation.donor,
+              donorName: donation.donor.name || 'Unknown Donor',
+              requiresAcceptance: true,
+              actionUrl: `/recipient/donations/${donation._id}`
+            },
+            channels: { inApp: true, email: true, push: false }
+          });
 
-      // Send real-time notification via socket
-      if (socketService) {
-        socketService.sendToUser(targetedNGO._id.toString(), {
-          _id: ngoNotification._id,
-          type: ngoNotification.type,
-          title: ngoNotification.title,
-          message: ngoNotification.message,
-          data: ngoNotification.data,
-          createdAt: ngoNotification.createdAt,
-          read: false
-        });
+          // Send real-time notification via socket
+          if (socketService) {
+            socketService.sendToUser(targetNGO._id.toString(), {
+              _id: ngoNotification._id,
+              type: ngoNotification.type,
+              title: ngoNotification.title,
+              message: ngoNotification.message,
+              data: ngoNotification.data,
+              createdAt: ngoNotification.createdAt,
+              read: false
+            });
+          }
+
+          console.log(`✅ Notification sent to NGO ${targetNGO._id}`);
+        } else {
+          console.log(`⚠️ Targeted NGO not found with ID: ${targetNGOId}`);
+        }
+      } catch (ngoFetchError) {
+        console.error(`⚠️ Failed to fetch or notify NGO:`, ngoFetchError.message);
+        // Don't fail the approval if NGO notification fails
       }
-
-      console.log(`✅ Notification sent to NGO ${targetedNGO._id}`);
+    } else {
+      console.log(`ℹ️ No preferred recipients specified - donation is public`);
     }
 
     // Notify donor that donation was approved
-    const donorNotification = await Notification.create({
-      recipient: donation.donor._id,
-      type: 'donation_approved',
-      title: '✅ Donation Approved',
-      message: `Your donation "${donation.title}" has been approved by admin.`,
-      data: {
-        donationId: donation._id,
-        actionUrl: `/donor/my-donations/${donation._id}`
-      },
-      channels: { inApp: true, email: false, push: false }
-    });
-
-    if (socketService) {
-      socketService.sendToUser(donation.donor._id.toString(), {
-        _id: donorNotification._id,
-        type: donorNotification.type,
-        title: donorNotification.title,
-        message: donorNotification.message,
-        data: donorNotification.data,
-        createdAt: donorNotification.createdAt,
-        read: false
+    try {
+      const donorId = donation.donor._id || donation.donor;
+      
+      const donorNotification = await Notification.create({
+        recipient: donorId,
+        type: 'donation_approved',
+        title: '✅ Donation Approved',
+        message: `Your donation "${donation.title}" has been approved by admin.`,
+        data: {
+          donationId: donation._id,
+          actionUrl: `/donor/my-donations/${donation._id}`
+        },
+        channels: { inApp: true, email: false, push: false }
       });
+
+      if (socketService) {
+        socketService.sendToUser(donorId.toString(), {
+          _id: donorNotification._id,
+          type: donorNotification.type,
+          title: donorNotification.title,
+          message: donorNotification.message,
+          data: donorNotification.data,
+          createdAt: donorNotification.createdAt,
+          read: false
+        });
+      }
+      
+      console.log(`✅ Donor notification sent to ${donorId}`);
+    } catch (donorNotifError) {
+      console.error(`⚠️ Failed to notify donor:`, donorNotifError.message);
+      // Don't fail the approval if notification fails
     }
 
+    // ✅ Reload donation with populated fields for response
+    const populatedDonation = await Donation.findById(donation._id);
+
     return ok(res, { 
-      donation,
+      donation: populatedDonation,
       notifiedNGO: donation.preferences?.preferredRecipients?.[0] || null
     }, 'Donation approved successfully');
 
   } catch (error) {
     console.error('❌ Admin approval error:', error);
-    return fail(res, 'Server error during approval', 500);
+    console.error('Error stack:', error.stack);
+    return fail(res, `Server error during approval: ${error.message}`, 500);
   }
 });
 

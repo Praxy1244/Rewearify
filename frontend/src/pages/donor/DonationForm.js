@@ -263,11 +263,24 @@ const fetchRecommendations = async () => {
     
     const data = await response.json();
     
-    console.log('✅ Recommendations response:', data);
+    console.log('✅ Full recommendations response:', data);
     
     if (data.success && data.data && data.data.recommendations) {
-      setRecommendedNGOs(data.data.recommendations);
-      console.log(`✅ Got ${data.data.recommendations.length} recommended NGOs`);
+      // ✅ FIX: Generate unique IDs for NGOs without them
+      const fixedRecommendations = data.data.recommendations.map((ngo, index) => {
+        const uniqueId = ngo._id || ngo.id || ngo.ngo_id || `rec-${index}-${ngo.name.replace(/\s/g, '-').toLowerCase()}`;
+        
+        console.log(`[${index}] ${ngo.name} -> ID: ${uniqueId}`);
+        
+        return {
+          ...ngo,
+          _id: uniqueId,
+          id: uniqueId
+        };
+      });
+      
+      setRecommendedNGOs(fixedRecommendations);
+      console.log(`✅ Got ${fixedRecommendations.length} recommended NGOs with fixed IDs`);
     } else {
       setRecommendedNGOs([]);
       console.log('⚠️ No recommendations received');
@@ -279,7 +292,6 @@ const fetchRecommendations = async () => {
     setLoadingRecommendations(false);
   }
 };
-
 
   const fetchNearbyNGOs = async () => {
   if (!formData.coordinates || !Array.isArray(formData.coordinates) || formData.coordinates.length !== 2) {
@@ -841,60 +853,82 @@ const renderSubcategorySuggestions = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="recommended">
-          {loadingRecommendations ? (
-            <div className="text-center py-12">
-              <Clock className="h-12 w-12 animate-spin mx-auto text-blue-600 mb-4" />
-              <p className="text-gray-600">Finding the perfect NGOs for your donation...</p>
-            </div>
-          ) : recommendedNGOs.length > 0 ? (
-            <div className="space-y-4">
-              {recommendedNGOs.slice(0, 5).map((ngo, idx) => (
-                <Card 
-  key={ngo._id || ngo.id || idx} 
-  className={`cursor-pointer transition-all border-2 ${selectedNgoId === ngo._id ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
-  onClick={() => {
-    console.log('Selected NGO ID:', ngo._id);
-    setSelectedNgoId(ngo._id);
-  }}
->
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
-                        <p className="text-sm text-gray-600">{ngo.location}</p>
-                      </div>
-                      {selectedNgoId === ngo._id ? (
-  <Badge className="bg-green-600 flex gap-1"><CheckCircle className="h-3 w-3"/> Selected</Badge>
-) : (
-                        <Badge variant="default" className="bg-green-600">{(ngo.score * 100).toFixed(0)}% Match</Badge>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-4 mb-2 text-sm">
-                      <div><span className="font-medium">Trust:</span> {ngo.trust_score}/5 ⭐</div>
-                      <div><span className="font-medium">Impact:</span> {ngo.impact_score}/5</div>
-                      <div><span className="font-medium">Distance:</span> {ngo.distance ? `${ngo.distance.toFixed(1)}km` : 'N/A'}</div>
-                    </div>
+      <TabsContent value="recommended">
+  {loadingRecommendations ? (
+    <div className="text-center py-12">
+      <Clock className="h-12 w-12 animate-spin mx-auto text-blue-600 mb-4" />
+      <p className="text-gray-600">Finding the perfect NGOs for your donation...</p>
+    </div>
+  ) : recommendedNGOs.length > 0 ? (
+    <div className="space-y-4">
+      {recommendedNGOs.slice(0, 5).map((ngo, idx) => {
+        // ✅ FIX: Get consistent ID
+        const ngoId = ngo._id || ngo.id;
+        const isSelected = selectedNgoId === ngoId;
+        
+        console.log('NGO Card:', {
+          name: ngo.name,
+          ngoId: ngoId,
+          selectedNgoId: selectedNgoId,
+          isSelected: isSelected
+        });
+        
+        return (
+          <Card 
+            key={ngoId || idx} 
+            className={`cursor-pointer transition-all border-2 ${
+              isSelected 
+                ? 'border-green-500 bg-green-50' 
+                : 'border-transparent hover:border-blue-300'
+            }`}
+            onClick={() => {
+              console.log('Clicked NGO:', ngo.name, 'ID:', ngoId);
+              setSelectedNgoId(ngoId);
+            }}
+          >
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+                  <p className="text-sm text-gray-600">{ngo.location}</p>
+                </div>
+                {isSelected ? (
+                  <Badge className="bg-green-600 flex gap-1">
+                    <CheckCircle className="h-3 w-3"/> Selected
+                  </Badge>
+                ) : (
+                  <Badge variant="default" className="bg-blue-600">
+                    {(ngo.score * 100).toFixed(0)}% Match
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 mb-2 text-sm">
+                <div><span className="font-medium">Trust:</span> {ngo.trust_score}/5 ⭐</div>
+                <div><span className="font-medium">Impact:</span> {ngo.impact_score}/5</div>
+                <div><span className="font-medium">Distance:</span> {ngo.distance ? `${ngo.distance.toFixed(1)}km` : 'N/A'}</div>
+              </div>
 
-                    {ngo.reason && (
-                      <div className="bg-white/50 p-2 rounded text-sm text-blue-900">
-                        <strong>Why:</strong> {ngo.reason}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>No specific AI matches found. Try the Nearby tab.</AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
+              {ngo.reason && (
+                <div className="bg-white/50 p-2 rounded text-sm text-blue-900">
+                  <strong>Why:</strong> {ngo.reason}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  ) : (
+    <Alert>
+      <Info className="h-4 w-4" />
+      <AlertDescription>No specific AI matches found. Try the Nearby tab.</AlertDescription>
+    </Alert>
+  )}
+</TabsContent>
 
- <TabsContent value="nearby">
+
+<TabsContent value="nearby">
   {loadingNearby ? (
     <div className="text-center py-12">
       <Loader2 className="h-12 w-12 animate-spin mx-auto text-gray-400 mb-4" />
@@ -902,43 +936,56 @@ const renderSubcategorySuggestions = () => {
     </div>
   ) : nearbyNGOs.length > 0 ? (
     <div className="space-y-4">
-      {nearbyNGOs.map((ngo, idx) => (
-         <Card 
-          key={ngo._id || idx} 
-          className={`cursor-pointer transition-all border-2 ${selectedNgoId === ngo._id ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
-          onClick={() => setSelectedNgoId(ngo._id)}
-        >
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
-                <p className="text-sm text-gray-600 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {ngo.city || ngo.location?.city}, {ngo.location?.state || 'India'}
-                </p>
+      {nearbyNGOs.map((ngo, idx) => {
+        // ✅ FIX: Get consistent ID
+        const ngoId = ngo._id || ngo.id;
+        const isSelected = selectedNgoId === ngoId;
+        
+        return (
+          <Card 
+            key={ngoId || idx} 
+            className={`cursor-pointer transition-all border-2 ${
+              isSelected 
+                ? 'border-green-500 bg-green-50' 
+                : 'border-transparent hover:border-blue-300'
+            }`}
+            onClick={() => {
+              console.log('Clicked Nearby NGO:', ngo.name, 'ID:', ngoId);
+              setSelectedNgoId(ngoId);
+            }}
+          >
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {ngo.city || ngo.location?.city}, {ngo.location?.state || 'India'}
+                  </p>
+                </div>
+                {isSelected && (
+                  <Badge className="bg-green-600 flex gap-1">
+                    <CheckCircle className="h-3 w-3"/> Selected
+                  </Badge>
+                )}
               </div>
-              {selectedNgoId === ngo._id && (
-                <Badge className="bg-green-600 flex gap-1">
-                  <CheckCircle className="h-3 w-3"/> Selected
-                </Badge>
+              
+              {ngo.organization?.name && (
+                <p className="text-sm text-gray-500 mb-2">{ngo.organization.name}</p>
               )}
-            </div>
-            
-            {ngo.organization?.name && (
-              <p className="text-sm text-gray-500 mb-2">{ngo.organization.name}</p>
-            )}
-            
-            <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-              <div>
-                <span className="font-medium">Trust Score:</span> {ngo.trust_score || 'N/A'}/5 ⭐
+              
+              <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
+                <div>
+                  <span className="font-medium">Trust Score:</span> {ngo.trust_score || 'N/A'}/5 ⭐
+                </div>
+                <div>
+                  <span className="font-medium">Impact Score:</span> {ngo.impact_score || 'N/A'}/5
+                </div>
               </div>
-              <div>
-                <span className="font-medium">Impact Score:</span> {ngo.impact_score || 'N/A'}/5
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   ) : (
     <div className="text-center py-8 bg-gray-50 rounded-lg">
