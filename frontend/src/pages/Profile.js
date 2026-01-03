@@ -15,10 +15,12 @@ import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
 import ProfilePictureUpload from '../components/ProfilePictureUpload';
+import AchievementBadge from '../components/AchievementBadge';
 
 import { 
   User, Shield, Key, Bell, Palette, Save, Loader2, 
-  Brain, Sparkles, Building2, MapPin, Globe, Lock
+  Brain, Sparkles, Building2, MapPin, Globe, Lock,
+  Award, TrendingUp, Users, Package, Star, ArrowRight
 } from 'lucide-react';
 
 const Profile = () => {
@@ -249,6 +251,121 @@ const Profile = () => {
           <p className="text-gray-600 mt-1">Manage your account, security, and preferences</p>
         </div>
       </div>
+
+      {/* ✨ NEW: Donor Stats Dashboard */}
+      {user.role === 'donor' && (
+        <Card className="bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 border-2 border-purple-200 shadow-lg">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <Award className="h-6 w-6 text-purple-600" />
+                  Your Impact Dashboard
+                </CardTitle>
+                <CardDescription className="text-gray-700 mt-1">
+                  Track your donations and the lives you've touched
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                onClick={() => window.location.href = '/donor/achievements'}
+                data-testid="view-achievements-button"
+              >
+                View All Achievements
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div 
+                className="bg-white rounded-xl p-6 text-center shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+                data-testid="completed-donations-stat"
+              >
+                <Package className="w-10 h-10 text-blue-600 mx-auto mb-2" />
+                <div className="text-4xl font-bold text-blue-600">
+                  {user.statistics?.completedDonations || 0}
+                </div>
+                <p className="text-sm text-gray-600 mt-1 font-medium">Completed Donations</p>
+              </div>
+              
+              <div 
+                className="bg-white rounded-xl p-6 text-center shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+                data-testid="lives-helped-stat"
+              >
+                <Users className="w-10 h-10 text-purple-600 mx-auto mb-2" />
+                <div className="text-4xl font-bold text-purple-600">
+                  {user.statistics?.totalBeneficiariesHelped || 0}
+                </div>
+                <p className="text-sm text-gray-600 mt-1 font-medium">Lives Helped</p>
+              </div>
+              
+              <div 
+                className="bg-white rounded-xl p-6 text-center shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+                data-testid="avg-rating-stat"
+              >
+                <Star className="w-10 h-10 text-yellow-600 mx-auto mb-2" />
+                <div className="text-4xl font-bold text-yellow-600">
+                  {user.statistics?.rating?.toFixed(1) || '0.0'}
+                </div>
+                <p className="text-sm text-gray-600 mt-1 font-medium">Average Rating</p>
+                <p className="text-xs text-gray-500">
+                  {user.statistics?.totalRatings || 0} ratings
+                </p>
+              </div>
+              
+              <div 
+                className="bg-white rounded-xl p-6 text-center shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+                data-testid="achievements-stat"
+              >
+                <Award className="w-10 h-10 text-green-600 mx-auto mb-2" />
+                <div className="text-4xl font-bold text-green-600">
+                  {user.achievements?.length || 0}
+                </div>
+                <p className="text-sm text-gray-600 mt-1 font-medium">Achievements</p>
+              </div>
+            </div>
+
+            {/* Recent Achievements */}
+            {user.achievements && user.achievements.length > 0 && (
+              <div className="bg-white/80 rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-amber-500" />
+                  Recent Achievements
+                </h3>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {user.achievements.slice(-4).reverse().map((achievement, index) => (
+                    <AchievementBadge 
+                      key={index} 
+                      achievement={achievement} 
+                      size="sm" 
+                      showDetails={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Motivational Message */}
+            <div className="mt-4 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg border border-purple-200">
+              <p className="text-center text-purple-900 font-medium flex items-center justify-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                <span>
+                  {user.statistics?.completedDonations === 0 
+                    ? "Start your donation journey today and make a difference!" 
+                    : user.statistics?.completedDonations < 5
+                    ? "Great start! Keep donating to unlock more achievements!"
+                    : user.statistics?.completedDonations < 10
+                    ? "You're making a real impact! Keep up the amazing work!"
+                    : "You're a donation hero! Thank you for changing lives!"}
+                </span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">

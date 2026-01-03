@@ -83,8 +83,7 @@ import Forecasting from './pages/admin/Forecasting';
 import LogisticsDashboard from './pages/admin/LogisticsDashboard';
 import PublicDonationDetails from './pages/PublicDonationDetails';
 import NGOClustering from './pages/admin/NGOClustering';
-import AchievementBadge from "./components/AchievementBadge";
-import AchievementProgress from "./components/AchievementProgress";
+
 import Congratulations from "./pages/donor/Congratulations";
 import Achievements from "./pages/donor/Achievements";
 
@@ -187,6 +186,20 @@ function AppContent() {
           <Route path="/donor/donation-requests" element={
             <ProtectedRoute allowedRoles={['donor']}>
               <DonationRequests />
+            </ProtectedRoute>
+          } />
+
+          {/* ✨ NEW: Congratulations Route */}
+          <Route path="/donor/congratulations/:requestId" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <Congratulations />
+            </ProtectedRoute>
+          } />
+
+          {/* ✨ NEW: Achievements Route */}
+          <Route path="/donor/achievements" element={
+            <ProtectedRoute allowedRoles={['donor']}>
+              <Achievements />
             </ProtectedRoute>
           } />
 

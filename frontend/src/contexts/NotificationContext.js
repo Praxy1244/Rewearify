@@ -142,7 +142,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Show toast notification based on type
   const showToastNotification = (notification) => {
-    const { type, title, message } = notification;
+    const { type, title, message, data } = notification;
 
     // Different toast styles based on notification type
     switch (type) {
@@ -166,8 +166,108 @@ export const NotificationProvider = ({ children }) => {
         toast.success(title, { description: message, icon: '🚚' });
         break;
 
+      // ✨ NEW: Special handling for congratulations and achievements
+      case 'congratulations':
+        toast.success(title, { 
+          description: message, 
+          icon: '🎉',
+          duration: 8000, // Longer duration for important notifications
+          action: data?.actionUrl ? {
+            label: 'View Details',
+            onClick: () => window.location.href = data.actionUrl
+          } : undefined
+        });
+        // Trigger confetti effect for achievements
+        if (data?.newAchievements && data.newAchievements > 0) {
+          triggerConfetti();
+        }
+        break;
+
+      case 'achievement_earned':
+        toast.success(title, { 
+          description: message, 
+          icon: '🏆',
+          duration: 10000,
+          action: {
+            label: 'View Achievement',
+            onClick: () => window.location.href = '/donor/achievements'
+          }
+        });
+        triggerConfetti();
+        playAchievementSound();
+        break;
+
+      case 'request_accepted':
+        toast.success(title, { description: message, icon: '🎉' });
+        break;
+
+      case 'new_donation_request':
+        toast.info(title, { 
+          description: message, 
+          icon: '📬',
+          duration: 7000,
+          action: data?.actionUrl ? {
+            label: 'View Request',
+            onClick: () => window.location.href = data.actionUrl
+          } : undefined
+        });
+        break;
+
       default:
         toast.info(title, { description: message });
+    }
+  };
+
+  // ✨ NEW: Trigger confetti animation
+  const triggerConfetti = () => {
+    try {
+      // Create confetti effect
+      const colors = ['#FFD700', '#FFA500', '#FF6347', '#9370DB', '#4169E1'];
+      const confettiCount = 50;
+      
+      for (let i = 0; i < confettiCount; i++) {
+        createConfettiPiece(colors[Math.floor(Math.random() * colors.length)]);
+      }
+    } catch (error) {
+      console.error('Confetti effect error:', error);
+    }
+  };
+
+  // ✨ NEW: Create individual confetti piece
+  const createConfettiPiece = (color) => {
+    const confetti = document.createElement('div');
+    confetti.style.cssText = `
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background-color: ${color};
+      top: -10px;
+      left: ${Math.random() * 100}vw;
+      opacity: 1;
+      transform: rotate(${Math.random() * 360}deg);
+      pointer-events: none;
+      z-index: 9999;
+      animation: confetti-fall ${2 + Math.random() * 2}s linear forwards;
+    `;
+    
+    document.body.appendChild(confetti);
+    
+    // Remove after animation
+    setTimeout(() => {
+      confetti.remove();
+    }, 4000);
+  };
+
+  // ✨ NEW: Play achievement sound
+  const playAchievementSound = () => {
+    try {
+      const audio = new Audio('/achievement-sound.mp3');
+      audio.volume = 0.6;
+      audio.play().catch(err => {
+        // Silently fail if audio doesn't work
+      });
+    } catch (error) {
+      // Silently fail
     }
   };
 
