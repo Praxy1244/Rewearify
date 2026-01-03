@@ -83,7 +83,7 @@ import Forecasting from './pages/admin/Forecasting';
 import LogisticsDashboard from './pages/admin/LogisticsDashboard';
 import PublicDonationDetails from './pages/PublicDonationDetails';
 import NGOClustering from './pages/admin/NGOClustering';
-
+import DonationOffers from './pages/recipient/DonationOffers';
 import Congratulations from "./pages/donor/Congratulations";
 import Achievements from "./pages/donor/Achievements";
 
@@ -229,6 +229,11 @@ function AppContent() {
               <CreateRequest />
             </ProtectedRoute>
           } />
+          <Route path="/recipient/offers" element={
+            <ProtectedRoute allowedRoles={['recipient']}>
+             <DonationOffers />
+            </ProtectedRoute>
+            } />
 
 
           

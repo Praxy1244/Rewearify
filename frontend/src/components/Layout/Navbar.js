@@ -52,8 +52,8 @@ const Navbar = () => {
         return [
           { path: '/recipient-dashboard', label: 'Dashboard' },
           { path: '/recipient/browseItems', label: 'Browse Items' },
-          { path: '/recipient/my-requests', label: 'My Requests' }
-          // ❌ REMOVED: Organizations link
+          { path: '/recipient/my-requests', label: 'My Requests' },
+          { path: '/recipient/offers', label: 'Donation Offers' }
         ];
       case 'admin':
         return [
