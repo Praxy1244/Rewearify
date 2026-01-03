@@ -851,19 +851,22 @@ const renderSubcategorySuggestions = () => {
             <div className="space-y-4">
               {recommendedNGOs.slice(0, 5).map((ngo, idx) => (
                 <Card 
-                  key={idx} 
-                  className={`cursor-pointer transition-all border-2 ${selectedNgoId === (ngo._id || ngo.id) ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
-                  onClick={() => setSelectedNgoId(ngo._id || ngo.id)}
-                >
+  key={ngo._id || ngo.id || idx} 
+  className={`cursor-pointer transition-all border-2 ${selectedNgoId === ngo._id ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-blue-300'}`}
+  onClick={() => {
+    console.log('Selected NGO ID:', ngo._id);
+    setSelectedNgoId(ngo._id);
+  }}
+>
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
                         <p className="text-sm text-gray-600">{ngo.location}</p>
                       </div>
-                      {selectedNgoId === (ngo._id || ngo.id) ? (
-                         <Badge className="bg-green-600 flex gap-1"><CheckCircle className="h-3 w-3"/> Selected</Badge>
-                      ) : (
+                      {selectedNgoId === ngo._id ? (
+  <Badge className="bg-green-600 flex gap-1"><CheckCircle className="h-3 w-3"/> Selected</Badge>
+) : (
                         <Badge variant="default" className="bg-green-600">{(ngo.score * 100).toFixed(0)}% Match</Badge>
                       )}
                     </div>

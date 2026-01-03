@@ -458,6 +458,304 @@ router.get('/user/:userId', protect, adminOrOwner('userId'), async (req, res) =>
   }
 });
 
+// ==================== 🆕 NEW WORKFLOW ENDPOINTS ====================
+
+// @desc    Admin approves donation and notifies targeted NGO
+// @route   PUT /api/donations/:id/admin-approve
+// @access  Private (Admin only)
+router.put('/:id/admin-approve', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    console.log(`🔍 Admin ${req.user.name} attempting to approve donation ${req.params.id}`);
+
+    // Find donation and populate NGO and donor details
+    const donation = await Donation.findById(req.params.id)
+      .populate('preferences.preferredRecipients', 'name email organization location')
+      .populate('donor', 'name email');
+
+    if (!donation) {
+      console.log(`❌ Donation ${req.params.id} not found`);
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if already approved
+    if (donation.status === 'approved') {
+      return fail(res, 'Donation already approved', 400);
+    }
+
+    // Update donation status
+    donation.status = 'approved';
+    donation.approvedBy = req.user.id;
+    donation.approvedAt = new Date();
+    await donation.save();
+
+    console.log(`✅ Donation ${donation._id} approved by admin ${req.user.name}`);
+
+    const socketService = req.app.get('socketService');
+
+    // If donor selected a specific NGO, notify them
+    if (donation.preferences?.preferredRecipients && 
+        donation.preferences.preferredRecipients.length > 0) {
+      
+      const targetedNGO = donation.preferences.preferredRecipients[0];
+      
+      console.log(`📧 Notifying targeted NGO: ${targetedNGO.organization?.name || targetedNGO.name}`);
+      
+      // Create notification for NGO
+      const ngoNotification = await Notification.create({
+        recipient: targetedNGO._id,
+        type: 'donation_offer',
+        title: '🎁 New Donation Offer',
+        message: `A donor has offered you: "${donation.title}". Please review and accept.`,
+        data: {
+          donationId: donation._id,
+          donorId: donation.donor._id,
+          donorName: donation.donor.name,
+          requiresAcceptance: true,
+          actionUrl: `/recipient/donations/${donation._id}`
+        },
+        channels: { inApp: true, email: true, push: false }
+      });
+
+      // Send real-time notification via socket
+      if (socketService) {
+        socketService.sendToUser(targetedNGO._id.toString(), {
+          _id: ngoNotification._id,
+          type: ngoNotification.type,
+          title: ngoNotification.title,
+          message: ngoNotification.message,
+          data: ngoNotification.data,
+          createdAt: ngoNotification.createdAt,
+          read: false
+        });
+      }
+
+      console.log(`✅ Notification sent to NGO ${targetedNGO._id}`);
+    }
+
+    // Notify donor that donation was approved
+    const donorNotification = await Notification.create({
+      recipient: donation.donor._id,
+      type: 'donation_approved',
+      title: '✅ Donation Approved',
+      message: `Your donation "${donation.title}" has been approved by admin.`,
+      data: {
+        donationId: donation._id,
+        actionUrl: `/donor/my-donations/${donation._id}`
+      },
+      channels: { inApp: true, email: false, push: false }
+    });
+
+    if (socketService) {
+      socketService.sendToUser(donation.donor._id.toString(), {
+        _id: donorNotification._id,
+        type: donorNotification.type,
+        title: donorNotification.title,
+        message: donorNotification.message,
+        data: donorNotification.data,
+        createdAt: donorNotification.createdAt,
+        read: false
+      });
+    }
+
+    return ok(res, { 
+      donation,
+      notifiedNGO: donation.preferences?.preferredRecipients?.[0] || null
+    }, 'Donation approved successfully');
+
+  } catch (error) {
+    console.error('❌ Admin approval error:', error);
+    return fail(res, 'Server error during approval', 500);
+  }
+});
+
+// @desc    NGO accepts donation offer
+// @route   PUT /api/donations/:id/ngo-accept
+// @access  Private (Recipient/NGO only)
+router.put('/:id/ngo-accept', protect, restrictTo('recipient'), async (req, res) => {
+  try {
+    console.log(`🔍 NGO ${req.user.organization?.name} attempting to accept donation ${req.params.id}`);
+
+    // Find donation and populate donor
+    const donation = await Donation.findById(req.params.id)
+      .populate('donor', 'name email phone location');
+
+    if (!donation) {
+      console.log(`❌ Donation ${req.params.id} not found`);
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if donation is approved
+    if (donation.status !== 'approved') {
+      return fail(res, 'Donation must be approved first', 400);
+    }
+
+    // Check if this NGO is the targeted recipient
+    const isTargetedNGO = donation.preferences?.preferredRecipients?.some(
+      recipientId => recipientId.toString() === req.user.id.toString()
+    );
+
+    if (!isTargetedNGO) {
+      console.log(`❌ User ${req.user.id} not authorized for donation ${donation._id}`);
+      return fail(res, 'You are not authorized to accept this donation', 403);
+    }
+
+    // Check if already accepted
+    if (donation.status === 'accepted_by_ngo') {
+      return fail(res, 'Donation already accepted', 400);
+    }
+
+    // Update donation status
+    donation.status = 'accepted_by_ngo';
+    donation.acceptedBy = req.user.id;
+    donation.acceptedAt = new Date();
+    await donation.save();
+
+    console.log(`✅ NGO ${req.user.organization?.name} accepted donation ${donation._id}`);
+
+    const socketService = req.app.get('socketService');
+
+    // Notify donor that NGO accepted
+    const donorNotification = await Notification.create({
+      recipient: donation.donor._id,
+      type: 'ngo_accepted',
+      title: '🎉 NGO Accepted Your Donation',
+      message: `${req.user.organization?.name || 'An NGO'} accepted your donation: "${donation.title}". Please schedule a pickup.`,
+      data: {
+        donationId: donation._id,
+        ngoId: req.user.id,
+        ngoName: req.user.organization?.name,
+        nextStep: 'schedule_pickup',
+        actionUrl: `/donor/donations/${donation._id}/schedule-pickup`
+      },
+      channels: { inApp: true, email: true, push: false }
+    });
+
+    if (socketService) {
+      socketService.sendToUser(donation.donor._id.toString(), {
+        _id: donorNotification._id,
+        type: donorNotification.type,
+        title: donorNotification.title,
+        message: donorNotification.message,
+        data: donorNotification.data,
+        createdAt: donorNotification.createdAt,
+        read: false
+      });
+    }
+
+    return ok(res, { 
+      donation,
+      donorInfo: {
+        name: donation.donor.name,
+        email: donation.donor.email,
+        phone: donation.donor.phone,
+        address: donation.location?.address
+      }
+    }, 'Donation accepted successfully. Donor will schedule pickup.');
+
+  } catch (error) {
+    console.error('❌ NGO acceptance error:', error);
+    return fail(res, 'Server error during acceptance', 500);
+  }
+});
+
+// @desc    Donor schedules pickup after NGO acceptance
+// @route   PUT /api/donations/:id/schedule-pickup
+// @access  Private (Donor only)
+router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const { pickupDate, pickupTime, specialInstructions } = req.body;
+
+    console.log(`📅 Donor ${req.user.name} scheduling pickup for donation ${req.params.id}`);
+
+    // Validate required fields
+    if (!pickupDate || !pickupTime) {
+      return fail(res, 'Pickup date and time are required', 400);
+    }
+
+    // Find donation and populate NGO
+    const donation = await Donation.findById(req.params.id)
+      .populate('acceptedBy', 'name organization email phone');
+
+    if (!donation) {
+      console.log(`❌ Donation ${req.params.id} not found`);
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if user is the donor
+    if (donation.donor.toString() !== req.user.id.toString()) {
+      console.log(`❌ User ${req.user.id} not authorized for donation ${donation._id}`);
+      return fail(res, 'Only the donor can schedule pickup', 403);
+    }
+
+    // Check if NGO has accepted
+    if (donation.status !== 'accepted_by_ngo') {
+      return fail(res, 'NGO must accept the donation first', 400);
+    }
+
+    // Update donation with pickup schedule
+    donation.pickupSchedule = {
+      date: pickupDate,
+      time: pickupTime,
+      instructions: specialInstructions || '',
+      scheduledAt: new Date()
+    };
+    donation.status = 'pickup_scheduled';
+    await donation.save();
+
+    console.log(`✅ Pickup scheduled: ${pickupDate} at ${pickupTime}`);
+
+    const socketService = req.app.get('socketService');
+
+    // Notify NGO about scheduled pickup
+    const ngoNotification = await Notification.create({
+      recipient: donation.acceptedBy._id,
+      type: 'pickup_scheduled',
+      title: '📅 Pickup Scheduled',
+      message: `Pickup scheduled for "${donation.title}" on ${pickupDate} at ${pickupTime}`,
+      data: {
+        donationId: donation._id,
+        pickupDate,
+        pickupTime,
+        address: donation.location?.address,
+        specialInstructions,
+        donorPhone: req.user.phone,
+        actionUrl: `/recipient/donations/${donation._id}`
+      },
+      channels: { inApp: true, email: true, push: false }
+    });
+
+    if (socketService) {
+      socketService.sendToUser(donation.acceptedBy._id.toString(), {
+        _id: ngoNotification._id,
+        type: ngoNotification.type,
+        title: ngoNotification.title,
+        message: ngoNotification.message,
+        data: ngoNotification.data,
+        createdAt: ngoNotification.createdAt,
+        read: false
+      });
+    }
+
+    return ok(res, { 
+      donation,
+      pickupDetails: {
+        date: pickupDate,
+        time: pickupTime,
+        instructions: specialInstructions,
+        ngoContact: {
+          name: donation.acceptedBy.organization?.name || donation.acceptedBy.name,
+          email: donation.acceptedBy.email,
+          phone: donation.acceptedBy.phone
+        }
+      }
+    }, 'Pickup scheduled successfully. NGO has been notified.');
+
+  } catch (error) {
+    console.error('❌ Pickup scheduling error:', error);
+    return fail(res, 'Server error during pickup scheduling', 500);
+  }
+});
+
 // ==================== DYNAMIC ID ROUTES (AFTER SPECIAL ROUTES) ====================
 
 // @desc    Get single donation
@@ -465,7 +763,10 @@ router.get('/user/:userId', protect, adminOrOwner('userId'), async (req, res) =>
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const donation = await Donation.findById(req.params.id);
+    const donation = await Donation.findById(req.params.id)
+      .populate('donor', 'name email profile organization location statistics')
+      .populate('preferences.preferredRecipients', 'name organization email location')
+      .populate('acceptedBy', 'name organization email phone');
 
     if (!donation) {
       return fail(res, 'Donation not found', 404);

@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import mongoose from 'mongoose';
 
 const aiAnalysisSchema = new mongoose.Schema({
@@ -77,11 +83,11 @@ const donationSchema = new mongoose.Schema({
     maxlength: [100, 'Subcategory cannot exceed 100 characters']
   },
   season: {
-  type: String,
-  enum: ['Summer', 'Winter', 'Monsoon', 'All Season'],
-  default: 'All Season',
-  required: [true, 'Season is required']
-},
+    type: String,
+    enum: ['Summer', 'Winter', 'Monsoon', 'All Season'],
+    default: 'All Season',
+    required: [true, 'Season is required']
+  },
   condition: {
     type: String,
     required: [true, 'Condition is required'],
@@ -91,7 +97,7 @@ const donationSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Quantity is required'],
     min: [1, 'Quantity must be at least 1'],
-    max: [10000, 'Quantity cannot exceed 1000']
+    max: [10000, 'Quantity cannot exceed 10000']
   },
   sizes: [{
     size: { type: String, required: true },
@@ -110,15 +116,24 @@ const donationSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [
-      'draft', 'pending', 'approved', 'rejected', 
-      'matched', 'pickup_scheduled', 'in_transit', 
-      'delivered', 'completed', 'cancelled', 
-      'expired', 'flagged'
+      'draft', 
+      'pending', 
+      'approved',           // ✅ NEW - Admin approved, waiting for NGO
+      'accepted_by_ngo',    // ✅ NEW - NGO accepted, waiting for pickup schedule
+      'pickup_scheduled',   // ✅ NEW - Pickup date/time confirmed
+      'rejected', 
+      'matched', 
+      'in_transit', 
+      'delivered', 
+      'completed', 
+      'cancelled', 
+      'expired', 
+      'flagged'
     ],
     default: 'pending'
   },
   
-  // ✨ NEW: FSM State History
+  // ✨ FSM State History
   state_history: [{
     from_state: {
       type: String,
@@ -215,7 +230,11 @@ const donationSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
-    preferredRecipients: [String],
+    // ✅ UPDATED - Changed to ObjectId refs instead of String
+    preferredRecipients: [{
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    }],
     restrictions: [String],
     specialInstructions: String
   },
@@ -252,8 +271,33 @@ const donationSchema = new mongoose.Schema({
     }
   },
   
-  // ✨ NEW: FSM Timestamp Fields
-  approvedAt: Date,
+  // ✅ NEW WORKFLOW FIELDS
+  approvedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
+  acceptedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  acceptedAt: {
+    type: Date,
+    default: null
+  },
+  pickupSchedule: {
+    date: String,
+    time: String,
+    instructions: String,
+    scheduledAt: Date
+  },
+  
+  // FSM Timestamp Fields
   rejectedAt: Date,
   matchedAt: Date,
   pickupScheduledAt: Date,
@@ -314,10 +358,10 @@ const donationSchema = new mongoose.Schema({
     default: 0
   },
   riskLevel: {
-  type: String,
-  enum: ['low', 'medium', 'high', 'critical'],
-  default: 'low'
-}
+    type: String,
+    enum: ['low', 'medium', 'high', 'critical'],
+    default: 'low'
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -335,6 +379,8 @@ donationSchema.index({ expiresAt: 1 });
 donationSchema.index({ tags: 1 });
 donationSchema.index({ 'aiAnalysis.demandPrediction': 1 });
 donationSchema.index({ 'state_history.timestamp': 1 });
+donationSchema.index({ acceptedBy: 1 });  // ✅ NEW
+donationSchema.index({ approvedBy: 1 });  // ✅ NEW
 
 // Virtuals
 donationSchema.virtual('requests', {
@@ -351,19 +397,25 @@ donationSchema.virtual('activeRequestsCount', {
   match: { status: 'pending' }
 });
 
-// Pre middleware
-// Update this existing middleware to include profile picture
+// Pre middleware - ✅ UPDATED to populate preferredRecipients
 donationSchema.pre(/^find/, function(next) {
   this.populate({
     path: 'donor',
-    select: 'name email profile.profilePicture location.city contact.phone statistics.rating' // ✅ Ensure this includes profile.profilePicture
+    select: 'name email profile.profilePicture location.city contact.phone statistics.rating'
+  })
+  .populate({
+    path: 'preferences.preferredRecipients',
+    select: 'name email organization location phone'
+  })
+  .populate({
+    path: 'acceptedBy',
+    select: 'name email organization location phone'
   });
   next();
 });
 
-// ✨ NEW: Pre-save middleware to track state changes
+// Pre-save middleware to track state changes
 donationSchema.pre('save', function(next) {
-  // Initialize state_history if this is a new document
   if (this.isNew && !this.state_history) {
     this.state_history = [];
   }
@@ -382,6 +434,7 @@ donationSchema.methods.approve = async function(adminId, notes = '') {
   this.moderation.approvedBy = adminId;
   this.moderation.approvedAt = new Date();
   this.approvedAt = new Date();
+  this.approvedBy = adminId;  // ✅ NEW
   this.moderation.moderatorNotes = notes;
   return this.save();
 };
@@ -406,7 +459,27 @@ donationSchema.methods.matchWith = async function(requestId, matchScore = 0, aut
   return this.save();
 };
 
-// ✨ NEW: FSM-specific methods
+// ✅ NEW WORKFLOW METHODS
+donationSchema.methods.acceptByNGO = async function(ngoId) {
+  this.status = 'accepted_by_ngo';
+  this.acceptedBy = ngoId;
+  this.acceptedAt = new Date();
+  return this.save();
+};
+
+donationSchema.methods.schedulePickup = async function(pickupDate, pickupTime, instructions = '') {
+  this.status = 'pickup_scheduled';
+  this.pickupSchedule = {
+    date: pickupDate,
+    time: pickupTime,
+    instructions,
+    scheduledAt: new Date()
+  };
+  this.pickupScheduledAt = new Date();
+  return this.save();
+};
+
+// FSM-specific methods
 donationSchema.methods.getLifecycleStats = function() {
   if (!this.state_history || this.state_history.length === 0) {
     return null;
@@ -471,13 +544,11 @@ donationSchema.statics.getTrending = function(limit = 10) {
     .limit(limit);
 };
 
-// ✨ NEW: Get donations by state
 donationSchema.statics.findByState = function(state, filters = {}) {
   return this.find({ status: state, ...filters })
     .sort({ createdAt: -1 });
 };
 
-// ✨ NEW: Get stuck donations (in same state too long)
 donationSchema.statics.findStuck = function(state, hours = 72) {
   const cutoffDate = new Date(Date.now() - hours * 60 * 60 * 1000);
   
