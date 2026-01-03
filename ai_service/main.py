@@ -1,775 +1,330 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, List
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-import os
-import sys
 import pandas as pd
-import pickle
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from datetime import datetime, timedelta
+import json
 
-
-# Import services
-from services.fraud_detection import FraudDetector
-from services.suggestions import generate_smart_suggestions
-from services.matching import DonationMatcher
-from services.recommendations import initialize_recommendation_engine
-from services.forcasting_mongo import forecaster  # ✅ Import the global forecaster instance
-
-
-# Setup paths
-ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-sys.path.append(ROOT_DIR)
-
-
-app = FastAPI(
-    title="Rewearify AI Service",
-    description="AI-powered fraud detection, smart suggestions, NGO matching, clustering, and recommendations",
-    version="6.1.0"
-)
-
-
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Global services
-fraud_detector = None
-matcher = None
-recommender = None
-# forecaster is now imported globally
-cluster_stats = None
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Load AI services on startup"""
-    global fraud_detector, matcher, recommender, cluster_stats
+class RecommendationEngine:
+    def __init__(self, ngos_df, donations_df):
+        """Initialize recommendation engine with NGO and donation data"""
+        self.ngos_df = ngos_df
+        self.donations_df = donations_df.copy()  # Make a copy to avoid modifying original
+        
+        # Normalize column names to match expected format
+        self._normalize_donation_columns()
+        
+        self.ngo_features = None
+        self.donor_profiles = None
     
-    print("🚀 Initializing AI Services...")
-    
-    try:
-        # Initialize fraud detector
-        fraud_detector = FraudDetector()
-        fraud_detector.load_models()
-        print("✅ Fraud detector loaded with 3 models")
+    def _normalize_donation_columns(self):
+        """Normalize donation dataframe column names to match expected format"""
+        column_mapping = {
+            'DonorID': 'donor_id',
+            'Type': 'category',
+            'Condition_Donor': 'condition',
+            'Matched_NGO_ID': 'matched_ngo',
+            'Timestamp_Submitted': 'created_at',
+            'Location_City': 'city',
+            'Quantity': 'quantity'
+        }
         
-        # Smart suggestions is rule-based
-        print("✅ Smart suggestions service ready")
+        # Rename columns if they exist
+        for old_name, new_name in column_mapping.items():
+            if old_name in self.donations_df.columns:
+                self.donations_df.rename(columns={old_name: new_name}, inplace=True)
         
-        # Initialize NGO matcher
-        matcher = DonationMatcher()
-        print(f"✅ NGO Matcher loaded")
+        print(f"📊 Normalized donation columns: {list(self.donations_df.columns[:8])}")
         
-        # Forecaster is already initialized globally
-        print("✅ Demand forecaster ready")
+    def build_ngo_feature_matrix(self):
+        """Build feature matrix for NGOs"""
+        # Create feature vectors for each NGO
+        features = []
         
-        # Initialize recommendation engine
-        try:
-            data_path = os.path.join(ROOT_DIR, "data")
-            ngos_df = pd.read_csv(os.path.join(data_path, "ngos.csv"))
-            donations_df = pd.read_csv(os.path.join(data_path, "donations.csv"))
+        for _, ngo in self.ngos_df.iterrows():
+            feature_vector = []
             
-            recommender = initialize_recommendation_engine(ngos_df, donations_df)
-            print(f"✅ Recommendation engine loaded")
-        except Exception as rec_error:
-            print(f"⚠️ Recommendation engine failed to load: {rec_error}")
-            print(f"   Will use fallback to popular NGOs")
-            recommender = None
-        
-        # Load clustering data
-        try:
-            models_path = os.path.join(ROOT_DIR, "ai_service", "models")
-            cluster_stats_path = os.path.join(models_path, "cluster_stats.pkl")
+            # Focus areas (one-hot encoding)
+            focus_areas = ['education', 'healthcare', 'poverty', 'disaster_relief', 
+                          'environment', 'women_empowerment', 'child_welfare', 'elderly_care']
+            for area in focus_areas:
+                feature_vector.append(1 if area in ngo.get('focus_areas', []) else 0)
             
-            if os.path.exists(cluster_stats_path):
-                with open(cluster_stats_path, 'rb') as f:
-                    cluster_stats = pickle.load(f)
-                print(f"✅ Clustering data loaded: {len(cluster_stats)} clusters")
-            else:
-                print("⚠️ No clustering data found. Run clustering.py first.")
-                cluster_stats = {}
-        except Exception as cluster_error:
-            print(f"⚠️ Clustering data failed to load: {cluster_error}")
-            cluster_stats = {}
+            # Operational scope
+            scope_map = {'local': 1, 'state': 2, 'national': 3, 'international': 4}
+            feature_vector.append(scope_map.get(ngo.get('operational_scope', 'local'), 1))
+            
+            # Cluster
+            feature_vector.append(ngo.get('cluster', 0))
+            
+            # Trust score (normalized)
+            feature_vector.append(ngo.get('trust_score', 50) / 100)
+            
+            # Impact score (normalized)
+            feature_vector.append(ngo.get('impact_score', 50) / 100)
+            
+            # Years active (normalized to 0-1)
+            feature_vector.append(min(ngo.get('years_active', 1) / 20, 1))
+            
+            features.append(feature_vector)
         
-        print("\n✅ All services ready!")
-        
-    except Exception as e:
-        print(f"❌ Error loading core services: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-# --- Data Models ---
-
-
-class FraudCheckRequest(BaseModel):
-    donor_id: str
-    donation_data: Dict[str, Any]
-    donor_data: Dict[str, Any]
-    model_name: str = Field(default="random_forest")
-
-
-class SmartSuggestionRequest(BaseModel):
-    category: str
-    condition: str
-    title: Optional[str] = ""
-    description: Optional[str] = ""
-    mode: Optional[str] = "donation"
-
-
-class DonationMatchRequest(BaseModel):
-    donation_id: Optional[str] = "NEW"
-    type: str
-    season: str = "All Season"
-    quantity: int = Field(..., gt=0)
-    latitude: float
-    longitude: float
-    description: Optional[str] = ""
-    max_distance: Optional[int] = 50
-
-
-class RequestMatchRequest(BaseModel):
-    requestId: str
-    category: str
-    quantity: int = Field(..., gt=0)
-    urgency: str = "medium"
-    latitude: float
-    longitude: float
-    description: Optional[str] = ""
-    max_distance: Optional[int] = 50
-    maxMatches: Optional[int] = 5
-
-
-class MatchingRequest(BaseModel):
-    donation: dict
-    requests: list
-
-
-class ForecastRequest(BaseModel):
-    clothing_type: str
-    city: str
-    periods: Optional[int] = 30
-
-
-class SupplyGapRequest(BaseModel):
-    clothing_type: str
-    city: str
-    current_supply: int
-    periods: Optional[int] = 30
-
-
-class HybridRecommendationRequest(BaseModel):
-    donor_id: str
-    location: Optional[str] = None
-    limit: Optional[int] = 10
-
-
-# --- Root & Health Endpoints ---
-
-
-@app.get("/")
-def read_root():
-    return {
-        "status": "running",
-        "service": "Rewearify AI",
-        "version": "6.1.0",
-        "services": {
-            "fraud_detection": "operational" if fraud_detector and fraud_detector.is_trained else "not_trained",
-            "smart_suggestions": "operational",
-            "ngo_matching": "operational" if matcher else "unavailable",
-            "request_matching": "operational" if matcher else "unavailable",
-            "forecasting": "operational",
-            "recommendations": "operational" if recommender else "fallback_mode",
-            "clustering": "operational" if cluster_stats else "unavailable"
-        },
-        "endpoints": {
-            "fraud_check": "/api/ai/check-fraud",
-            "smart_suggestions": "/analyze-donation",
-            "ngo_matching": "/api/ai/match-donations",
-            "request_matching": "/match-requests",
-            "forecasting": "/forecast",
-            "seasonal_trends": "/seasonal-trends/{clothing_type}",
-            "supply_gap": "/supply-gap",
-            "forecast_categories": "/forecast-categories",
-            "recommendations_hybrid": "/recommendations/hybrid",
-            "recommendations_popular": "/recommendations/popular",
-            "recommendations_nearby": "/recommendations/nearby",
-            "clustering": "/clusters"
-        }
-    }
-
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "healthy",
-        "fraud_detector": {
-            "loaded": fraud_detector is not None,
-            "trained": fraud_detector.is_trained if fraud_detector else False
-        },
-        "smart_suggestions": {
-            "loaded": True,
-            "status": "operational"
-        },
-        "matcher": {
-            "loaded": matcher is not None,
-            "status": "operational" if matcher else "unavailable"
-        },
-        "forecaster": {
-            "loaded": True,
-            "status": "operational"
-        },
-        "recommender": {
-            "loaded": recommender is not None,
-            "donors_profiled": len(recommender.donor_profiles) if recommender else 0,
-            "fallback_available": matcher is not None
-        },
-        "clustering": {
-            "loaded": cluster_stats is not None,
-            "total_clusters": len(cluster_stats) if cluster_stats else 0
-        }
-    }
-
-
-# ==================== CLUSTERING ENDPOINTS ====================
-
-
-@app.get("/clusters")
-def get_clusters():
-    """Get all NGO clusters"""
-    if cluster_stats is None or len(cluster_stats) == 0:
-        raise HTTPException(
-            status_code=503, 
-            detail="Clustering data not available. Run clustering.py first."
-        )
+        self.ngo_features = np.array(features)
+        return self.ngo_features
     
-    try:
-        print(f"\n📊 Fetching {len(cluster_stats)} clusters")
+    def build_donor_profiles(self):
+        """Build donor preference profiles from donation history"""
+        donor_profiles = {}
         
-        return {
-            "success": True,
-            "clusters": cluster_stats,
-            "total_clusters": len(cluster_stats),
-            "clustering_algorithm": "Two-Stage (DBSCAN + KMeans)"
-        }
+        # Group donations by donor
+        for donor_id in self.donations_df['donor_id'].unique():
+            donor_donations = self.donations_df[self.donations_df['donor_id'] == donor_id]
+            
+            profile = {
+                'total_donations': len(donor_donations),
+                'categories': donor_donations['category'].value_counts().to_dict(),
+                'preferred_locations': donor_donations['city'].value_counts().to_dict(),
+                'avg_quantity': donor_donations['quantity'].mean(),
+                'total_quantity': donor_donations['quantity'].sum(),
+                'conditions': donor_donations['condition'].value_counts().to_dict(),
+                'recent_activity': (datetime.now() - pd.to_datetime(donor_donations['created_at']).max()).days,
+                'donation_frequency': len(donor_donations) / max((datetime.now() - pd.to_datetime(donor_donations['created_at']).min()).days, 1)
+            }
+            
+            donor_profiles[str(donor_id)] = profile
+        
+        self.donor_profiles = donor_profiles
+        return donor_profiles
     
-    except Exception as e:
-        print(f"❌ Clustering error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Clustering error: {str(e)}")
-
-
-@app.get("/clusters/{cluster_id}")
-def get_cluster_details(cluster_id: str):
-    """Get details for a specific cluster"""
-    if cluster_stats is None or len(cluster_stats) == 0:
-        raise HTTPException(
-            status_code=503, 
-            detail="Clustering data not available. Run clustering.py first."
-        )
+    def get_collaborative_recommendations(self, donor_id, n=5):
+        """Get recommendations based on similar donors (collaborative filtering)"""
+        if donor_id not in self.donor_profiles:
+            return []
+        
+        donor_profile = self.donor_profiles[donor_id]
+        similar_donors = []
+        
+        # Find donors with similar donation patterns
+        for other_donor_id, other_profile in self.donor_profiles.items():
+            if other_donor_id == donor_id:
+                continue
+            
+            # Calculate similarity score
+            similarity = 0
+            
+            # Category similarity
+            donor_cats = set(donor_profile['categories'].keys())
+            other_cats = set(other_profile['categories'].keys())
+            if donor_cats and other_cats:
+                cat_similarity = len(donor_cats & other_cats) / len(donor_cats | other_cats)
+                similarity += cat_similarity * 0.4
+            
+            # Location similarity
+            donor_locs = set(donor_profile['preferred_locations'].keys())
+            other_locs = set(other_profile['preferred_locations'].keys())
+            if donor_locs and other_locs:
+                loc_similarity = len(donor_locs & other_locs) / len(donor_locs | other_locs)
+                similarity += loc_similarity * 0.3
+            
+            # Quantity similarity
+            qty_diff = abs(donor_profile['avg_quantity'] - other_profile['avg_quantity'])
+            qty_similarity = 1 / (1 + qty_diff / 10)
+            similarity += qty_similarity * 0.3
+            
+            if similarity > 0.3:  # Threshold
+                similar_donors.append((other_donor_id, similarity))
+        
+        # Sort by similarity
+        similar_donors.sort(key=lambda x: x[1], reverse=True)
+        
+        # Get NGOs that similar donors donated to
+        recommended_ngos = []
+        for similar_donor_id, sim_score in similar_donors[:5]:
+            similar_donor_donations = self.donations_df[
+                self.donations_df['donor_id'] == similar_donor_id
+            ]
+            for ngo_id in similar_donor_donations['matched_ngo'].dropna().unique():
+                if ngo_id not in recommended_ngos:
+                    recommended_ngos.append(ngo_id)
+        
+        return recommended_ngos[:n]
     
-    if cluster_id not in cluster_stats:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Cluster '{cluster_id}' not found"
-        )
+    def get_content_based_recommendations(self, donor_id, n=5):
+        """Get recommendations based on NGO attributes (content-based filtering)"""
+        if donor_id not in self.donor_profiles:
+            return self.get_popular_ngos(n)
+        
+        donor_profile = self.donor_profiles[donor_id]
+        donor_donations = self.donations_df[self.donations_df['donor_id'] == donor_id]
+        
+        # Build ideal NGO profile from donor's history
+        ideal_profile = np.zeros(self.ngo_features.shape[1])
+        
+        # Weight by recency (recent donations matter more)
+        for _, donation in donor_donations.iterrows():
+            ngo_id = donation.get('matched_ngo')
+            if pd.notna(ngo_id):
+                ngo_idx = self.ngos_df[self.ngos_df['_id'] == ngo_id].index
+                if len(ngo_idx) > 0:
+                    # Calculate recency weight (exponential decay)
+                    days_ago = (datetime.now() - pd.to_datetime(donation['created_at'])).days
+                    weight = np.exp(-days_ago / 90)  # 90-day half-life
+                    ideal_profile += self.ngo_features[ngo_idx[0]] * weight
+        
+        if ideal_profile.sum() > 0:
+            ideal_profile = ideal_profile / ideal_profile.sum()
+        
+        # Calculate similarity to all NGOs
+        similarities = cosine_similarity([ideal_profile], self.ngo_features)[0]
+        
+        # Get top N NGOs
+        top_indices = similarities.argsort()[-n:][::-1]
+        recommended_ngo_ids = self.ngos_df.iloc[top_indices]['_id'].tolist()
+        
+        return recommended_ngo_ids
     
-    try:
-        print(f"\n🎯 Fetching details for cluster: {cluster_id}")
+    def get_cluster_based_recommendations(self, donor_id, n=5):
+        """Get recommendations based on NGO clusters"""
+        donor_donations = self.donations_df[self.donations_df['donor_id'] == donor_id]
         
-        return {
-            "success": True,
-            "cluster": cluster_stats[cluster_id]
-        }
-    
-    except Exception as e:
-        print(f"❌ Cluster details error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-# ==================== FRAUD DETECTION ====================
-
-
-@app.post("/api/ai/check-fraud")
-def check_fraud(request: FraudCheckRequest):
-    """Check donation for fraud indicators using ML models"""
-    if not fraud_detector or not fraud_detector.is_trained:
-        raise HTTPException(status_code=503, detail="Fraud detection models not trained")
-    
-    try:
-        print(f"\n🔍 Fraud check request for donor: {request.donor_id}")
+        if len(donor_donations) == 0:
+            return self.get_popular_ngos(n)
         
-        features = {
-            'DonorReliability': request.donor_data.get('reliability_score', 0.8),
-            'Past_Donations': request.donor_data.get('past_donations', 0),
-            'Flagged': 1 if request.donor_data.get('flagged', False) else 0,
-            'Feedback_mean': request.donor_data.get('last_feedback', 4.0),
-            'Quantity': request.donation_data.get('quantity', 0),
-            'Condition_New': 1 if request.donation_data.get('condition') == 'New' else 0,
-            'Proof_Provided': 1 if request.donation_data.get('proof_provided', True) else 0,
-            'Fulfillment_Rate': request.donor_data.get('fulfillment_rate', 1.0),
-            'Avg_Quantity_Claimed': request.donor_data.get('avg_quantity_claimed', 0),
-            'Avg_Quantity_Received_ratio': request.donor_data.get('avg_quantity_received_ratio', 1.0),
-            'Avg_Fulfillment_Delay': request.donor_data.get('avg_fulfillment_delay', 5),
-            'Num_ManualRejects': request.donor_data.get('num_manual_rejects', 0)
-        }
+        # Find clusters donor has donated to
+        donated_ngos = donor_donations['matched_ngo'].dropna().unique()
+        clusters = []
         
-        result = fraud_detector.predict(features, model_name=request.model_name)
+        for ngo_id in donated_ngos:
+            ngo = self.ngos_df[self.ngos_df['_id'] == ngo_id]
+            if len(ngo) > 0:
+                clusters.append(ngo.iloc[0].get('cluster', 0))
         
-        print(f"✅ Prediction: {result['risk_level']} risk")
+        if not clusters:
+            return self.get_popular_ngos(n)
         
-        return {
-            "success": True,
-            "donor_id": request.donor_id,
-            "confidence": result['confidence'],
-            "risk_level": result['risk_level'],
-            "is_suspicious": result['is_suspicious'],
-            "risk_factors": result.get('risk_factors', []),
-            "recommended_action": result.get('recommended_action', 'review'),
-            "model_used": request.model_name
-        }
-    
-    except Exception as e:
-        print(f"❌ Fraud detection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Fraud detection error: {str(e)}")
-
-
-# ==================== SMART SUGGESTIONS ====================
-
-
-def _generate_suggestions(request: SmartSuggestionRequest):
-    try:
-        print(f"\n💡 Smart suggestions [{request.mode}]: {request.category}, {request.condition}")
+        # Most common cluster
+        most_common_cluster = max(set(clusters), key=clusters.count)
         
-        suggestions = generate_smart_suggestions(
-            category=request.category,
-            condition=request.condition,
-            context=f"{request.title} {request.description}".strip(),
-            mode=request.mode
+        # Get NGOs from same cluster (excluding already donated)
+        cluster_ngos = self.ngos_df[
+            (self.ngos_df['cluster'] == most_common_cluster) &
+            (~self.ngos_df['_id'].isin(donated_ngos))
+        ]
+        
+        # Sort by trust and impact scores
+        cluster_ngos = cluster_ngos.sort_values(
+            by=['trust_score', 'impact_score'], 
+            ascending=False
         )
         
-        print(f"✅ Generated {len(suggestions['titles'])} suggestions")
-        
-        return {
-            "success": True,
-            "data": {
-                "suggestions": suggestions
-            }
-        }
+        return cluster_ngos.head(n)['_id'].tolist()
     
-    except Exception as e:
-        print(f"❌ Smart suggestions error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-@app.post("/api/ai/analyze-donation")
-def analyze_donation_full(request: SmartSuggestionRequest):
-    return _generate_suggestions(request)
-
-
-@app.post("/analyze-donation")
-def analyze_donation_short(request: SmartSuggestionRequest):
-    return _generate_suggestions(request)
-
-
-# ==================== NGO MATCHING ====================
-
-
-@app.post("/api/ai/match-donations")
-def match_donations(request: DonationMatchRequest):
-    """Find NGOs that can ACCEPT this specific donation"""
-    if not matcher:
-        raise HTTPException(status_code=503, detail="Matching service not available")
+    def get_location_based_recommendations(self, donor_id, donor_location, n=5):
+        """Get recommendations based on donor's location"""
+        # Get NGOs near donor
+        nearby_ngos = self.ngos_df[
+            self.ngos_df['city'].str.lower() == donor_location.lower()
+        ]
+        
+        # Sort by trust score
+        nearby_ngos = nearby_ngos.sort_values(by='trust_score', ascending=False)
+        
+        return nearby_ngos.head(n)['_id'].tolist()
     
-    try:
-        print(f"\n🎯 Donation matching: {request.type} at ({request.latitude}, {request.longitude})")
-        
-        donation_data = {
-            "donation_id": request.donation_id,
-            "type": request.type,
-            "season": request.season,
-            "quantity": request.quantity,
-            "latitude": request.latitude,
-            "longitude": request.longitude,
-            "description": request.description
-        }
-        
-        matches = matcher.find_matches_for_donation(
-            donation_data,
-            max_matches=5,
-            max_distance=request.max_distance
+    def get_popular_ngos(self, n=5):
+        """Get most popular NGOs (fallback)"""
+        # Sort by trust and impact scores
+        popular = self.ngos_df.sort_values(
+            by=['trust_score', 'impact_score'], 
+            ascending=False
         )
-        
-        summary = matcher.get_recommendations_summary(matches)
-        
-        print(f"✅ Found {len(matches)} matches")
-        
-        return {
-            "success": True,
-            "donation_id": request.donation_id,
-            "total_matches": len(matches),
-            "matches": matches,
-            "summary": summary
-        }
+        return popular.head(n)['_id'].tolist()
     
-    except Exception as e:
-        print(f"❌ Matching error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Matching error: {str(e)}")
-
-
-# ==================== REQUEST MATCHING ====================
-
-
-@app.post("/match-requests")
-async def match_requests(data: MatchingRequest):
-    """Find best REQUEST matches for a donation"""
-    if not matcher:
-        raise HTTPException(status_code=503, detail="Matching service not available")
-    
-    try:
-        print(f"\n🔍 Finding request matches for donation: {data.donation.get('title', 'Untitled')}")
+    def get_hybrid_recommendations(self, donor_id, donor_location=None, n=10, weights=None):
+        """
+        Hybrid recommendation combining all methods
         
-        matches = matcher.find_matches_for_request(
-            donation=data.donation,
-            requests=data.requests,
-            max_matches=5
-        )
-        
-        print(f"✅ Found {len(matches)} matches")
-        
-        return {
-            "success": True,
-            "data": {
-                "matches": matches,
-                "total_matches": len(matches)
+        Args:
+            donor_id: Donor ID
+            donor_location: Donor's city
+            n: Number of recommendations
+            weights: Dict with weights for each method
+        """
+        if weights is None:
+            weights = {
+                'collaborative': 0.25,
+                'content': 0.30,
+                'cluster': 0.25,
+                'location': 0.20
             }
-        }
-    
-    except Exception as e:
-        print(f"❌ Matching error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Matching failed: {str(e)}")
-
-
-@app.post("/find-matches")
-def find_donation_matches(request: RequestMatchRequest):
-    """DEPRECATED: Use /match-requests instead"""
-    return {
-        "success": False,
-        "message": "This endpoint is deprecated. Use /match-requests with full donation and request data.",
-        "requestId": request.requestId,
-        "matches": []
-    }
-
-
-# ==================== FORECASTING ENDPOINTS ====================
-
-
-@app.post("/forecast")
-def get_forecast(request: ForecastRequest):
-    """Get demand forecast for specific category and city"""
-    try:
-        print(f"\n📈 Forecast request: {request.clothing_type} in {request.city}")
         
-        result = forecaster.forecast(
-            clothing_type=request.clothing_type,
-            city=request.city,
-            periods=request.periods
-        )
+        recommendations = {}
         
-        print(f"✅ Forecast generated successfully")
+        # Get recommendations from each method
+        collab_recs = self.get_collaborative_recommendations(donor_id, n)
+        content_recs = self.get_content_based_recommendations(donor_id, n)
+        cluster_recs = self.get_cluster_based_recommendations(donor_id, n)
         
-        return {
-            "success": True,
-            "data": result
-        }
+        if donor_location:
+            location_recs = self.get_location_based_recommendations(donor_id, donor_location, n)
+        else:
+            location_recs = []
         
-    except Exception as e:
-        print(f"❌ Forecasting error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Forecasting error: {str(e)}")
-
-
-@app.get("/seasonal-trends/{clothing_type}")
-def get_seasonal_trends(clothing_type: str):
-    """Get seasonal trends for a clothing category"""
-    try:
-        print(f"\n📊 Seasonal trends request: {clothing_type}")
-        
-        trends = forecaster.get_seasonal_trends(clothing_type)
-        
-        return {
-            "success": True,
-            "data": trends
-        }
-        
-    except Exception as e:
-        print(f"❌ Trends error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Trends error: {str(e)}")
-
-
-@app.post("/supply-gap")
-def analyze_supply_gap(request: SupplyGapRequest):
-    """Analyze supply-demand gap"""
-    try:
-        print(f"\n⚖️ Supply gap analysis: {request.clothing_type} in {request.city}")
-        
-        gap_analysis = forecaster.analyze_supply_gap(
-            clothing_type=request.clothing_type,
-            city=request.city,
-            current_supply=request.current_supply,
-            periods=request.periods
-        )
-        
-        return {
-            "success": True,
-            "data": gap_analysis
-        }
-        
-    except Exception as e:
-        print(f"❌ Supply gap error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Supply gap error: {str(e)}")
-
-
-@app.get("/forecast-categories")
-def get_forecast_categories():
-    """Get available categories and cities for forecasting"""
-    try:
-        result = forecaster.get_forecast_categories()
-        
-        return {
-            "success": True,
-            "data": result
-        }
-    except Exception as e:
-        print(f"❌ Categories error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-# ==================== RECOMMENDATIONS ====================
-
-
-@app.post("/recommendations/hybrid")
-def get_hybrid_recommendations(request: HybridRecommendationRequest):
-    """Get personalized NGO recommendations for a donor"""
-    
-    # Try to use the recommendation engine first
-    if recommender:
-        try:
-            print(f"\n🎯 Hybrid recommendations for donor: {request.donor_id}")
+        # Score each NGO
+        for ngo_id in set(collab_recs + content_recs + cluster_recs + location_recs):
+            score = 0
             
-            recommendations = recommender.get_hybrid_recommendations(
-                donor_id=request.donor_id,
-                donor_location=request.location,
-                n=request.limit
-            )
+            if ngo_id in collab_recs:
+                score += weights['collaborative'] * (1 - collab_recs.index(ngo_id) / len(collab_recs))
             
-            print(f"✅ Generated {len(recommendations)} hybrid recommendations")
+            if ngo_id in content_recs:
+                score += weights['content'] * (1 - content_recs.index(ngo_id) / len(content_recs))
             
-            return {
-                "success": True,
-                "data": {
-                    "recommendations": recommendations,
-                    "count": len(recommendations),
-                    "method": "hybrid"
-                }
-            }
-        except Exception as e:
-            print(f"⚠️ Hybrid recommender failed: {e}, falling back to popular NGOs")
-    
-    # Fallback to popular NGOs from matcher
-    if matcher and hasattr(matcher, 'ngos_df') and not matcher.ngos_df.empty:
-        try:
-            print(f"📊 Using fallback: Popular NGOs (limit: {request.limit})")
+            if ngo_id in cluster_recs:
+                score += weights['cluster'] * (1 - cluster_recs.index(ngo_id) / len(cluster_recs))
             
-            # Get top-rated NGOs
-            ngos = matcher.ngos_df.sort_values(by='trust_score', ascending=False).head(request.limit)
+            if ngo_id in location_recs:
+                score += weights['location'] * (1 - location_recs.index(ngo_id) / len(location_recs))
             
-            recommendations = []
-            for idx, ngo in ngos.iterrows():
-                recommendations.append({
-                    '_id': str(ngo.get('_id', '')),
-                    'name': ngo.get('name', 'Unknown NGO'),
-                    'city': ngo.get('city', 'Unknown'),
-                    'state': ngo.get('state', 'Unknown'),
-                    'trust_score': float(ngo.get('trust_score', 75)),
-                    'recommendation_score': 0.8,
-                    'recommendation_reason': 'Highly rated and trusted NGO',
-                    'categories_accepted': ngo.get('categories_accepted', []),
-                    'total_donations_received': int(ngo.get('total_donations_received', 0))
-                })
-            
-            print(f"✅ Returning {len(recommendations)} popular NGOs as fallback")
-            
-            return {
-                "success": True,
-                "data": {
-                    "recommendations": recommendations,
-                    "count": len(recommendations),
-                    "method": "fallback_popular"
-                },
-                "message": "Using popular NGOs (recommendation engine unavailable)"
-            }
-        except Exception as e:
-            print(f"❌ Fallback also failed: {e}")
-            import traceback
-            traceback.print_exc()
+            recommendations[ngo_id] = score
+        
+        # Sort by score
+        sorted_recs = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
+        
+        # Get top N with details
+        top_ngos = []
+        for ngo_id, score in sorted_recs[:n]:
+            ngo = self.ngos_df[self.ngos_df['_id'] == ngo_id]
+            if len(ngo) > 0:
+                ngo_data = ngo.iloc[0].to_dict()
+                ngo_data['recommendation_score'] = round(score, 3)
+                ngo_data['recommendation_reason'] = self._get_recommendation_reason(
+                    ngo_id, collab_recs, content_recs, cluster_recs, location_recs
+                )
+                top_ngos.append(ngo_data)
+        
+        return top_ngos
     
-    # Final fallback - return empty with helpful message
-    print("⚠️ No recommendation data available")
-    return {
-        "success": True,
-        "data": {
-            "recommendations": [],
-            "count": 0,
-            "method": "none"
-        },
-        "message": "Recommendation service temporarily unavailable. Please try popular NGOs or search manually."
-    }
+    def _get_recommendation_reason(self, ngo_id, collab, content, cluster, location):
+        """Generate explanation for recommendation"""
+        reasons = []
+        
+        if ngo_id in collab:
+            reasons.append("Similar donors donated here")
+        if ngo_id in content:
+            reasons.append("Matches your donation pattern")
+        if ngo_id in cluster:
+            reasons.append("Similar to NGOs you've supported")
+        if ngo_id in location:
+            reasons.append("Located near you")
+        
+        return ", ".join(reasons) if reasons else "Highly rated NGO"
 
+# Initialize with empty data (will be loaded in main.py)
+recommendation_engine = None
 
-@app.get("/recommendations/popular")
-def get_popular_ngos(limit: int = 10):
-    """Get most popular/highly-rated NGOs"""
-    
-    if not matcher or not hasattr(matcher, 'ngos_df') or matcher.ngos_df.empty:
-        print("⚠️ No NGO data available for popular recommendations")
-        return {
-            "success": False,
-            "message": "No NGO data available. Please check if NGO matcher is loaded.",
-            "data": {
-                "recommendations": [],
-                "count": 0
-            }
-        }
-    
-    try:
-        print(f"\n📊 Fetching {limit} popular NGOs")
-        
-        # Sort by trust score and get top N
-        ngos = matcher.ngos_df.sort_values(by='trust_score', ascending=False).head(limit)
-        
-        popular_ngos = []
-        for idx, (_, ngo) in enumerate(ngos.iterrows()):
-            popular_ngos.append({
-                '_id': str(ngo.get('_id', '')),
-                'name': ngo.get('name', 'Unknown NGO'),
-                'city': ngo.get('city', 'Unknown'),
-                'state': ngo.get('state', 'Unknown'),
-                'trust_score': float(ngo.get('trust_score', 75)),
-                'recommendation_score': 0.9 - (idx * 0.05),  # Gradually decrease score
-                'recommendation_reason': f"Top {idx + 1} rated NGO with {ngo.get('trust_score', 75)}% trust score",
-                'categories_accepted': ngo.get('categories_accepted', []),
-                'total_donations_received': int(ngo.get('total_donations_received', 0)),
-                'verified': bool(ngo.get('verified', True))
-            })
-        
-        print(f"✅ Returning {len(popular_ngos)} popular NGOs")
-        
-        return {
-            "success": True,
-            "data": {
-                "recommendations": popular_ngos,
-                "count": len(popular_ngos)
-            }
-        }
-    
-    except Exception as e:
-        print(f"❌ Error fetching popular NGOs: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-@app.get("/recommendations/nearby")
-def get_nearby_ngos(city: str, limit: int = 10):
-    """Get NGOs in a specific city"""
-    
-    if not matcher or not hasattr(matcher, 'ngos_df') or matcher.ngos_df.empty:
-        return {
-            "success": False,
-            "message": "No NGO data available",
-            "data": {
-                "recommendations": [],
-                "count": 0
-            }
-        }
-    
-    try:
-        print(f"\n📍 Fetching NGOs in {city}")
-        
-        # Filter by city and sort by trust score
-        city_ngos = matcher.ngos_df[matcher.ngos_df['city'].str.lower() == city.lower()]
-        city_ngos = city_ngos.sort_values(by='trust_score', ascending=False).head(limit)
-        
-        if len(city_ngos) == 0:
-            print(f"⚠️ No NGOs found in {city}, showing top NGOs instead")
-            # Fallback to top NGOs if no city match
-            city_ngos = matcher.ngos_df.sort_values(by='trust_score', ascending=False).head(limit)
-        
-        nearby_ngos = []
-        for _, ngo in city_ngos.iterrows():
-            nearby_ngos.append({
-                '_id': str(ngo.get('_id', '')),
-                'name': ngo.get('name', 'Unknown NGO'),
-                'city': ngo.get('city', 'Unknown'),
-                'state': ngo.get('state', 'Unknown'),
-                'trust_score': float(ngo.get('trust_score', 75)),
-                'recommendation_score': 0.85,
-                'recommendation_reason': f"Located in {ngo.get('city', city)}",
-                'categories_accepted': ngo.get('categories_accepted', []),
-                'distance': 'Local' if ngo.get('city', '').lower() == city.lower() else 'Nearby'
-            })
-        
-        print(f"✅ Found {len(nearby_ngos)} NGOs near {city}")
-        
-        return {
-            "success": True,
-            "data": {
-                "recommendations": nearby_ngos,
-                "count": len(nearby_ngos),
-                "city": city
-            }
-        }
-    
-    except Exception as e:
-        print(f"❌ Error fetching nearby NGOs: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-# ==================== RUN THE APP ====================
-
-
-if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("🚀 Starting Rewearify AI Service v6.1")
-    print("="*60)
-    print("\n📍 API Documentation: http://localhost:8000/docs")
-    print("📍 Health Check: http://localhost:8000/health")
-    print("\n🔥 Available Services:")
-    print("   ✅ Fraud Detection - /api/ai/check-fraud")
-    print("   ✅ Smart Suggestions - /analyze-donation")
-    print("   ✅ NGO Matching - /api/ai/match-donations")
-    print("   ✅ Request Matching - /match-requests")
-    print("   ✅ Demand Forecasting - /forecast")
-    print("   ✅ Seasonal Trends - /seasonal-trends/{type}")
-    print("   ✅ Supply Gap Analysis - /supply-gap")
-    print("   ✅ Forecast Categories - /forecast-categories")
-    print("   ✅ NGO Recommendations - /recommendations/hybrid")
-    print("   ✅ Popular NGOs - /recommendations/popular")
-    print("   ✅ Nearby NGOs - /recommendations/nearby?city={city}")
-    print("   ✅ NGO Clustering - /clusters")
-    print("\n" + "="*60 + "\n")
-    
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+def initialize_recommendation_engine(ngos_df, donations_df):
+    """Initialize the recommendation engine with data"""
+    global recommendation_engine
+    recommendation_engine = RecommendationEngine(ngos_df, donations_df)
+    recommendation_engine.build_ngo_feature_matrix()
+    recommendation_engine.build_donor_profiles()
+    return recommendation_engine

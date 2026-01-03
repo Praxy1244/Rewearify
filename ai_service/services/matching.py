@@ -30,11 +30,134 @@ class DonationMatcher:
         if os.path.exists(ngo_path):
             self.ngos_df = pd.read_csv(ngo_path)
             self.ngos_df.columns = self.ngos_df.columns.str.lower()
+            
+            # Calculate trust_score if not present
+            if 'trust_score' not in self.ngos_df.columns:
+                print("📊 Calculating trust_score for NGOs...")
+                self.ngos_df['trust_score'] = self._calculate_trust_score()
+                print(f"✅ Trust scores calculated (range: {self.ngos_df['trust_score'].min():.1f}-{self.ngos_df['trust_score'].max():.1f})")
+            
+            # Generate accepted_clothing_types from special_focus if not present
+            if 'accepted_clothing_types' not in self.ngos_df.columns:
+                print("📊 Generating accepted_clothing_types from special_focus...")
+                self.ngos_df['accepted_clothing_types'] = self._generate_accepted_types()
+                print("✅ Accepted clothing types generated")
+            
+            # Add verified field if not present
+            if 'verified' not in self.ngos_df.columns:
+                self.ngos_df['verified'] = True
+            
+            # Add categories_accepted if not present (as list)
+            if 'categories_accepted' not in self.ngos_df.columns:
+                self.ngos_df['categories_accepted'] = self.ngos_df.apply(
+                    lambda row: self._parse_categories(row.get('special_focus', '')), axis=1
+                )
+            
             print(f"✅ Matcher loaded {len(self.ngos_df)} NGOs")
         else:
             print(f"⚠️ Warning: NGO file not found at {ngo_path}")
             self.ngos_df = pd.DataFrame()
 
+    def _calculate_trust_score(self):
+        """
+        Calculate trust score for NGOs based on:
+        - Acceptance Rate (50 points)
+        - Total Donations Received (up to 25 points)
+        - Urgent Need penalty (-5 points if urgent)
+        - Capacity bonus (up to 20 points)
+        
+        Returns: pandas Series with trust scores (0-100)
+        """
+        trust_scores = []
+        
+        for _, ngo in self.ngos_df.iterrows():
+            score = 0.0
+            
+            # Acceptance rate component (50 points max)
+            acceptance_rate = float(ngo.get('acceptance_rate', 0.8))
+            score += acceptance_rate * 50
+            
+            # Donations received component (25 points max)
+            total_donations = int(ngo.get('total_donations_received', 0))
+            score += min(total_donations / 10, 25)
+            
+            # Capacity component (20 points max)
+            capacity = int(ngo.get('capacity_per_week', 100))
+            score += min(capacity / 20, 20)
+            
+            # Urgent need penalty
+            urgent = ngo.get('urgent_need', False)
+            if urgent == True or str(urgent).lower() == 'true':
+                score -= 5
+            
+            # Ensure score is in valid range
+            trust_scores.append(max(0, min(100, score)))
+        
+        return trust_scores
+    
+    def _generate_accepted_types(self):
+        """
+        Generate accepted_clothing_types string from special_focus field
+        Converts: "Men's Wear, Women's Wear" -> "mens_wear,womens_wear,all"
+        """
+        accepted_types = []
+        
+        for _, ngo in self.ngos_df.iterrows():
+            special_focus = str(ngo.get('special_focus', '')).lower()
+            
+            if 'all types' in special_focus or not special_focus:
+                accepted_types.append('all')
+            else:
+                # Convert special focus to accepted types
+                types = []
+                if "men's wear" in special_focus or "men wear" in special_focus:
+                    types.append("mens_wear")
+                if "women's wear" in special_focus or "women wear" in special_focus:
+                    types.append("womens_wear")
+                if "kids wear" in special_focus or "kid's wear" in special_focus or "children" in special_focus:
+                    types.append("kids_wear")
+                if "winter wear" in special_focus or "seasonal" in special_focus:
+                    types.append("winter_wear")
+                if "accessories" in special_focus:
+                    types.append("accessories")
+                if "formal" in special_focus:
+                    types.append("formal")
+                
+                # If no specific type found, accept all
+                if not types:
+                    types = ["all"]
+                
+                accepted_types.append(",".join(types))
+        
+        return accepted_types
+    
+    def _parse_categories(self, special_focus):
+        """
+        Parse categories from special_focus field
+        Returns a list of categories
+        """
+        if not special_focus or pd.isna(special_focus):
+            return []
+        
+        special_focus = str(special_focus).lower()
+        categories = []
+        
+        if 'all types' in special_focus:
+            return ['formal', 'casual', 'outerwear', 'children', 'traditional', 'activewear']
+        
+        if "men's wear" in special_focus or "men wear" in special_focus:
+            categories.extend(['formal', 'casual', 'activewear'])
+        if "women's wear" in special_focus or "women wear" in special_focus:
+            categories.extend(['formal', 'casual', 'traditional'])
+        if "kids wear" in special_focus or "children" in special_focus:
+            categories.append('children')
+        if "winter wear" in special_focus or "seasonal" in special_focus:
+            categories.extend(['outerwear', 'seasonal'])
+        if "accessories" in special_focus:
+            categories.append('accessories')
+        
+        return list(set(categories))  # Remove duplicates
+    
     def calculate_distance(self, lat1, lon1, lat2, lon2):
         """Calculate Haversine distance between two points in km"""
         R = 6371  # Earth radius in km

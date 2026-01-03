@@ -8,9 +8,32 @@ class RecommendationEngine:
     def __init__(self, ngos_df, donations_df):
         """Initialize recommendation engine with NGO and donation data"""
         self.ngos_df = ngos_df
-        self.donations_df = donations_df
+        self.donations_df = donations_df.copy()  # Make a copy to avoid modifying original
+        
+        # Normalize column names to match expected format
+        self._normalize_donation_columns()
+        
         self.ngo_features = None
         self.donor_profiles = None
+    
+    def _normalize_donation_columns(self):
+        """Normalize donation dataframe column names to match expected format"""
+        column_mapping = {
+            'DonorID': 'donor_id',
+            'Type': 'category',
+            'Condition_Donor': 'condition',
+            'Matched_NGO_ID': 'matched_ngo',
+            'Timestamp_Submitted': 'created_at',
+            'Location_City': 'city',
+            'Quantity': 'quantity'
+        }
+        
+        # Rename columns if they exist
+        for old_name, new_name in column_mapping.items():
+            if old_name in self.donations_df.columns:
+                self.donations_df.rename(columns={old_name: new_name}, inplace=True)
+        
+        print(f"📊 Normalized donation columns: {list(self.donations_df.columns[:8])}")
         
     def build_ngo_feature_matrix(self):
         """Build feature matrix for NGOs"""
