@@ -8,85 +8,71 @@ import { donationValidations, searchValidations, handleValidationErrors } from '
 import axios from 'axios';
 import donationFSM from '../services/fsmService.js';
 import donorMetricsService from '../services/donorMetricsService.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
 // ==================== GENERAL ROUTES (NO PARAMS) ====================
 
-// @desc    Get all donations with filters and search
+// @desc    Get all donations (with filters)
 // @route   GET /api/donations
 // @access  Public
-router.get('/', searchValidations.donations, handleValidationErrors, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 20,
-      category,
-      condition,
-      location,
-      radius = 25,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      status = 'approved',
-      urgent,
-      search
+    const { 
+      status, 
+      category, 
+      condition, 
+      city, 
+      donor,
+      acceptedBy,
+      page = 1, 
+      limit = 10,
+      sort = '-createdAt'
     } = req.query;
 
-    // Build query
-    let query = { status };
+    const query = {};
     
+    if (status) query.status = status;
     if (category) query.category = category;
-    if (condition) query.condition = { $in: condition.split(',') };
-    if (urgent === 'true') query['preferences.urgentNeeded'] = true;
+    if (condition) query.condition = condition;
+    if (city) query['location.city'] = new RegExp(city, 'i');
+    if (donor) query.donor = donor;
+    if (acceptedBy) query.acceptedBy = acceptedBy;
+
+    const skip = (page - 1) * limit;
     
-    // Text search
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
-      ];
-    }
-
-    // Location-based search
-    if (location && req.query.lat && req.query.lng) {
-      const lat = parseFloat(req.query.lat);
-      const lng = parseFloat(req.query.lng);
-      
-      query['location.coordinates'] = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [lng, lat]
-          },
-          $maxDistance: radius * 1000
-        }
-      };
-    }
-
-    // Build sort object
-    const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Execute query
+    // ✅ ADD .select('+completion') to include completion field
     const donations = await Donation.find(query)
-    .populate('donor', 'name profile.profilePicture location.city statistics.rating')
-      .sort(sortObj)
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .select('+completion')  // 👈 ADD THIS LINE
+      .sort(sort)
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean();
 
     const total = await Donation.countDocuments(query);
 
-    return paginated(res, donations, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total
-    }, 'Donations retrieved successfully');
+    return res.json({
+      success: true,
+      message: 'Donations retrieved successfully',
+      data: donations,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
   } catch (error) {
     console.error('Get donations error:', error);
-    return fail(res, 'Failed to get donations', 500);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching donations'
+    });
   }
 });
+
 
 // @desc    Create new donation
 // @route   POST /api/donations
@@ -358,6 +344,63 @@ router.post('/',
     }
   }
 );
+// @desc    Debug: Get accepted donations for current user
+// @route   GET /api/donations/debug/my-accepted
+// @access  Private (Recipient)
+router.get('/debug/my-accepted', protect, restrictTo('recipient'), async (req, res) => {
+  try {
+    console.log('🔍 Debug: Checking accepted donations for user:', req.user.id);
+    
+    // Find ALL donations with acceptedBy field
+    const allWithAcceptedBy = await Donation.find({ 
+      acceptedBy: { $exists: true, $ne: null } 
+    })
+    .populate('acceptedBy', 'name organization email')
+    .select('_id title status acceptedBy acceptedAt')
+    .lean();
+    
+    console.log(`📊 Total donations with acceptedBy: ${allWithAcceptedBy.length}`);
+    
+    // Find donations accepted by THIS user
+    const myAccepted = await Donation.find({
+      acceptedBy: req.user.id
+    })
+    .populate('acceptedBy', 'name organization email')
+    .lean();
+    
+    console.log(`📊 Donations accepted by me: ${myAccepted.length}`);
+    
+    // Alternative query
+    const myAcceptedAlt = await Donation.find({
+      status: { $in: ['accepted_by_ngo', 'pickup_scheduled', 'in_transit', 'delivered', 'fulfilled'] }
+    })
+    .populate('acceptedBy', 'name organization email')
+    .lean();
+    
+    const filtered = myAcceptedAlt.filter(d => {
+      const acceptedById = d.acceptedBy?._id?.toString() || d.acceptedBy?.toString();
+      const match = acceptedById === req.user.id.toString();
+      console.log(`Donation ${d._id}: acceptedBy=${acceptedById}, user=${req.user.id}, match=${match}`);
+      return match;
+    });
+    
+    return res.json({
+      success: true,
+      data: {
+        currentUserId: req.user.id,
+        allWithAcceptedBy: allWithAcceptedBy.length,
+        allWithAcceptedByData: allWithAcceptedBy,
+        myAcceptedDirect: myAccepted.length,
+        myAcceptedDirectData: myAccepted,
+        myAcceptedFiltered: filtered.length,
+        myAcceptedFilteredData: filtered
+      }
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    return fail(res, 'Debug failed', 500);
+  }
+});
 
 // ==================== SPECIAL ROUTES (BEFORE /:id) ====================
 
@@ -618,9 +661,9 @@ router.put('/:id/admin-approve', protect, restrictTo('admin'), async (req, res) 
 // @access  Private (Recipient/NGO only)
 router.put('/:id/ngo-accept', protect, restrictTo('recipient'), async (req, res) => {
   try {
-    console.log(`🔍 NGO ${req.user.organization?.name} attempting to accept donation ${req.params.id}`);
+    console.log(`🔍 NGO ${req.user.organization?.name} (ID: ${req.user.id}) attempting to accept donation ${req.params.id}`);
 
-    // Find donation and populate donor
+    // Find donation first
     const donation = await Donation.findById(req.params.id)
       .populate('donor', 'name email phone location');
 
@@ -629,62 +672,91 @@ router.put('/:id/ngo-accept', protect, restrictTo('recipient'), async (req, res)
       return fail(res, 'Donation not found', 404);
     }
 
+    console.log(`📋 Donation status: ${donation.status}`);
+    console.log(`📋 Preferred recipients:`, donation.preferences?.preferredRecipients);
+
     // Check if donation is approved
     if (donation.status !== 'approved') {
       return fail(res, 'Donation must be approved first', 400);
     }
 
-    // Check if this NGO is the targeted recipient
-    const isTargetedNGO = donation.preferences?.preferredRecipients?.some(
-      recipientId => recipientId.toString() === req.user.id.toString()
-    );
+    // ✅ FIX: Better authorization check
+    let isAuthorized = false;
+    
+    if (donation.preferences?.preferredRecipients && 
+        donation.preferences.preferredRecipients.length > 0) {
+      // If there are preferred recipients, check if current user is one of them
+      const userIdStr = req.user.id.toString();
+      
+      isAuthorized = donation.preferences.preferredRecipients.some(recipient => {
+        // Handle both populated objects and plain IDs
+        const recipientIdStr = (recipient._id || recipient.id || recipient).toString();
+        console.log(`   Comparing: ${recipientIdStr} === ${userIdStr} -> ${recipientIdStr === userIdStr}`);
+        return recipientIdStr === userIdStr;
+      });
+      
+      console.log(`📋 Checking against preferred recipients. Authorized: ${isAuthorized}`);
+    } else {
+      // If no preferred recipients, any NGO can accept (open donation)
+      isAuthorized = true;
+      console.log(`📋 No preferred recipients - open to all NGOs. Authorized: true`);
+    }
 
-    if (!isTargetedNGO) {
+    if (!isAuthorized) {
       console.log(`❌ User ${req.user.id} not authorized for donation ${donation._id}`);
       return fail(res, 'You are not authorized to accept this donation', 403);
     }
 
     // Check if already accepted
-    if (donation.status === 'accepted_by_ngo') {
-      return fail(res, 'Donation already accepted', 400);
+    if (donation.acceptedBy) {
+      return fail(res, 'Donation already accepted by another NGO', 400);
     }
 
-    // Update donation status
+    // ✅ Update donation
     donation.status = 'accepted_by_ngo';
     donation.acceptedBy = req.user.id;
     donation.acceptedAt = new Date();
+    
     await donation.save();
 
     console.log(`✅ NGO ${req.user.organization?.name} accepted donation ${donation._id}`);
+    console.log(`✅ AcceptedBy set to: ${donation.acceptedBy}`);
+
+    // Reload with populated fields
+    await donation.populate('acceptedBy', 'name organization email phone');
 
     const socketService = req.app.get('socketService');
 
     // Notify donor that NGO accepted
-    const donorNotification = await Notification.create({
-      recipient: donation.donor._id,
-      type: 'ngo_accepted',
-      title: '🎉 NGO Accepted Your Donation',
-      message: `${req.user.organization?.name || 'An NGO'} accepted your donation: "${donation.title}". Please schedule a pickup.`,
-      data: {
-        donationId: donation._id,
-        ngoId: req.user.id,
-        ngoName: req.user.organization?.name,
-        nextStep: 'schedule_pickup',
-        actionUrl: `/donor/donations/${donation._id}/schedule-pickup`
-      },
-      channels: { inApp: true, email: true, push: false }
-    });
-
-    if (socketService) {
-      socketService.sendToUser(donation.donor._id.toString(), {
-        _id: donorNotification._id,
-        type: donorNotification.type,
-        title: donorNotification.title,
-        message: donorNotification.message,
-        data: donorNotification.data,
-        createdAt: donorNotification.createdAt,
-        read: false
+    try {
+      const donorNotification = await Notification.create({
+        recipient: donation.donor._id,
+        type: 'ngo_accepted',
+        title: '🎉 NGO Accepted Your Donation',
+        message: `${req.user.organization?.name || 'An NGO'} accepted your donation: "${donation.title}". Please schedule a pickup.`,
+        data: {
+          donationId: donation._id,
+          ngoId: req.user.id,
+          ngoName: req.user.organization?.name,
+          nextStep: 'schedule_pickup',
+          actionUrl: `/donor/donations/${donation._id}/schedule-pickup`
+        },
+        channels: { inApp: true, email: true, push: false }
       });
+
+      if (socketService) {
+        socketService.sendToUser(donation.donor._id.toString(), {
+          _id: donorNotification._id,
+          type: donorNotification.type,
+          title: donorNotification.title,
+          message: donorNotification.message,
+          data: donorNotification.data,
+          createdAt: donorNotification.createdAt,
+          read: false
+        });
+      }
+    } catch (notifError) {
+      console.error('❌ Failed to send notification:', notifError);
     }
 
     return ok(res, { 
@@ -699,9 +771,11 @@ router.put('/:id/ngo-accept', protect, restrictTo('recipient'), async (req, res)
 
   } catch (error) {
     console.error('❌ NGO acceptance error:', error);
+    console.error('Error stack:', error.stack);
     return fail(res, 'Server error during acceptance', 500);
   }
 });
+
 
 // @desc    Donor schedules pickup after NGO acceptance
 // @route   PUT /api/donations/:id/schedule-pickup
@@ -710,30 +784,34 @@ router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res
   try {
     const { pickupDate, pickupTime, specialInstructions } = req.body;
 
-    console.log(`📅 Donor ${req.user.name} scheduling pickup for donation ${req.params.id}`);
+    console.log(`📅 Donor ${req.user.name} (ID: ${req.user.id}) scheduling pickup for donation ${req.params.id}`);
 
     // Validate required fields
     if (!pickupDate || !pickupTime) {
       return fail(res, 'Pickup date and time are required', 400);
     }
 
-    // Find donation and populate NGO
-    const donation = await Donation.findById(req.params.id)
-      .populate('acceptedBy', 'name organization email phone');
+    // Find donation WITHOUT populating donor first (to check ownership)
+    const donation = await Donation.findById(req.params.id);
 
     if (!donation) {
       console.log(`❌ Donation ${req.params.id} not found`);
       return fail(res, 'Donation not found', 404);
     }
 
-    // Check if user is the donor
-    if (donation.donor.toString() !== req.user.id.toString()) {
-      console.log(`❌ User ${req.user.id} not authorized for donation ${donation._id}`);
+    // ✅ FIX: Better donor ID comparison
+    const donorIdStr = (donation.donor._id || donation.donor).toString();
+    const userIdStr = req.user.id.toString();
+    
+    console.log(`🔍 Comparing donor ID: ${donorIdStr} with user ID: ${userIdStr}`);
+
+    if (donorIdStr !== userIdStr) {
+      console.log(`❌ User ${userIdStr} not authorized for donation ${donation._id} (owned by ${donorIdStr})`);
       return fail(res, 'Only the donor can schedule pickup', 403);
     }
 
     // Check if NGO has accepted
-    if (donation.status !== 'accepted_by_ngo') {
+    if (donation.status !== 'accepted_by_ngo' && donation.status !== 'pickup_scheduled') {
       return fail(res, 'NGO must accept the donation first', 400);
     }
 
@@ -744,41 +822,54 @@ router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res
       instructions: specialInstructions || '',
       scheduledAt: new Date()
     };
-    donation.status = 'pickup_scheduled';
+    
+    // Only change status if it's currently accepted_by_ngo
+    if (donation.status === 'accepted_by_ngo') {
+      donation.status = 'pickup_scheduled';
+    }
+    
     await donation.save();
 
     console.log(`✅ Pickup scheduled: ${pickupDate} at ${pickupTime}`);
 
+    // Now populate for response
+    await donation.populate('acceptedBy', 'name organization email phone');
+
     const socketService = req.app.get('socketService');
 
     // Notify NGO about scheduled pickup
-    const ngoNotification = await Notification.create({
-      recipient: donation.acceptedBy._id,
-      type: 'pickup_scheduled',
-      title: '📅 Pickup Scheduled',
-      message: `Pickup scheduled for "${donation.title}" on ${pickupDate} at ${pickupTime}`,
-      data: {
-        donationId: donation._id,
-        pickupDate,
-        pickupTime,
-        address: donation.location?.address,
-        specialInstructions,
-        donorPhone: req.user.phone,
-        actionUrl: `/recipient/donations/${donation._id}`
-      },
-      channels: { inApp: true, email: true, push: false }
-    });
-
-    if (socketService) {
-      socketService.sendToUser(donation.acceptedBy._id.toString(), {
-        _id: ngoNotification._id,
-        type: ngoNotification.type,
-        title: ngoNotification.title,
-        message: ngoNotification.message,
-        data: ngoNotification.data,
-        createdAt: ngoNotification.createdAt,
-        read: false
+    try {
+      const ngoNotification = await Notification.create({
+        recipient: donation.acceptedBy._id,
+        type: 'pickup_scheduled',
+        title: '📅 Pickup Scheduled',
+        message: `Pickup scheduled for "${donation.title}" on ${pickupDate} at ${pickupTime}`,
+        data: {
+          donationId: donation._id,
+          pickupDate,
+          pickupTime,
+          address: donation.location?.address,
+          specialInstructions,
+          donorPhone: req.user.phone,
+          actionUrl: `/recipient/donations/${donation._id}`
+        },
+        channels: { inApp: true, email: true, push: false }
       });
+
+      if (socketService) {
+        socketService.sendToUser(donation.acceptedBy._id.toString(), {
+          _id: ngoNotification._id,
+          type: ngoNotification.type,
+          title: ngoNotification.title,
+          message: ngoNotification.message,
+          data: ngoNotification.data,
+          createdAt: ngoNotification.createdAt,
+          read: false
+        });
+      }
+    } catch (notifError) {
+      console.error('❌ Failed to send notification to NGO:', notifError);
+      // Don't fail the scheduling if notification fails
     }
 
     return ok(res, { 
@@ -788,18 +879,380 @@ router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res
         time: pickupTime,
         instructions: specialInstructions,
         ngoContact: {
-          name: donation.acceptedBy.organization?.name || donation.acceptedBy.name,
-          email: donation.acceptedBy.email,
-          phone: donation.acceptedBy.phone
+          name: donation.acceptedBy?.organization?.name || donation.acceptedBy?.name,
+          email: donation.acceptedBy?.email,
+          phone: donation.acceptedBy?.phone
         }
       }
     }, 'Pickup scheduled successfully. NGO has been notified.');
 
   } catch (error) {
     console.error('❌ Pickup scheduling error:', error);
+    console.error('Error stack:', error.stack);
     return fail(res, 'Server error during pickup scheduling', 500);
   }
 });
+// @desc    Update donation status (for NGO workflow: in_transit, delivered)
+// @route   PUT /api/donations/:id/update-status
+// @access  Private (Recipient/NGO only)
+router.put('/:id/update-status', protect, restrictTo('recipient'), async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+
+    if (!status) {
+      return fail(res, 'Status is required', 400);
+    }
+
+    console.log(`📝 NGO ${req.user.organization?.name} updating donation ${req.params.id} to ${status}`);
+
+    const donation = await Donation.findById(req.params.id)
+      .populate('donor', 'name email phone')
+      .populate('acceptedBy', 'name organization email phone');
+
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if this NGO accepted the donation
+    const acceptedByIdStr = (donation.acceptedBy?._id || donation.acceptedBy)?.toString();
+    const userIdStr = req.user.id.toString();
+
+    if (acceptedByIdStr !== userIdStr) {
+      return fail(res, 'Only the NGO that accepted can update status', 403);
+    }
+
+    // Update status based on the requested change
+    const oldStatus = donation.status;
+    donation.status = status;
+
+    // Set timestamps based on status
+    if (status === 'in_transit' && !donation.pickedUpAt) {
+      donation.pickedUpAt = new Date();
+    } else if (status === 'delivered' && !donation.deliveredAt) {
+      donation.deliveredAt = new Date();
+    }
+
+    if (notes) {
+      donation.deliveryNotes = notes;
+    }
+
+    await donation.save();
+
+    console.log(`✅ Donation ${donation._id} status changed: ${oldStatus} → ${status}`);
+
+    // Notify donor about status change
+    try {
+      const socketService = req.app.get('socketService');
+      
+      let notificationData = {
+        recipient: donation.donor._id || donation.donor,
+        data: {
+          donationId: donation._id,
+          ngoName: req.user.organization?.name || req.user.name,
+          actionUrl: `/donor/requests`
+        },
+        channels: { inApp: true, email: false, push: false }
+      };
+
+      // Customize notification based on status
+      if (status === 'in_transit') {
+        notificationData.type = 'donation_picked_up';
+        notificationData.title = '🚚 Donation Picked Up';
+        notificationData.message = `${req.user.organization?.name || 'The NGO'} has picked up your donation: "${donation.title}"`;
+      } else if (status === 'delivered') {
+        notificationData.type = 'donation_delivered';
+        notificationData.title = '✅ Donation Delivered';
+        notificationData.message = `Your donation "${donation.title}" has been successfully delivered`;
+        notificationData.channels.email = true; // Send email for delivered
+      }
+
+      const donorNotification = await Notification.create(notificationData);
+
+      if (socketService) {
+        socketService.sendToUser((donation.donor._id || donation.donor).toString(), {
+          _id: donorNotification._id,
+          type: donorNotification.type,
+          title: donorNotification.title,
+          message: donorNotification.message,
+          data: donorNotification.data,
+          createdAt: donorNotification.createdAt,
+          read: false
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to notify donor:', notifError);
+    }
+
+    return ok(res, { donation }, `Donation status updated to ${status} successfully`);
+
+  } catch (error) {
+    console.error('Update status error:', error);
+    return fail(res, 'Server error during status update', 500);
+  }
+});
+
+// @desc    NGO submits feedback after delivery
+// @route   PUT /api/donations/:id/feedback
+// @access  Private (Recipient/NGO only)
+router.put('/:id/feedback', protect, restrictTo('recipient'), async (req, res) => {
+  try {
+    const { rating, comment, beneficiariesHelped, impactStory } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return fail(res, 'Valid rating (1-5) is required', 400);
+    }
+
+    console.log(`⭐ NGO ${req.user.organization?.name} submitting feedback for donation ${req.params.id}`);
+
+    const donation = await Donation.findById(req.params.id)
+      .populate('donor', 'name email')
+      .populate('acceptedBy', 'name organization email');
+
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if this NGO accepted the donation
+    const acceptedByIdStr = (donation.acceptedBy?._id || donation.acceptedBy)?.toString();
+    const userIdStr = req.user.id.toString();
+
+    if (acceptedByIdStr !== userIdStr) {
+      return fail(res, 'Only the NGO that accepted can provide feedback', 403);
+    }
+
+    // Check if donation is delivered
+    if (donation.status !== 'delivered') {
+      return fail(res, 'Donation must be delivered before submitting feedback', 400);
+    }
+
+    // ✅ FIX: Save feedback under completion object
+    if (!donation.completion) {
+      donation.completion = {};
+    }
+
+    donation.completion.feedback = {
+      rating: parseInt(rating),
+      comment: comment || ''
+    };
+
+    // ✅ Store additional impact data at root level (or you can add to model)
+    donation.beneficiariesHelped = beneficiariesHelped ? parseInt(beneficiariesHelped) : 0;
+    donation.impactStory = impactStory || '';
+    
+    // Keep status as 'delivered'
+    await donation.save();
+
+    console.log(`✅ Feedback submitted: ${rating}⭐`);
+
+    // Notify admins about feedback submission
+    try {
+      const admins = await User.find({ role: 'admin', status: 'active' });
+      const socketService = req.app.get('socketService');
+
+      for (const admin of admins) {
+        const adminNotification = await Notification.create({
+          recipient: admin._id,
+          type: 'feedback_submitted',
+          title: '⭐ Donation Feedback Received',
+          message: `${req.user.organization?.name || req.user.name} submitted feedback (${rating}⭐) for donation "${donation.title}"`,
+          data: {
+            donationId: donation._id,
+            rating,
+            ngoId: req.user.id,
+            ngoName: req.user.organization?.name || req.user.name,
+            actionUrl: `/admin/donations/${donation._id}`
+          },
+          channels: { inApp: true, email: false, push: false }
+        });
+
+        if (socketService) {
+          socketService.sendToUser(admin._id.toString(), {
+            _id: adminNotification._id,
+            type: adminNotification.type,
+            title: adminNotification.title,
+            message: adminNotification.message,
+            data: adminNotification.data,
+            createdAt: adminNotification.createdAt,
+            read: false
+          });
+        }
+      }
+    } catch (notifError) {
+      console.error('Failed to notify admins:', notifError);
+    }
+
+    // Notify donor about the feedback
+    try {
+      const socketService = req.app.get('socketService');
+      
+      const donorNotification = await Notification.create({
+        recipient: donation.donor._id || donation.donor,
+        type: 'feedback_received',
+        title: '⭐ Feedback Received',
+        message: `${req.user.organization?.name || 'The NGO'} has submitted feedback (${rating}⭐) for your donation "${donation.title}"`,
+        data: {
+          donationId: donation._id,
+          rating,
+          actionUrl: `/donor/requests`
+        },
+        channels: { inApp: true, email: false, push: false }
+      });
+
+      if (socketService) {
+        socketService.sendToUser((donation.donor._id || donation.donor).toString(), {
+          _id: donorNotification._id,
+          type: donorNotification.type,
+          title: donorNotification.title,
+          message: donorNotification.message,
+          data: donorNotification.data,
+          createdAt: donorNotification.createdAt,
+          read: false
+        });
+      }
+    } catch (donorNotifError) {
+      console.error('Failed to notify donor:', donorNotifError);
+    }
+
+    return ok(res, { 
+      donation,
+      feedback: donation.completion.feedback 
+    }, 'Feedback submitted successfully. Admin will review and complete the donation.');
+
+  } catch (error) {
+    console.error('Submit feedback error:', error);
+    return fail(res, 'Server error during feedback submission', 500);
+  }
+});
+
+// @desc    Admin marks donation as completed after reviewing feedback
+// @route   PUT /api/donations/:id/mark-completed
+// @access  Private (Admin only)
+router.put('/:id/mark-completed', protect, restrictTo('admin'), async (req, res) => {
+  try {
+    const { adminNotes } = req.body;
+
+    console.log(`🎯 Admin marking donation ${req.params.id} as completed`);
+
+    const donation = await Donation.findById(req.params.id)
+      .populate('donor', 'name email')
+      .populate('acceptedBy', 'name organization email');
+
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if donation is delivered
+    if (donation.status !== 'delivered') {
+      return fail(res, 'Only delivered donations can be marked as completed', 400);
+    }
+
+    // ✅ FIX: Check completion.feedback instead of just feedback
+    if (!donation.completion?.feedback?.rating) {
+      return fail(res, 'Feedback must be submitted before marking as completed', 400);
+    }
+
+    // Update to completed status
+    donation.status = 'completed';
+    donation.completedAt = new Date();
+    
+    // ✅ FIX: Update completion object
+    if (!donation.completion) {
+      donation.completion = {};
+    }
+    donation.completion.completedAt = new Date();
+    donation.completion.completedBy = req.user.id;
+
+    // Add to state history (FSM)
+    donation.state_history.push({
+      from_state: 'delivered',
+      to_state: 'completed',
+      action: 'admin_complete',
+      actor: {
+        id: req.user.id,
+        name: req.user.name,
+        role: req.user.role
+      },
+      timestamp: new Date(),
+      metadata: {
+        adminNotes: adminNotes || '',
+        feedbackRating: donation.completion.feedback.rating
+      }
+    });
+
+    await donation.save();
+
+    console.log(`✅ Donation ${donation._id} marked as completed`);
+
+    // Send congratulations notification to donor
+    try {
+      const socketService = req.app.get('socketService');
+      
+      const donorNotification = await Notification.create({
+        recipient: donation.donor._id || donation.donor,
+        type: 'donation_completed',
+        title: '🎉 Donation Completed!',
+        message: `Congratulations! Your donation "${donation.title}" has been successfully delivered and the recipient has provided positive feedback (${donation.completion.feedback.rating}⭐). Thank you for making a difference!`,
+        data: {
+          donationId: donation._id,
+          rating: donation.completion.feedback.rating,
+          actionUrl: `/donor/donations/${donation._id}`
+        },
+        channels: { inApp: true, email: true, push: false }
+      });
+
+      if (socketService) {
+        socketService.sendToUser((donation.donor._id || donation.donor).toString(), {
+          _id: donorNotification._id,
+          type: donorNotification.type,
+          title: donorNotification.title,
+          message: donorNotification.message,
+          data: donorNotification.data,
+          createdAt: donorNotification.createdAt,
+          read: false
+        });
+      }
+
+      console.log('📨 Congratulations notification sent to donor');
+    } catch (notifError) {
+      console.error('Failed to notify donor:', notifError);
+    }
+
+    // Update donor and NGO statistics
+    try {
+      // Update donor stats
+      await User.findByIdAndUpdate(donation.donor._id || donation.donor, {
+        $inc: {
+          'statistics.completedDonations': 1,
+          'statistics.totalBeneficiariesHelped': donation.beneficiariesHelped || 0
+        }
+      });
+
+      // Update NGO stats
+      if (donation.acceptedBy) {
+        await User.findByIdAndUpdate(donation.acceptedBy._id || donation.acceptedBy, {
+          $inc: {
+            'statistics.totalRatings': 1
+          },
+          $set: {
+            // Calculate new average rating (simplified - you can make this more accurate)
+            'statistics.rating': donation.completion.feedback.rating
+          }
+        });
+      }
+
+      console.log('📊 Statistics updated for donor and NGO');
+    } catch (statsError) {
+      console.error('Failed to update statistics:', statsError);
+    }
+
+    return ok(res, { donation }, 'Donation marked as completed successfully');
+
+  } catch (error) {
+    console.error('Mark completed error:', error);
+    return fail(res, 'Server error while marking donation as completed', 500);
+  }
+});
+
 
 // ==================== DYNAMIC ID ROUTES (AFTER SPECIAL ROUTES) ====================
 

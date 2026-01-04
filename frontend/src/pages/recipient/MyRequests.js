@@ -6,21 +6,37 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Clock, CheckCircle, Package, Edit, Trash2, ChevronDown, ChevronUp, Sparkles, MapPin, User, Loader2 } from 'lucide-react';
+import { Plus, Clock, CheckCircle, Package, Edit, Trash2, ChevronDown, ChevronUp, Sparkles, MapPin, User, Loader2, Truck, Star, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import api from '../../lib/api';
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, type }) => {
   const statusStyles = {
+    // Request statuses
     active: 'bg-blue-100 text-blue-800',
     matched: 'bg-purple-100 text-purple-800',
     fulfilled: 'bg-green-100 text-green-800',
     cancelled: 'bg-gray-100 text-gray-800',
     expired: 'bg-red-100 text-red-800',
+    // Donation statuses
+    accepted_by_ngo: 'bg-yellow-100 text-yellow-800',
+    pickup_scheduled: 'bg-blue-100 text-blue-800',
+    in_transit: 'bg-purple-100 text-purple-800',
+    delivered: 'bg-green-100 text-green-800',
   };
+
+  const statusLabels = {
+    accepted_by_ngo: 'Awaiting Pickup',
+    pickup_scheduled: 'Pickup Scheduled',
+    in_transit: 'In Transit',
+    delivered: 'Delivered',
+  };
+
+  const label = type === 'donation' && statusLabels[status] ? statusLabels[status] : status?.replace('_', ' ');
 
   return (
     <Badge className={`${statusStyles[status] || 'bg-gray-100 text-gray-800'} capitalize`}>
-      {status ? status.replace('_', ' ') : 'Unknown'}
+      {label || 'Unknown'}
     </Badge>
   );
 };
@@ -28,11 +44,20 @@ const StatusBadge = ({ status }) => {
 const MyRequests = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [requests, setRequests] = useState([]);
+  const [items, setItems] = useState([]); // Combined requests + donations
   const [loading, setLoading] = useState(true);
   const [expandedRequests, setExpandedRequests] = useState({});
   const [matchData, setMatchData] = useState({});
-  const hasFetchedRef = useRef(false); // ✅ Use ref to track if already fetched
+  const [updating, setUpdating] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedDonation, setSelectedDonation] = useState(null);
+  const [feedbackForm, setFeedbackForm] = useState({
+    rating: 5,
+    comment: '',
+    beneficiariesHelped: '',
+    impactStory: ''
+  });
+  const hasFetchedRef = useRef(false);
   const [stats, setStats] = useState({
     pending: 0,
     fulfilled: 0,
@@ -40,42 +65,46 @@ const MyRequests = () => {
     totalRequests: 0,
   });
 
-  const calculateStats = (requests) => {
-    if (!requests) return;
-    const pending = requests.filter(r => ['active', 'matched'].includes(r.status)).length;
-    const fulfilled = requests.filter(r => r.status === 'fulfilled').length;
-    const totalItemsReceived = requests.filter(r => r.status === 'fulfilled').reduce((sum, r) => sum + r.quantity, 0);
+  const calculateStats = (items) => {
+    if (!items) return;
+    const pending = items.filter(i => ['active', 'matched', 'accepted_by_ngo', 'pickup_scheduled', 'in_transit'].includes(i.status)).length;
+    const fulfilled = items.filter(i => ['fulfilled', 'delivered'].includes(i.status)).length;
+    const totalItemsReceived = items.filter(i => ['fulfilled', 'delivered'].includes(i.status)).reduce((sum, i) => sum + i.quantity, 0);
 
     setStats({
       pending,
       fulfilled,
       totalItemsReceived,
-      totalRequests: requests.length,
+      totalRequests: items.length,
     });
   };
 
-const loadMatchesForRequest = async (requestId) => {
-  console.log(`📞 Calling API for request: ${requestId}`);
-  try {
-    const response = await matchingService.getMatchesForRequest(requestId);
-    
-    console.log(`📦 API Response for ${requestId}:`, response);
-    
-    // ✅ CHANGED: Check for matches directly, not response.success
-    if (response && response.matches) {
-      const count = response.matches.length;
-      console.log(`✅ Request ${requestId}: ${count} matches`);
+  const loadMatchesForRequest = async (requestId) => {
+    try {
+      const response = await matchingService.getMatchesForRequest(requestId);
       
-      setMatchData(prev => ({
-        ...prev,
-        [requestId]: {
-          matches: response.matches,
-          count: count,
-          loaded: true
-        }
-      }));
-    } else {
-      console.log(`⚠️ No matches field in response for ${requestId}`);
+      if (response && response.matches) {
+        const count = response.matches.length;
+        setMatchData(prev => ({
+          ...prev,
+          [requestId]: {
+            matches: response.matches,
+            count: count,
+            loaded: true
+          }
+        }));
+      } else {
+        setMatchData(prev => ({
+          ...prev,
+          [requestId]: {
+            matches: [],
+            count: 0,
+            loaded: true
+          }
+        }));
+      }
+    } catch (error) {
+      console.error(`❌ Error loading matches for ${requestId}:`, error);
       setMatchData(prev => ({
         ...prev,
         [requestId]: {
@@ -85,54 +114,176 @@ const loadMatchesForRequest = async (requestId) => {
         }
       }));
     }
-  } catch (error) {
-    console.error(`❌ Error loading matches for ${requestId}:`, error);
-    setMatchData(prev => ({
-      ...prev,
-      [requestId]: {
-        matches: [],
-        count: 0,
-        loaded: true
-      }
-    }));
-  }
-};
+  };
 
+// ✅ Fetch both requests AND accepted donations
+useEffect(() => {
+  if (hasFetchedRef.current || !user) return;
+  hasFetchedRef.current = true;
 
-  // ✅ Fetch requests once
-  useEffect(() => {
-    if (hasFetchedRef.current || !user) return; // Skip if already fetched
-    hasFetchedRef.current = true;
+  const fetchData = async () => {
+    try {
+      console.log('🔍 Current user:', { 
+        id: user._id || user.id, 
+        name: user.name, 
+        role: user.role 
+      });
 
-    const fetchRequests = async () => {
-      try {
-        const response = await requestService.getMyRequests(user._id);
+      // Fetch requests
+      const requestsResponse = await requestService.getMyRequests(user._id);
+      
+      // Fetch ALL donations without status filter to debug
+      const donationsResponse = await api.get('/donations', {
+        params: {
+          page: 1,
+          limit: 100,
+          status: 'accepted_by_ngo,pickup_scheduled,in_transit,delivered' // ✅ Add these statuses
+        }
+      });
+
+      let allItems = [];
+
+      // Add requests
+      if (requestsResponse.success) {
+        const requestList = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
+        allItems = requestList.map(req => ({ ...req, type: 'request' }));
         
-        if (response.success) {
-          const requestList = Array.isArray(response.data) ? response.data : [];
-          console.log(`📋 Loaded ${requestList.length} requests`);
-          setRequests(requestList);
-          calculateStats(requestList);
-          
-          console.log(`🎯 About to load matches for ${requestList.length} requests`);
+        console.log(`✅ Loaded ${requestList.length} requests`);
+        
+        // Load matches for requests
         requestList.forEach(request => {
-          console.log(`🔄 Starting load for request: ${request._id}`);
           loadMatchesForRequest(request._id);
         });
-        console.log(`✅ Dispatched all match loading calls`);
-        } else {
-          toast.error(response.message || 'Failed to fetch requests');
-        }
-      } catch (error) {
-        console.error('Fetch requests error:', error);
-        toast.error('Failed to fetch your requests. Please try again.');
-      } finally {
-        setLoading(false);
       }
-    };
 
-    fetchRequests();
-  }, [user]);
+      // Add accepted donations
+      if (donationsResponse.success) {
+        console.log(`📦 Total donations with accepted statuses: ${donationsResponse.data.length}`);
+        
+        const userId = (user._id || user.id).toString();
+        console.log(`👤 Looking for donations accepted by: ${userId}`);
+        
+        const acceptedDonations = donationsResponse.data.filter(donation => {
+          // Check acceptedBy field
+          const acceptedById = donation.acceptedBy?._id?.toString() || 
+                               donation.acceptedBy?.id?.toString() || 
+                               donation.acceptedBy?.toString();
+          
+          const match = acceptedById === userId;
+          
+          if (donation.acceptedBy) {
+            console.log(`✓ Donation ${donation._id} (${donation.title}):`, {
+              acceptedBy: acceptedById,
+              currentUser: userId,
+              MATCH: match,
+              status: donation.status
+            });
+          }
+          
+          return match;
+        });
+        
+        console.log(`✅ Found ${acceptedDonations.length} accepted donations for this user`);
+        
+        if (acceptedDonations.length > 0) {
+          console.log('📋 Accepted donations:', acceptedDonations.map(d => ({
+            id: d._id,
+            title: d.title,
+            status: d.status
+          })));
+        }
+        
+        allItems = [...allItems, ...acceptedDonations.map(don => ({ ...don, type: 'donation' }))];
+      } else {
+        console.error('❌ Failed to fetch donations:', donationsResponse);
+      }
+
+      // Sort by date (newest first)
+      allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      console.log(`📋 Total items to display: ${allItems.length}`);
+      setItems(allItems);
+      calculateStats(allItems);
+    } catch (error) {
+      console.error('Fetch data error:', error);
+      toast.error('Failed to fetch items. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [user]);
+
+
+  const handleUpdateDonationStatus = async (donationId, newStatus) => {
+    try {
+      setUpdating(true);
+      const response = await api.put(`/donations/${donationId}/update-status`, {
+        status: newStatus
+      });
+
+      if (response.success) {
+        toast.success(`Donation marked as ${newStatus.replace('_', ' ')}`);
+        
+        // Update local state
+        setItems(items.map(item => 
+          item._id === donationId ? { ...item, status: newStatus } : item
+        ));
+
+        // If delivered, prompt for feedback
+        if (newStatus === 'delivered') {
+          const donation = items.find(i => i._id === donationId);
+          setSelectedDonation(donation);
+          setTimeout(() => {
+            setShowFeedbackModal(true);
+          }, 1000);
+        }
+      }
+    } catch (err) {
+      console.error('Update status error:', err);
+      toast.error(err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackForm.rating) {
+      toast.error('Please provide a rating');
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      const response = await api.put(`/donations/${selectedDonation._id}/feedback`, feedbackForm);
+
+      if (response.success) {
+        toast.success('Feedback submitted! Admin will review and complete the donation.');
+        setShowFeedbackModal(false);
+        
+        // Update local state
+        setItems(items.map(item => 
+          item._id === selectedDonation._id 
+            ? { ...item, feedback: feedbackForm } 
+            : item
+        ));
+
+        setSelectedDonation(null);
+        setFeedbackForm({
+          rating: 5,
+          comment: '',
+          beneficiariesHelped: '',
+          impactStory: ''
+        });
+      }
+    } catch (err) {
+      console.error('Submit feedback error:', err);
+      toast.error(err.response?.data?.message || 'Failed to submit feedback');
+    } finally {
+      setUpdating(false);
+    }
+  };
   
   const handleDelete = async (requestId) => {
     if (!window.confirm('Are you sure you want to delete this request? This action cannot be undone.')) {
@@ -142,7 +293,7 @@ const loadMatchesForRequest = async (requestId) => {
     try {
         await requestService.deleteRequest(requestId);
         toast.success('Request deleted successfully');
-        setRequests(prev => prev.filter(r => r._id !== requestId));
+        setItems(prev => prev.filter(i => i._id !== requestId));
     } catch(error) {
         toast.error(error.message || 'Failed to delete request');
     }
@@ -175,8 +326,8 @@ const loadMatchesForRequest = async (requestId) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Requests</h1>
-            <p className="text-gray-600 mt-1">Track and manage all your donation requests</p>
+            <h1 className="text-3xl font-bold text-gray-900">My Requests & Accepted Donations</h1>
+            <p className="text-gray-600 mt-1">Track and manage all your requests and accepted donations</p>
           </div>
           <Button onClick={() => navigate('/recipient/create-request')}>
             <Plus className="h-5 w-5 mr-2" />
@@ -188,7 +339,7 @@ const loadMatchesForRequest = async (requestId) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Requests</CardTitle>
+                    <CardTitle className="text-sm font-medium">Active Items</CardTitle>
                     <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -197,7 +348,7 @@ const loadMatchesForRequest = async (requestId) => {
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Fulfilled Requests</CardTitle>
+                    <CardTitle className="text-sm font-medium">Fulfilled</CardTitle>
                     <CheckCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -215,7 +366,7 @@ const loadMatchesForRequest = async (requestId) => {
             </Card>
              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Items</CardTitle>
                     <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -224,35 +375,44 @@ const loadMatchesForRequest = async (requestId) => {
             </Card>
         </div>
 
-        {/* Requests List */}
+        {/* Items List */}
         <div className="space-y-4">
-          {requests.length > 0 ? (
-            requests.map(request => {
-              const requestMatchData = matchData[request._id] || { matches: [], count: 0, loaded: false };
-              const hasMatches = requestMatchData.count > 0;
-              const isExpanded = expandedRequests[request._id];
-              const matchCount = requestMatchData.count;
+          {items.length > 0 ? (
+            items.map(item => {
+              const isRequest = item.type === 'request';
+              const isDonation = item.type === 'donation';
+              const requestMatchData = isRequest ? (matchData[item._id] || { matches: [], count: 0, loaded: false }) : null;
+              const hasMatches = isRequest && requestMatchData && requestMatchData.count > 0;
+              const isExpanded = expandedRequests[item._id];
+              const matchCount = isRequest ? requestMatchData?.count : 0;
 
               return (
-                <Card key={request._id} className="hover:shadow-md transition-shadow">
+                <Card key={item._id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 gap-4">
-                      {/* Main Request Info */}
+                      {/* Main Item Info */}
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-lg font-bold text-gray-900 hover:text-blue-700">
-                               <Link to={`/requests/${request._id}`}>{request.title || 'Untitled Request'}</Link>
-                            </h3>
                             <div className="flex items-center gap-2">
-                              <StatusBadge status={request.status} />
-                              {!requestMatchData.loaded && (
+                              {isDonation && <Badge className="bg-purple-100 text-purple-800">Donation Offer</Badge>}
+                              <h3 className="text-lg font-bold text-gray-900 hover:text-blue-700">
+                                {isRequest ? (
+                                  <Link to={`/requests/${item._id}`}>{item.title || 'Untitled Request'}</Link>
+                                ) : (
+                                  <span>{item.title}</span>
+                                )}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={item.status} type={item.type} />
+                              {isRequest && !requestMatchData?.loaded && (
                                 <Badge className="bg-gray-100 text-gray-600">
                                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                                   Checking...
                                 </Badge>
                               )}
-                              {requestMatchData.loaded && hasMatches && (
+                              {isRequest && requestMatchData?.loaded && hasMatches && (
                                 <Badge className="bg-purple-100 text-purple-800">
                                   <Sparkles className="h-3 w-3 mr-1" />
                                   {matchCount} {matchCount === 1 ? 'match' : 'matches'}
@@ -260,37 +420,99 @@ const loadMatchesForRequest = async (requestId) => {
                               )}
                             </div>
                           </div>
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">{request.description}</p>
+                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">{item.description}</p>
                           <div className="flex flex-wrap gap-2 text-xs">
-                            <Badge variant="outline">{request.category}</Badge>
-                            <Badge variant="outline">{request.subcategory}</Badge>
-                            {request.urgency === 'high' && <Badge className="bg-red-100 text-red-800">High Urgency</Badge>}
-                            <Badge variant="outline">{request.quantity} items needed</Badge>
+                            <Badge variant="outline">{item.category}</Badge>
+                            {item.subcategory && <Badge variant="outline">{item.subcategory}</Badge>}
+                            {item.urgency === 'high' && <Badge className="bg-red-100 text-red-800">High Urgency</Badge>}
+                            <Badge variant="outline">{item.quantity} items</Badge>
+                            {isDonation && item.donor && (
+                              <Badge variant="outline" className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {item.donor.name}
+                              </Badge>
+                            )}
                           </div>
+
+                          {/* Pickup Schedule for Donations */}
+                          {isDonation && item.pickupSchedule && (
+                            <div className="mt-3 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 px-3 py-2 rounded-lg border-l-4 border-purple-500">
+                              <Calendar className="h-4 w-4" />
+                              <strong>Pickup:</strong> {new Date(item.pickupSchedule.date).toLocaleDateString()} at {item.pickupSchedule.time}
+                            </div>
+                          )}
                         </div>
                         
                         {/* Actions */}
                         <div className="flex items-center gap-2 ml-4">
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/requests/${request._id}`)}>
-                            View
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => toast.info('Edit feature coming soon!')}>
-                            <Edit className="h-3 w-3 mr-1" /> Edit
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(request._id)}>
-                            <Trash2 className="h-3 w-3 mr-1" /> Delete
-                          </Button>
+                          {isRequest && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => navigate(`/requests/${item._id}`)}>
+                                View
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => toast.info('Edit feature coming soon!')}>
+                                <Edit className="h-3 w-3 mr-1" /> Edit
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => handleDelete(item._id)}>
+                                <Trash2 className="h-3 w-3 mr-1" /> Delete
+                              </Button>
+                            </>
+                          )}
+
+                          {isDonation && (
+                            <>
+                              {item.status === 'pickup_scheduled' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUpdateDonationStatus(item._id, 'in_transit')}
+                                  disabled={updating}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Truck className="h-3 w-3" />
+                                  Mark In Transit
+                                </Button>
+                              )}
+
+                              {item.status === 'in_transit' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleUpdateDonationStatus(item._id, 'delivered')}
+                                  disabled={updating}
+                                  className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                                >
+                                  <CheckCircle className="h-3 w-3" />
+                                  Mark Delivered
+                                </Button>
+                              )}
+
+                              {item.status === 'delivered' && !item.feedback && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedDonation(item);
+                                    setShowFeedbackModal(true);
+                                  }}
+                                  disabled={updating}
+                                  className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700"
+                                >
+                                  <Star className="h-3 w-3" />
+                                  Feedback
+                                </Button>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
 
-                      {/* AI Matches Toggle - Only show if there are matches */}
-                      {requestMatchData.loaded && hasMatches && (
+                      {/* AI Matches Toggle - Only for requests with matches */}
+                      {isRequest && requestMatchData?.loaded && hasMatches && (
                         <div className="border-t pt-3">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="w-full flex items-center justify-between text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                            onClick={() => toggleMatches(request._id)}
+                            onClick={() => toggleMatches(item._id)}
                           >
                             <span className="flex items-center gap-2">
                               <Sparkles className="h-4 w-4" />
@@ -362,7 +584,7 @@ const loadMatchesForRequest = async (requestId) => {
                     </div>
 
                     <div className="text-xs text-gray-400 mt-4 border-t pt-2">
-                      Requested on: {request.createdAt ? format(new Date(request.createdAt), 'MMM dd, yyyy') : 'Date not available'}
+                      {isRequest ? 'Requested' : 'Accepted'} on: {item.createdAt ? format(new Date(item.createdAt), 'MMM dd, yyyy') : 'Date not available'}
                     </div>
                   </CardContent>
                 </Card>
@@ -371,9 +593,9 @@ const loadMatchesForRequest = async (requestId) => {
           ) : (
             <div className="text-center py-12 bg-white rounded-lg shadow-sm">
               <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No Requests Found</h3>
+              <h3 className="text-lg font-medium text-gray-900">No Items Found</h3>
               <p className="text-gray-500 mt-1">
-                You haven't created any requests yet. Get started by letting donors know what you need.
+                You haven't created any requests or accepted any donations yet.
               </p>
               <Button onClick={() => navigate('/recipient/create-request')} className="mt-4">
                 <Plus className="h-5 w-5 mr-2" />
@@ -383,6 +605,88 @@ const loadMatchesForRequest = async (requestId) => {
           )}
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedDonation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Star className="h-6 w-6" />
+                Submit Feedback
+              </h2>
+              <p className="text-yellow-100">Share your experience and the impact this donation made</p>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmitFeedback(); }} className="p-6 space-y-6">
+              {/* Rating */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Rating * (1-5 stars)</label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackForm({ ...feedbackForm, rating: star })}
+                      className="focus:outline-none transition-transform hover:scale-125"
+                    >
+                      <Star className={`h-10 w-10 ${star <= feedbackForm.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`} />
+                    </button>
+                  ))}
+                  <span className="ml-2 text-2xl font-bold text-yellow-500">{feedbackForm.rating}/5</span>
+                </div>
+              </div>
+
+              {/* Comment */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Your Comments</label>
+                <textarea
+                  placeholder="Share your experience..."
+                  value={feedbackForm.comment}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, comment: e.target.value })}
+                  rows="4"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                ></textarea>
+              </div>
+
+              {/* Beneficiaries */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">How many people benefited?</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Number of beneficiaries"
+                  value={feedbackForm.beneficiariesHelped}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, beneficiariesHelped: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Impact Story */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Impact Story (Optional)</label>
+                <textarea
+                  placeholder="Tell us about the positive impact..."
+                  value={feedbackForm.impactStory}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, impactStory: e.target.value })}
+                  rows="4"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                ></textarea>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 justify-end pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setShowFeedbackModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updating || !feedbackForm.rating}>
+                  {updating ? 'Submitting...' : 'Submit Feedback'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

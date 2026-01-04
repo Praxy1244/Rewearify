@@ -33,6 +33,7 @@ const notificationSchema = new mongoose.Schema({
     'feedback_submitted',          // ✅ ADD THIS
     'request_completed',           // ✅ ADD THIS
       'password_changed',
+       'feedback_received', 
       'login_alert',
       'reminder',
       'promotion',

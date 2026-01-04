@@ -25,53 +25,76 @@ const DonationOffers = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch donations where this NGO is in preferredRecipients
+      console.log('🔍 Fetching offers for NGO:', user.id, user.name);
+
       const response = await api.get('/donations', {
         params: {
           status: 'approved',
+          recipientId: user.id,
           page: 1,
-          limit: 50
+          limit: 100
         }
       });
 
-      if (response.data.success) {
+      console.log('📦 API Response:', response);
+
+      if (response.success) {
         // Filter donations that include this NGO as preferred recipient
-        const myOffers = response.data.data.filter(donation => {
-          return donation.preferences?.preferredRecipients?.some(
-            recipient => recipient._id === user.id || recipient === user.id
+        const myOffers = response.data.filter(donation => {
+          console.log('Checking donation:', donation._id, donation.preferences?.preferredRecipients);
+          
+          const isForThisNGO = donation.preferences?.preferredRecipients?.some(
+            recipient => {
+              const recipientId = typeof recipient === 'object' ? recipient._id : recipient;
+              return recipientId === user.id;
+            }
           );
+          
+          return isForThisNGO;
         });
 
+        console.log('✅ Found', myOffers.length, 'offers for this NGO');
         setOffers(myOffers);
+      } else {
+        console.error('❌ Response not successful:', response);
+        setOffers([]);
       }
     } catch (err) {
-      console.error('Error fetching offers:', err);
+      console.error('❌ Error fetching offers:', err);
+      console.error('Error response:', err.response?.data);
       setError('Failed to load donation offers. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAcceptOffer = async (donationId) => {
-    try {
-      setAcceptingId(donationId);
+const handleAcceptOffer = async (donationId) => {
+  try {
+    setAcceptingId(donationId);
+    
+    console.log('✅ Accepting donation offer:', donationId);
+    
+    const response = await api.put(`/donations/${donationId}/ngo-accept`);
+    
+    if (response.success) {
+      alert('✅ Donation offer accepted successfully!\n\nThe donor has been notified and will schedule a pickup time.');
       
-      const response = await api.put(`/donations/${donationId}/ngo-accept`);
+      // Remove accepted offer from list
+      setOffers(offers.filter(offer => offer._id !== donationId));
+      setSelectedOffer(null);
       
-      if (response.data.success) {
-        alert('✅ Donation offer accepted successfully! The donor will schedule a pickup.');
-        
-        // Remove accepted offer from list
-        setOffers(offers.filter(offer => offer._id !== donationId));
-        setSelectedOffer(null);
-      }
-    } catch (err) {
-      console.error('Error accepting offer:', err);
-      alert(err.response?.data?.message || 'Failed to accept offer. Please try again.');
-    } finally {
-      setAcceptingId(null);
+      // Navigate to my requests page where it will show
+      setTimeout(() => {
+        navigate('/recipient/my-requests'); // ✅ Changed from /recipient/accepted-donations
+      }, 1500);
     }
-  };
+  } catch (err) {
+    console.error('Error accepting offer:', err);
+    alert(err.response?.data?.message || 'Failed to accept offer. Please try again.');
+  } finally {
+    setAcceptingId(null);
+  }
+};
 
   const handleViewDetails = (offer) => {
     setSelectedOffer(offer);
@@ -83,7 +106,6 @@ const DonationOffers = () => {
 
   const getFilteredOffers = () => {
     if (filter === 'new') {
-      // Show offers from last 7 days
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       return offers.filter(offer => new Date(offer.approvedAt) > sevenDaysAgo);
