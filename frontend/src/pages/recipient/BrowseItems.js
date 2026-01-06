@@ -51,7 +51,11 @@ const BrowseItems = () => {
     const fetchDonations = async () => {
       try {
         setLoading(true);
-        const response = await donationService.getDonations({ status: 'approved' });
+        // ✅ FIX: Add availableOnly=true to only show donations that haven't been accepted
+        const response = await donationService.getDonations({ 
+          status: 'approved',
+          availableOnly: true // Only show donations not yet accepted by any NGO
+        });
         
         let items = [];
         if (Array.isArray(response)) {
@@ -65,6 +69,9 @@ const BrowseItems = () => {
         } else if (response.data && Array.isArray(response.data.donations)) {
            items = response.data.donations;
         }
+        
+        // ✅ ADDITIONAL FILTER: Client-side check to ensure no acceptedBy
+        items = items.filter(item => !item.acceptedBy);
         
         setDonations(items);
       } catch (err) {
@@ -201,7 +208,7 @@ const handleRequest = (item) => {
     const response = await requestService.createRequest(requestPayload);
     
     if (response.success) {
-      toast.success('Request submitted successfully! 🎉');
+      toast.success('Donation accepted successfully! The donor will schedule pickup. 🎉');
       setShowRequestModal(false);
       setSelectedItem(null);
       setRequestForm({
@@ -211,6 +218,9 @@ const handleRequest = (item) => {
         justification: '',
         deliveryAddress: ''
       });
+      
+      // ✅ REFRESH THE LIST - Remove the accepted item immediately
+      setDonations(prev => prev.filter(d => d._id !== selectedItem._id));
     } else {
       throw new Error(response.message || 'Failed to submit request');
     }

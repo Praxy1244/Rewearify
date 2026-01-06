@@ -26,6 +26,7 @@ router.get('/', async (req, res) => {
       city, 
       donor,
       acceptedBy,
+      availableOnly, // ✅ NEW: Filter for browse items
       page = 1, 
       limit = 10,
       sort = '-createdAt'
@@ -39,6 +40,12 @@ router.get('/', async (req, res) => {
     if (city) query['location.city'] = new RegExp(city, 'i');
     if (donor) query.donor = donor;
     if (acceptedBy) query.acceptedBy = acceptedBy;
+    
+    // ✅ NEW: For browse items - only show approved donations that haven't been accepted yet
+    if (availableOnly === 'true') {
+      query.status = 'approved';
+      query.acceptedBy = null; // Not yet accepted by any NGO
+    }
 
     const skip = (page - 1) * limit;
     

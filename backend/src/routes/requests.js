@@ -280,37 +280,67 @@ router.post('/',
       });
 
       // If request is for a specific donation, notify the donor
-      // If request is for a specific donation, notify the donor
 // If request is for a specific donation, notify the donor
 if (request.donation) {
   const donation = await Donation.findById(request.donation).populate('donor', 'name email');
   
   if (donation) {
-    // ✅ FIX: Initialize donorResponse with pending status
-    request.donorResponse = {
-      status: 'pending',
-      respondedAt: null,
-      respondedBy: null,
-      acceptanceNote: '',
-      rejectionReason: ''
-    };
-    request.status = 'pending_donor';
-    await request.save();
+    // ✅ FIX: Check if donation is still available (approved and not accepted)
+    if (donation.status === 'approved' && !donation.acceptedBy) {
+      // ✅ AUTO-ACCEPT: Automatically mark donation as accepted by this NGO
+      donation.status = 'accepted_by_ngo';
+      donation.acceptedBy = req.user.id;
+      donation.acceptedAt = new Date();
+      await donation.save();
+      
+      console.log(`✅ Donation ${donation._id} automatically accepted by NGO ${req.user.id}`);
+      
+      // Update request status
+      request.status = 'accepted';
+      await request.save();
+      
+      // Notify the donor about the acceptance
+      await Notification.createAndSend({
+        recipient: donation.donor._id,
+        type: 'ngo_accepted',
+        title: 'NGO Accepted Your Donation! 🎉',
+        message: `${req.user.organization?.name || req.user.name} has accepted your donation "${donation.title}". Please schedule a pickup.`,
+        data: {
+          requestId: request._id,
+          donationId: donation._id,
+          ngoName: req.user.organization?.name || req.user.name,
+          nextStep: 'schedule_pickup',
+          actionUrl: `/donor/donations/${donation._id}/schedule-pickup`
+        },
+        channels: { inApp: true, email: true }
+      });
+    } else {
+      // Donation no longer available - old flow (request pending donor approval)
+      request.donorResponse = {
+        status: 'pending',
+        respondedAt: null,
+        respondedBy: null,
+        acceptanceNote: '',
+        rejectionReason: ''
+      };
+      request.status = 'pending_donor';
+      await request.save();
 
-    // Notify the donor about the request
-    await Notification.createAndSend({
-      recipient: donation.donor._id,
-      type: 'new_donation_request',
-      title: 'New Request for Your Donation! 📦',
-      message: `${req.user.name} has requested your donation "${donation.title}"`,
-      data: {
-        requestId: request._id,
-        donationId: donation._id,
-        requesterName: req.user.name,
-        actionUrl: `/donor/donation-requests`
-      },
-      channels: { inApp: true, email: true }
-    });
+      // Notify the donor about the request
+      await Notification.createAndSend({
+        recipient: donation.donor._id,
+        type: 'new_donation_request',
+        title: 'New Request for Your Donation! 📦',
+        message: `${req.user.name} has requested your donation "${donation.title}"`,
+        data: {
+          requestId: request._id,
+          donationId: donation._id,
+          requesterName: req.user.name,
+          actionUrl: `/donor/donation-requests`
+        },
+        channels: { inApp: true, email: true }
+      });
+    }
   }
 }
 

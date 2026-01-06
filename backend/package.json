@@ -15,8 +15,8 @@
     "sync:ngos": "node src/scripts/syncNGOData.js",
     "fix:ngo-locations": "node src/scripts/fixNGOLocations.js",
      "clean:db": "node src/scripts/cleanDatabase.js",
-  "seed:realistic": "node src/scripts/seedRealisticData.js",
-  "reset:db": "node src/scripts/resetDatabase.js"
+  "seed:": "node src/scripts/seedSuperData.js"
+  
   },
   "dependencies": {
     "axios": "^1.6.2",

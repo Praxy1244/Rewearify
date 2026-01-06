@@ -234,6 +234,8 @@ const fetchRecommendations = async () => {
   setLoadingRecommendations(true);
   try {
     const token = localStorage.getItem('token');
+    // ✅ FIX: Use environment variable for backend URL
+    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
     
     console.log('🎁 Fetching recommendations for donation:', {
       category: formData.category,
@@ -241,7 +243,7 @@ const fetchRecommendations = async () => {
       coordinates: formData.coordinates
     });
     
-    const response = await fetch('http://localhost:5000/api/recommendations/for-donation', {
+    const response = await fetch(`${BACKEND_URL}/api/recommendations/for-donation`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
