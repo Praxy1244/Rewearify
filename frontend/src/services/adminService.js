@@ -185,6 +185,38 @@ class AdminService {
       throw error;
     }
   }
+
+  // ==================== REQUEST APPROVAL METHODS ====================
+  
+  // Get pending requests for admin approval
+  async getPendingRequests(params = {}) {
+    try {
+      const response = await api.get('/admin/requests/pending', { params });
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Approve NGO request
+  async approveRequest(requestId, notes = '') {
+    try {
+      const response = await api.put(`/admin/requests/${requestId}/approve`, { notes });
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Reject NGO request
+  async rejectRequest(requestId, reason, notes = '') {
+    try {
+      const response = await api.put(`/admin/requests/${requestId}/reject`, { reason, notes });
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default new AdminService();

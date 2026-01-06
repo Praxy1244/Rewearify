@@ -1,5 +1,6 @@
 import express from 'express';
 import Donation from '../models/Donation.js';
+import Request from '../models/Request.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { ok, fail, created, paginated } from '../utils/response.js';
@@ -95,6 +96,20 @@ router.post('/',
         ...req.body,
         donor: req.user.id
       };
+
+      // ✅ NEW: If this donation fulfills an NGO request, link them
+      if (req.body.fulfillingRequest) {
+        const linkedRequest = await Request.findById(req.body.fulfillingRequest);
+        if (linkedRequest && linkedRequest.status === 'active') {
+          donationData.fulfillingRequest = req.body.fulfillingRequest;
+          // Auto-select the requesting NGO as preferred recipient
+          donationData.preferences = {
+            ...donationData.preferences,
+            preferredRecipients: [linkedRequest.requester]
+          };
+          console.log(`✅ Donation linked to NGO request ${linkedRequest._id}`);
+        }
+      }
 
       // ==================== CALCULATE DONOR METRICS ====================
       console.log('📊 Calculating donor metrics...');
@@ -731,6 +746,59 @@ router.put('/:id/ngo-accept', protect, restrictTo('recipient'), async (req, res)
 
     // Reload with populated fields
     await donation.populate('acceptedBy', 'name organization email phone');
+
+    // ✅ NEW: Create a Request to track this accepted donation
+    try {
+      const trackingRequest = await Request.create({
+        requester: req.user.id,
+        title: `Accepted: ${donation.title}`,
+        description: `Tracking request for accepted donation offer`,
+        category: donation.category,
+        subcategory: donation.subcategory || 'Other',
+        urgency: 'medium',
+        quantity: donation.quantity,
+        sizes: donation.sizes || [{ size: 'Various', quantity: donation.quantity }],
+        condition: {
+          acceptable: [donation.condition],
+          minimum: donation.condition
+        },
+        beneficiaries: {
+          count: donation.quantity,
+          ageGroup: 'mixed',
+          gender: 'mixed'
+        },
+        location: req.user.location || {
+          address: 'Not specified',
+          city: 'Not specified',
+          state: 'Not specified',
+          country: 'India',
+          coordinates: { type: 'Point', coordinates: [0, 0] }
+        },
+        timeline: {
+          neededBy: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          flexible: true
+        },
+        logistics: {
+          canPickup: true,
+          pickupRadius: 25,
+          needsDelivery: false,
+          hasTransport: false
+        },
+        donation: donation._id,
+        status: 'accepted',
+        donorResponse: {
+          status: 'accepted',
+          respondedAt: new Date(),
+          respondedBy: donation.donor._id,
+          acceptanceNote: 'Donation offer accepted by NGO'
+        }
+      });
+
+      console.log(`✅ Created tracking request ${trackingRequest._id} for accepted donation`);
+    } catch (requestError) {
+      console.error('⚠️ Failed to create tracking request:', requestError);
+      // Don't fail the acceptance if tracking request creation fails
+    }
 
     const socketService = req.app.get('socketService');
 

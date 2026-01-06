@@ -616,4 +616,146 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
+// ==================== REQUEST APPROVAL ENDPOINTS ====================
+
+// @desc    Get pending requests for admin approval
+// @route   GET /api/admin/requests/pending
+// @access  Private (Admin)
+router.get('/requests/pending', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    
+    const pendingRequests = await Request.find({ status: 'pending_approval' })
+      .populate('requester', 'name email organization location')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Request.countDocuments({ status: 'pending_approval' });
+
+    return paginated(res, pendingRequests, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total
+    }, 'Pending requests retrieved successfully');
+  } catch (error) {
+    console.error('Get pending requests error:', error);
+    return fail(res, 'Failed to get pending requests', 500);
+  }
+});
+
+// @desc    Approve NGO request
+// @route   PUT /api/admin/requests/:id/approve
+// @access  Private (Admin)
+router.put('/requests/:id/approve', async (req, res) => {
+  try {
+    const { notes } = req.body;
+
+    const request = await Request.findById(req.params.id)
+      .populate('requester', 'name email organization');
+
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    if (request.status !== 'pending_approval') {
+      return fail(res, 'Request is not pending approval', 400);
+    }
+
+    // Approve request
+    request.status = 'active';
+    await request.save();
+
+    // Notify NGO that request is approved
+    await Notification.create({
+      recipient: request.requester._id,
+      type: 'request_approved',
+      title: '✅ Request Approved',
+      message: `Your request "${request.title}" has been approved and is now visible to donors.`,
+      data: {
+        requestId: request._id,
+        actionUrl: `/recipient/my-requests/${request._id}`
+      },
+      channels: { inApp: true, email: true }
+    });
+
+    // Notify nearby donors about new request if urgent
+    if (request.urgency === 'high' || request.urgency === 'critical') {
+      const nearbyDonors = await User.find({
+        role: 'donor',
+        status: 'active',
+        'preferences.notifications.push': true
+      }).limit(50);
+
+      for (const donor of nearbyDonors) {
+        await Notification.create({
+          recipient: donor._id,
+          type: 'new_request_available',
+          title: '🆕 New Urgent Request',
+          message: `${request.urgency.toUpperCase()}: ${request.requester.organization?.name || request.requester.name} needs ${request.category}`,
+          data: {
+            requestId: request._id,
+            actionUrl: `/donor/browseNeeds`
+          },
+          channels: { inApp: true, push: false }
+        });
+      }
+    }
+
+    return ok(res, { request }, 'Request approved successfully');
+  } catch (error) {
+    console.error('Approve request error:', error);
+    return fail(res, 'Failed to approve request', 500);
+  }
+});
+
+// @desc    Reject NGO request
+// @route   PUT /api/admin/requests/:id/reject
+// @access  Private (Admin)
+router.put('/requests/:id/reject', async (req, res) => {
+  try {
+    const { reason, notes } = req.body;
+
+    if (!reason) {
+      return fail(res, 'Rejection reason is required', 400);
+    }
+
+    const request = await Request.findById(req.params.id)
+      .populate('requester', 'name email organization');
+
+    if (!request) {
+      return fail(res, 'Request not found', 404);
+    }
+
+    if (request.status !== 'pending_approval') {
+      return fail(res, 'Request is not pending approval', 400);
+    }
+
+    // Reject request
+    request.status = 'rejected';
+    request.rejectionReason = reason;
+    request.adminNotes = notes || '';
+    await request.save();
+
+    // Notify NGO about rejection
+    await Notification.create({
+      recipient: request.requester._id,
+      type: 'request_rejected',
+      title: '❌ Request Not Approved',
+      message: `Your request "${request.title}" was not approved. Reason: ${reason}`,
+      data: {
+        requestId: request._id,
+        reason,
+        actionUrl: `/recipient/my-requests`
+      },
+      channels: { inApp: true, email: true }
+    });
+
+    return ok(res, { request }, 'Request rejected');
+  } catch (error) {
+    console.error('Reject request error:', error);
+    return fail(res, 'Failed to reject request', 500);
+  }
+});
+
 export default router;

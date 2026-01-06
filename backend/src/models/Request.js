@@ -152,8 +152,8 @@ const requestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'active', 'pending_donor', 'accepted', 'rejected', 'pickup_scheduled', 'in_transit', 'delivered', 'fulfilled', 'cancelled', 'expired'],
-    default: 'active'
+    enum: ['draft', 'pending_approval', 'active', 'pending_donor', 'accepted', 'rejected', 'pickup_scheduled', 'in_transit', 'delivered', 'fulfilled', 'cancelled', 'expired'],
+    default: 'pending_approval'
   },
   donation: {
     type: mongoose.Schema.ObjectId,

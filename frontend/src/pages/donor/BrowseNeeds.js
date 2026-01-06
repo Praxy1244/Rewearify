@@ -185,9 +185,12 @@ const BrowseNeeds = () => {
         city: request.requester.location?.city
       };
       
-      // Navigate to donation form with NGO pre-selected
+      // Navigate to donation form with NGO pre-selected AND request ID
       navigate('/donor/donate', { 
-        state: { targetNgo: ngoData } 
+        state: { 
+          targetNgo: ngoData,
+          requestId: request._id  // ✅ NEW: Pass request ID
+        } 
       });
     }}
   />

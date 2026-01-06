@@ -271,6 +271,13 @@ const donationSchema = new mongoose.Schema({
     }
   },
   
+  // ✅ NEW: Track which NGO request this donation fulfills
+  fulfillingRequest: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Request',
+    default: null
+  },
+  
   // ✅ NEW WORKFLOW FIELDS
   approvedBy: {
     type: mongoose.Schema.ObjectId,

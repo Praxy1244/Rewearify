@@ -106,10 +106,18 @@ const DonationForm = () => {
   const [subcategoryOptions, setSubcategoryOptions] = useState([]);
   const [currentSizeOptions, setCurrentSizeOptions] = useState(sizeMap.default);
 
+  // ✅ NEW: Track if fulfilling an NGO request
+  const [fulfillingRequestId, setFulfillingRequestId] = useState(null);
+
   useEffect(() => {
     if (location.state?.targetNgo) {
       setTargetNgo(location.state.targetNgo);
       setSelectedNgoId(location.state.targetNgo.id);
+      
+      // ✅ NEW: If coming from Browse Needs with a request ID
+      if (location.state.requestId) {
+        setFulfillingRequestId(location.state.requestId);
+      }
     }
   }, [location.state]);
 
@@ -440,7 +448,9 @@ const fetchRecommendations = async () => {
         preferredRecipients: selectedNgoId ? [selectedNgoId] : []
       },
       tags: [formData.category, formData.subcategory], // Removed colors from tags
-      images: []
+      images: [],
+      // ✅ NEW: Link to NGO request if fulfilling one
+      ...(fulfillingRequestId && { fulfillingRequest: fulfillingRequestId })
     };
 
     try {
