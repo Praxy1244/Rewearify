@@ -66,7 +66,7 @@ const AdminDashboard = () => {
         ] = await Promise.all([
           adminService.getDashboardData(),
           adminService.getAllDonations({ status: 'pending', limit: 10 }),
-          adminService.getAllRequests({ status: 'pending', limit: 5 })
+          adminService.getAllRequests({ limit: 10 }) // ✅ FIXED: Show ALL request statuses
         ]);
 
         // Set Basic Stats
