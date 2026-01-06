@@ -1498,4 +1498,73 @@ router.put('/:id/unflag', protect, restrictTo('admin'), async (req, res) => {
   }
 });
 
+// @desc    Get congratulations details for donor (by donationId)
+// @route   GET /api/donations/:id/congratulations
+// @access  Private (Donor)
+router.get('/:id/congratulations', protect, restrictTo('donor'), async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id)
+      .populate('donor', 'name email statistics achievements')
+      .populate('acceptedBy', 'name profile.profilePicture organization'); // ✅ CHANGED FROM 'ngo' TO 'acceptedBy'
+    
+    if (!donation) {
+      return fail(res, 'Donation not found', 404);
+    }
+
+    // Check if the donor owns the donation
+    if (donation.donor._id.toString() !== req.user.id) {
+      return fail(res, 'Not authorized to view congratulations for this donation', 403);
+    }
+
+    // Check if donation is completed
+    if (donation.status !== 'completed') {
+      return fail(res, 'Donation is not yet completed', 400);
+    }
+
+    // Get donor details with stats
+    const donor = await User.findById(req.user.id);
+    
+    // Prepare congratulations data for voluntary donations
+    const congratulationsData = {
+      donation: {
+        id: donation._id,
+        title: donation.title,
+        category: donation.category,
+        quantity: donation.quantity,
+        status: donation.status,
+        images: donation.images || []
+      },
+      recipient: {
+        name: donation.acceptedBy?.name || 'NGO', // ✅ CHANGED FROM 'ngo' TO 'acceptedBy'
+        profilePicture: donation.acceptedBy?.profile?.profilePicture?.url || '', // ✅ CHANGED
+        organization: donation.acceptedBy?.organization?.name || '' // ✅ CHANGED
+      },
+      feedback: {
+        rating: donation.completion?.feedback?.rating || 0,
+        comment: donation.completion?.feedback?.comment || 'Thank you for your generous donation!',
+        submittedAt: donation.completion?.completedAt || donation.updatedAt
+      },
+      impact: {
+        beneficiariesHelped: donation.completion?.impact?.beneficiariesHelped || 0,
+        impactStory: donation.completion?.impact?.impactStory || '',
+        photos: donation.completion?.impact?.photos || []
+      },
+      donorStats: {
+        rating: donor.statistics?.rating || 0,
+        totalRatings: donor.statistics?.totalRatings || 0,
+        completedDonations: donor.statistics?.completedDonations || 0,
+        totalBeneficiariesHelped: donor.statistics?.totalBeneficiariesHelped || 0
+      },
+      achievements: donor.achievements || [],
+      isVoluntaryDonation: true
+    };
+
+    return ok(res, congratulationsData, 'Congratulations data retrieved successfully');
+  } catch (error) {
+    console.error('Get donation congratulations error:', error);
+    return fail(res, 'Failed to get congratulations data', 500);
+  }
+});
+
+
 export default router;

@@ -1,6 +1,7 @@
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 
+
 class DonationService {
   // Get all donations with filters
   async getDonations(params = {}) {
@@ -11,6 +12,7 @@ class DonationService {
       throw error;
     }
   }
+
 
   // Get single donation by ID
   async getDonationById(id) {
@@ -32,6 +34,7 @@ class DonationService {
     }
   }
 
+
   // Create new donation
   async createDonation(donationData) {
     try {
@@ -41,6 +44,7 @@ class DonationService {
       throw error;
     }
   }
+
 
   // Update donation
   async updateDonation(id, donationData) {
@@ -52,6 +56,7 @@ class DonationService {
     }
   }
 
+
   // Delete donation
   async deleteDonation(id) {
     try {
@@ -62,15 +67,6 @@ class DonationService {
     }
   }
 
-  // Get user's donations
-  async getUserDonations(userId, params = {}) {
-    try {
-      const response = await api.get(API_ENDPOINTS.DONATIONS.BY_USER(userId), { params });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  }
 
   // Search donations
   async searchDonations(searchParams) {
@@ -83,6 +79,7 @@ class DonationService {
       throw error;
     }
   }
+
 
   // Get nearby donations
   async getNearbyDonations(lat, lng, radius = 25, filters = {}) {
@@ -100,6 +97,7 @@ class DonationService {
     }
   }
 
+
   // Get trending donations
   async getTrendingDonations(limit = 10) {
     try {
@@ -114,6 +112,7 @@ class DonationService {
       throw error;
     }
   }
+
 
   // Get donations by category
   async getDonationsByCategory(category, params = {}) {
@@ -131,6 +130,7 @@ class DonationService {
     }
   }
 
+
   // Get urgent donations
   async getUrgentDonations(limit = 10) {
     try {
@@ -144,6 +144,19 @@ class DonationService {
       throw error;
     }
   }
+
+  // ✅ NEW METHOD: Get congratulations details for a donation
+  async getCongratulations(donationId) {
+    try {
+      const response = await api.get(`/donations/${donationId}/congratulations`);
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
+
+
+
 
 export default new DonationService();

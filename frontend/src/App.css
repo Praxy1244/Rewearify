@@ -233,3 +233,15 @@ html {
     font-size: 1.125rem;
   }
 }
+/* Confetti animation */
+@keyframes confetti-fall {
+  0% {
+    top: -10px;
+    opacity: 1;
+  }
+  100% {
+    top: 100vh;
+    opacity: 0;
+    transform: translateX(100px) rotate(720deg);
+  }
+}

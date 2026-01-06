@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Trash2, X } from 'lucide-react'; // 💡 Added X icon
+import { Bell, Trash2, X } from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -17,11 +17,10 @@ const NotificationBell = () => {
     markAsRead,
     markAllAsRead,
     fetchNotifications,
-    deleteNotification, // 💡 Make sure to destructure this
+    deleteNotification,
     getNotificationIcon
   } = useNotifications();
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -33,15 +32,67 @@ const NotificationBell = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleNotificationClick = (notification) => {
-    if (!notification.read) {
-      markAsRead(notification._id || notification.id);
+ const handleNotificationClick = (notification) => {
+  console.log('🔔 Full Notification Object:', notification);
+  console.log('🔔 Notification Type:', notification.type);
+  console.log('🔔 Notification Data:', notification.data);
+  
+  // Mark as read
+  if (!notification.read) {
+    markAsRead(notification._id || notification.id);
+  }
+  
+  let targetUrl = null;
+  
+  // ✅ PRIORITY 1: Handle congratulations and completed donations
+  if (
+    notification.type === 'congratulations' || 
+    notification.type === 'donation_completed'
+  ) {
+    // Try requestId first (request-based donation)
+    if (notification.data?.requestId) {
+      targetUrl = `/donor/congratulations/${notification.data.requestId}`;
+      console.log('🎉 Using requestId for congratulations');
     }
-    if (notification.data?.actionUrl) {
-      navigate(notification.data.actionUrl);
-      setIsOpen(false);
+    // Fallback to donationId (voluntary donation)
+    else if (notification.data?.donationId) {
+      targetUrl = `/donor/congratulations/${notification.data.donationId}`;
+      console.log('🎉 Using donationId for congratulations');
     }
-  };
+  }
+  // ✅ PRIORITY 2: Check for explicit actionUrl
+  else if (notification.data?.actionUrl) {
+    targetUrl = notification.data.actionUrl;
+  }
+  // ✅ PRIORITY 3: Type-based routing for other notifications
+  else {
+    switch (notification.type) {
+      case 'new_donation_request':
+        targetUrl = '/donor/donation-requests';
+        break;
+      case 'request_accepted':
+        targetUrl = '/recipient/my-requests';
+        break;
+      case 'achievement_earned':
+        targetUrl = '/donor/achievements';
+        break;
+      default:
+        targetUrl = '/notifications';
+    }
+  }
+  
+  console.log('🎯 Final Target URL:', targetUrl);
+  
+  if (targetUrl) {
+    setIsOpen(false);
+    setTimeout(() => {
+      navigate(targetUrl);
+    }, 100);
+  } else {
+    console.warn('⚠️ No valid target URL found');
+    toast.error('Could not determine where to navigate');
+  }
+};
 
   const handleDeleteAll = async () => {
     try {
@@ -57,9 +108,8 @@ const NotificationBell = () => {
     }
   };
 
-  // 💡 NEW: Handle Single Delete
   const handleSingleDelete = (e, id) => {
-    e.stopPropagation(); // Prevent clicking the notification itself
+    e.stopPropagation();
     deleteNotification(id);
   };
 
@@ -138,7 +188,7 @@ const NotificationBell = () => {
                     !notification.read ? 'bg-blue-50' : ''
                   }`}
                 >
-                  <div className="flex items-start space-x-3 pr-6"> {/* Added padding-right for delete button */}
+                  <div className="flex items-start space-x-3 pr-6">
                     <div className="flex-shrink-0 text-2xl">
                       {getNotificationIcon(notification.type)}
                     </div>
@@ -152,6 +202,12 @@ const NotificationBell = () => {
                       <p className="text-xs text-gray-400 mt-2">
                         {formatTime(notification.createdAt)}
                       </p>
+                      {/* ✅ Show the actual URL for debugging */}
+                      {notification.data?.actionUrl && (
+                        <p className="text-xs text-blue-600 mt-1 font-mono">
+                          → {notification.data.actionUrl}
+                        </p>
+                      )}
                     </div>
                     {!notification.read && (
                       <div className="flex-shrink-0 mt-1">
@@ -160,7 +216,6 @@ const NotificationBell = () => {
                     )}
                   </div>
 
-                  {/* 💡 NEW: Single Delete Button */}
                   <button
                     onClick={(e) => handleSingleDelete(e, notification._id || notification.id)}
                     className="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all"
