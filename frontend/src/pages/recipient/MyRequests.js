@@ -63,12 +63,16 @@ const MyRequests = () => {
     fulfilled: 0,
     totalItemsReceived: 0,
     totalRequests: 0,
+    awaitingPickup: 0,
+    inTransit: 0,
   });
 
   const calculateStats = (items) => {
     if (!items) return;
-    const pending = items.filter(i => ['active', 'matched', 'accepted_by_ngo', 'pickup_scheduled', 'in_transit'].includes(i.status)).length;
-    const fulfilled = items.filter(i => ['fulfilled', 'delivered'].includes(i.status)).length;
+    const pending = items.filter(i => ['active', 'matched'].includes(i.status)).length;
+    const fulfilled = items.filter(i => ['fulfilled'].includes(i.status)).length;
+    const awaitingPickup = items.filter(i => ['accepted_by_ngo', 'pickup_scheduled'].includes(i.status)).length;
+    const inTransit = items.filter(i => ['in_transit'].includes(i.status)).length;
     const totalItemsReceived = items.filter(i => ['fulfilled', 'delivered'].includes(i.status)).reduce((sum, i) => sum + i.quantity, 0);
 
     setStats({
@@ -76,6 +80,8 @@ const MyRequests = () => {
       fulfilled,
       totalItemsReceived,
       totalRequests: items.length,
+      awaitingPickup,
+      inTransit,
     });
   };
 
@@ -116,106 +122,78 @@ const MyRequests = () => {
     }
   };
 
-// ✅ Fetch both requests AND accepted donations
-useEffect(() => {
-  if (hasFetchedRef.current || !user) return;
-  hasFetchedRef.current = true;
+  // ✅ Fetch both requests AND accepted donations
+  useEffect(() => {
+    if (hasFetchedRef.current || !user) return;
+    hasFetchedRef.current = true;
 
-  const fetchData = async () => {
-    try {
-      console.log('🔍 Current user:', { 
-        id: user._id || user.id, 
-        name: user.name, 
-        role: user.role 
-      });
-
-      // Fetch requests
-      const requestsResponse = await requestService.getMyRequests(user._id);
-      
-      // Fetch ALL donations without status filter to debug
-      const donationsResponse = await api.get('/donations', {
-        params: {
-          page: 1,
-          limit: 100,
-          status: 'accepted_by_ngo,pickup_scheduled,in_transit,delivered' // ✅ Add these statuses
-        }
-      });
-
-      let allItems = [];
-
-      // Add requests
-      if (requestsResponse.success) {
-        const requestList = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
-        allItems = requestList.map(req => ({ ...req, type: 'request' }));
-        
-        console.log(`✅ Loaded ${requestList.length} requests`);
-        
-        // Load matches for requests
-        requestList.forEach(request => {
-          loadMatchesForRequest(request._id);
-        });
-      }
-
-      // Add accepted donations
-      if (donationsResponse.success) {
-        console.log(`📦 Total donations with accepted statuses: ${donationsResponse.data.length}`);
-        
+    const fetchData = async () => {
+      try {
         const userId = (user._id || user.id).toString();
-        console.log(`👤 Looking for donations accepted by: ${userId}`);
+        console.log('🔍 Fetching data for user:', userId);
+
+        // Fetch requests
+        const requestsResponse = await requestService.getMyRequests(user._id);
         
-        const acceptedDonations = donationsResponse.data.filter(donation => {
-          // Check acceptedBy field
-          const acceptedById = donation.acceptedBy?._id?.toString() || 
-                               donation.acceptedBy?.id?.toString() || 
-                               donation.acceptedBy?.toString();
-          
-          const match = acceptedById === userId;
-          
-          if (donation.acceptedBy) {
-            console.log(`✓ Donation ${donation._id} (${donation.title}):`, {
-              acceptedBy: acceptedById,
-              currentUser: userId,
-              MATCH: match,
-              status: donation.status
-            });
+        // Fetch accepted donations
+        const donationsResponse = await api.get('/donations', {
+          params: {
+            page: 1,
+            limit: 100,
           }
-          
-          return match;
         });
-        
-        console.log(`✅ Found ${acceptedDonations.length} accepted donations for this user`);
-        
-        if (acceptedDonations.length > 0) {
-          console.log('📋 Accepted donations:', acceptedDonations.map(d => ({
-            id: d._id,
-            title: d.title,
-            status: d.status
-          })));
+
+        let allItems = [];
+
+        // Add requests
+        if (requestsResponse.success) {
+          const requestList = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
+          allItems = requestList.map(req => ({ ...req, type: 'request' }));
+          
+          console.log(`✅ Loaded ${requestList.length} requests`);
+          
+          // Load matches for requests
+          requestList.forEach(request => {
+            loadMatchesForRequest(request._id);
+          });
         }
-        
-        allItems = [...allItems, ...acceptedDonations.map(don => ({ ...don, type: 'donation' }))];
-      } else {
-        console.error('❌ Failed to fetch donations:', donationsResponse);
+
+        // Add accepted donations (filter by acceptedBy)
+        if (donationsResponse.success) {
+          const acceptedDonations = donationsResponse.data.filter(donation => {
+            const acceptedById = donation.acceptedBy?._id?.toString() || 
+                                 donation.acceptedBy?.id?.toString() || 
+                                 donation.acceptedBy?.toString();
+            
+            // Only show donations in these statuses
+            const relevantStatuses = ['accepted_by_ngo', 'pickup_scheduled', 'in_transit', 'delivered'];
+            const isRelevant = relevantStatuses.includes(donation.status);
+            
+            return acceptedById === userId && isRelevant;
+          });
+          
+          console.log(`✅ Found ${acceptedDonations.length} accepted donations`);
+          allItems = [...allItems, ...acceptedDonations.map(don => ({ ...don, type: 'donation' }))];
+        }
+
+        // Sort by date (newest first)
+        allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        console.log(`📋 Total items: ${allItems.length}`);
+        setItems(allItems);
+        calculateStats(allItems);
+      } catch (error) {
+        console.error('Fetch data error:', error);
+        toast.error('Failed to fetch items. Please try again.');
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Sort by date (newest first)
-      allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    fetchData();
+  }, [user]);
 
-      console.log(`📋 Total items to display: ${allItems.length}`);
-      setItems(allItems);
-      calculateStats(allItems);
-    } catch (error) {
-      console.error('Fetch data error:', error);
-      toast.error('Failed to fetch items. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchData();
-}, [user]);
-
-
+  // ✅ Handle donation status updates (Start Transit / Mark Delivered)
   const handleUpdateDonationStatus = async (donationId, newStatus) => {
     try {
       setUpdating(true);
@@ -230,6 +208,7 @@ useEffect(() => {
         setItems(items.map(item => 
           item._id === donationId ? { ...item, status: newStatus } : item
         ));
+        calculateStats(items);
 
         // If delivered, prompt for feedback
         if (newStatus === 'delivered') {
@@ -248,6 +227,7 @@ useEffect(() => {
     }
   };
 
+  // ✅ Submit feedback for delivered donation
   const handleSubmitFeedback = async () => {
     if (!feedbackForm.rating) {
       toast.error('Please provide a rating');
@@ -259,13 +239,13 @@ useEffect(() => {
       const response = await api.put(`/donations/${selectedDonation._id}/feedback`, feedbackForm);
 
       if (response.success) {
-        toast.success('Feedback submitted! Admin will review and complete the donation.');
+        toast.success('✅ Feedback submitted! Admin will review and complete the donation.');
         setShowFeedbackModal(false);
         
         // Update local state
         setItems(items.map(item => 
           item._id === selectedDonation._id 
-            ? { ...item, feedback: feedbackForm } 
+            ? { ...item, completion: { feedback: feedbackForm } } 
             : item
         ));
 
@@ -294,6 +274,7 @@ useEffect(() => {
         await requestService.deleteRequest(requestId);
         toast.success('Request deleted successfully');
         setItems(prev => prev.filter(i => i._id !== requestId));
+        calculateStats(items.filter(i => i._id !== requestId));
     } catch(error) {
         toast.error(error.message || 'Failed to delete request');
     }
@@ -337,42 +318,42 @@ useEffect(() => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Items</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.pending}</div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Fulfilled</CardTitle>
-                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.fulfilled}</div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Items Received</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalItemsReceived}</div>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalRequests}</div>
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Requests</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pending}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Awaiting Pickup</CardTitle>
+              <Calendar className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">{stats.awaitingPickup}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">In Transit</CardTitle>
+              <Truck className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{stats.inTransit}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Items Received</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalItemsReceived}</div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Items List */}
@@ -395,7 +376,7 @@ useEffect(() => {
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              {isDonation && <Badge className="bg-purple-100 text-purple-800">Donation Offer</Badge>}
+                              {isDonation && <Badge className="bg-purple-100 text-purple-800">🎁 Donation</Badge>}
                               <h3 className="text-lg font-bold text-gray-900 hover:text-blue-700">
                                 {isRequest ? (
                                   <Link to={`/requests/${item._id}`}>{item.title || 'Untitled Request'}</Link>
@@ -429,21 +410,29 @@ useEffect(() => {
                             {isDonation && item.donor && (
                               <Badge variant="outline" className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                {item.donor.name}
+                                Donor: {item.donor.name}
                               </Badge>
                             )}
                           </div>
 
-                          {/* Pickup Schedule for Donations */}
+                          {/* ✅ Pickup Schedule for Donations */}
                           {isDonation && item.pickupSchedule && (
-                            <div className="mt-3 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 px-3 py-2 rounded-lg border-l-4 border-purple-500">
+                            <div className="mt-3 flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg border-l-4 border-blue-500">
                               <Calendar className="h-4 w-4" />
-                              <strong>Pickup:</strong> {new Date(item.pickupSchedule.date).toLocaleDateString()} at {item.pickupSchedule.time}
+                              <strong>Scheduled Pickup:</strong> {new Date(item.pickupSchedule.date).toLocaleDateString('en-IN')} at {item.pickupSchedule.time}
+                            </div>
+                          )}
+
+                          {/* ✅ Awaiting Pickup Message */}
+                          {isDonation && item.status === 'accepted_by_ngo' && (
+                            <div className="mt-3 flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 px-3 py-2 rounded-lg border-l-4 border-yellow-500">
+                              <Clock className="h-4 w-4" />
+                              <strong>Awaiting donor to schedule pickup time</strong>
                             </div>
                           )}
                         </div>
                         
-                        {/* Actions */}
+                        {/* ✅ Actions */}
                         <div className="flex items-center gap-2 ml-4">
                           {isRequest && (
                             <>
@@ -459,21 +448,23 @@ useEffect(() => {
                             </>
                           )}
 
+                          {/* ✅ DONATION ACTION BUTTONS */}
                           {isDonation && (
                             <>
+                              {/* Start Transit Button (when pickup is scheduled) */}
                               {item.status === 'pickup_scheduled' && (
                                 <Button
-                                  variant="outline"
                                   size="sm"
                                   onClick={() => handleUpdateDonationStatus(item._id, 'in_transit')}
                                   disabled={updating}
-                                  className="flex items-center gap-1"
+                                  className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700"
                                 >
                                   <Truck className="h-3 w-3" />
-                                  Mark In Transit
+                                  {updating ? 'Processing...' : 'Start Transit'}
                                 </Button>
                               )}
 
+                              {/* Mark Delivered Button (when in transit) */}
                               {item.status === 'in_transit' && (
                                 <Button
                                   size="sm"
@@ -482,11 +473,12 @@ useEffect(() => {
                                   className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                                 >
                                   <CheckCircle className="h-3 w-3" />
-                                  Mark Delivered
+                                  {updating ? 'Processing...' : 'Mark Delivered'}
                                 </Button>
                               )}
 
-                              {item.status === 'delivered' && !item.feedback && (
+                              {/* Submit Feedback Button (when delivered but no feedback) */}
+                              {item.status === 'delivered' && !item.completion?.feedback && (
                                 <Button
                                   size="sm"
                                   onClick={() => {
@@ -497,8 +489,16 @@ useEffect(() => {
                                   className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700"
                                 >
                                   <Star className="h-3 w-3" />
-                                  Feedback
+                                  Submit Feedback
                                 </Button>
+                              )}
+
+                              {/* Feedback Submitted Badge */}
+                              {item.completion?.feedback && (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Feedback Submitted
+                                </Badge>
                               )}
                             </>
                           )}
@@ -606,22 +606,24 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Feedback Modal */}
+      {/* ✅ Feedback Modal */}
       {showFeedbackModal && selectedDonation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-6 rounded-t-2xl">
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <Star className="h-6 w-6" />
-                Submit Feedback
+                Submit Feedback for "{selectedDonation.title}"
               </h2>
-              <p className="text-yellow-100">Share your experience and the impact this donation made</p>
+              <p className="text-yellow-100 mt-1">Share your experience and the impact this donation made</p>
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitFeedback(); }} className="p-6 space-y-6">
               {/* Rating */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Rating * (1-5 stars)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Rating * <span className="text-red-500">(Required)</span>
+                </label>
                 <div className="flex items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -641,7 +643,7 @@ useEffect(() => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Your Comments</label>
                 <textarea
-                  placeholder="Share your experience..."
+                  placeholder="Share your experience with this donation..."
                   value={feedbackForm.comment}
                   onChange={(e) => setFeedbackForm({ ...feedbackForm, comment: e.target.value })}
                   rows="4"
@@ -651,7 +653,9 @@ useEffect(() => {
 
               {/* Beneficiaries */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">How many people benefited?</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  How many people benefited from this donation?
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -664,9 +668,11 @@ useEffect(() => {
 
               {/* Impact Story */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Impact Story (Optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Impact Story <span className="text-gray-500">(Optional)</span>
+                </label>
                 <textarea
-                  placeholder="Tell us about the positive impact..."
+                  placeholder="Tell us about the positive impact this donation had on your community..."
                   value={feedbackForm.impactStory}
                   onChange={(e) => setFeedbackForm({ ...feedbackForm, impactStory: e.target.value })}
                   rows="4"
@@ -676,11 +682,28 @@ useEffect(() => {
 
               {/* Buttons */}
               <div className="flex gap-3 justify-end pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowFeedbackModal(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowFeedbackModal(false);
+                  setSelectedDonation(null);
+                }}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updating || !feedbackForm.rating}>
-                  {updating ? 'Submitting...' : 'Submit Feedback'}
+                <Button 
+                  type="submit" 
+                  disabled={updating || !feedbackForm.rating}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {updating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Star className="h-4 w-4 mr-2" />
+                      Submit Feedback
+                    </>
+                  )}
                 </Button>
               </div>
             </form>

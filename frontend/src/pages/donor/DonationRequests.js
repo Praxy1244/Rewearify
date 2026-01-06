@@ -26,55 +26,57 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-
 const DonationRequests = () => {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
-  const [acceptedDonations, setAcceptedDonations] = useState([]); // ✅ NEW
+  const [acceptedDonations, setAcceptedDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Modals
-  const [acceptModalOpen, setAcceptModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [logisticsModalOpen, setLogisticsModalOpen] = useState(false);
-  const [schedulePickupModalOpen, setSchedulePickupModalOpen] = useState(false); // ✅ NEW
+  const [schedulePickupModalOpen, setSchedulePickupModalOpen] = useState(false);
   
   // Selected request/donation
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [selectedDonation, setSelectedDonation] = useState(null); // ✅ NEW
+  const [selectedDonation, setSelectedDonation] = useState(null);
   
   // Form data
-  const [acceptNote, setAcceptNote] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  
-  // Logistics form
-  const [logisticsForm, setLogisticsForm] = useState({
-    method: 'pickup',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    contactPerson: user?.name || '',
-    contactPhone: user?.contact?.phone || '',
-    preferredDate: '',
-    preferredTimeSlot: '',
-    specialInstructions: ''
-  });
 
-  // ✅ NEW: Pickup schedule form
+  // ✅ Enhanced logistics form state
   const [scheduleForm, setScheduleForm] = useState({
+    method: 'pickup',              // 'pickup' or 'delivery'
     pickupDate: '',
     pickupTime: '',
-    specialInstructions: ''
+    
+    // Pickup details (NGO comes to donor)
+    pickupAddress: '',
+    pickupCity: '',
+    pickupState: '',
+    pickupZipCode: '',
+    
+    // Delivery details (Donor goes to NGO)
+    deliveryAddress: '',
+    deliveryCity: '',
+    deliveryState: '',
+    deliveryZipCode: '',
+    
+    // Contact information
+    contactPerson: '',
+    contactPhone: '',
+    alternatePhone: '',
+    
+    // Instructions
+    specialInstructions: '',
+    parkingInfo: '',
+    landmarks: ''
   });
-
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // ✅ UPDATED: Fetch both requests and accepted donations
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -83,18 +85,28 @@ const DonationRequests = () => {
       const requestsResponse = await requestService.getPendingRequestsForDonor();
       if (requestsResponse.success) {
         setRequests(requestsResponse.data.requests || []);
+        console.log(`✅ Found ${requestsResponse.data.requests?.length || 0} pending requests`);
       }
 
-      // ✅ Fetch accepted donations (donations where NGO accepted but no pickup scheduled)
+      // ✅ Fetch accepted donations including all relevant statuses
       const donationsResponse = await api.get(`/donations/user/${user._id || user.id}`, {
         params: { limit: 100 }
       });
       
       if (donationsResponse.success) {
-        // Filter to show only accepted donations that need pickup scheduling
+        // ✅ Filter to show donations in these statuses
         const needsScheduling = donationsResponse.data.filter(d => 
-          d.status === 'accepted_by_ngo' || d.status === 'pickup_scheduled' || d.status === 'in_transit'
+          ['accepted_by_ngo', 'pickup_scheduled', 'in_transit'].includes(d.status)
         );
+        
+        console.log(`📦 All donations:`, donationsResponse.data.length);
+        console.log(`📦 Filtered donations (with statuses):`, needsScheduling.map(d => ({
+          id: d._id,
+          title: d.title,
+          status: d.status,
+          hasPickupSchedule: !!d.pickupSchedule
+        })));
+        
         setAcceptedDonations(needsScheduling);
         console.log(`✅ Found ${needsScheduling.length} accepted donations`);
       }
@@ -107,29 +119,41 @@ const DonationRequests = () => {
     }
   };
 
-  const fetchPendingRequests = fetchData; // Alias for compatibility
-
-
-  const handleAcceptRequest = async () => {
-    if (!selectedRequest) return;
+  const handleAcceptRequest = async (request) => {
+    if (!request) return;
     
     try {
       setSubmitting(true);
-      const response = await requestService.acceptRequest(selectedRequest._id, acceptNote);
+      console.log('🔄 Accepting request:', request._id);
+      
+      const response = await requestService.acceptRequest(request._id, '');
       
       if (response.success) {
-        toast.success('Request accepted! Please provide pickup/delivery details.');
-        setAcceptModalOpen(false);
-        setAcceptNote('');
+        toast.success('✅ Request accepted! Now schedule the logistics.');
         
-        // Open logistics modal
-        setSelectedRequest(response.data.request);
-        setLogisticsModalOpen(true);
+        // Get the donation ID from the request
+        const donationId = request.donation?._id || request.donation;
         
-        // Remove from pending list
-        setRequests(prev => prev.filter(r => r._id !== selectedRequest._id));
-      } else {
-        toast.error(response.message || 'Failed to accept request');
+        if (donationId) {
+          const donationResponse = await api.get(`/donations/${donationId}`);
+          
+          if (donationResponse.success) {
+            const donation = donationResponse.data?.donation || donationResponse.data;
+            
+            if (!donation._id) {
+              console.error('❌ NO _id FOUND! Donation keys:', Object.keys(donation));
+              toast.error('Error: Donation ID not found');
+              return;
+            }
+            
+            setSelectedDonation(donation);
+            handleSchedulePickup(donation); // ✅ Open modal with pre-filled data
+            setRequests(prev => prev.filter(r => r._id !== request._id));
+          }
+        } else {
+          console.error('❌ NO DONATION ID! Request keys:', Object.keys(request));
+          toast.error('Donation ID not found in request');
+        }
       }
     } catch (error) {
       console.error('Accept request error:', error);
@@ -138,7 +162,6 @@ const DonationRequests = () => {
       setSubmitting(false);
     }
   };
-
 
   const handleRejectRequest = async () => {
     if (!selectedRequest || !rejectReason.trim()) {
@@ -151,7 +174,7 @@ const DonationRequests = () => {
       const response = await requestService.rejectRequest(selectedRequest._id, rejectReason);
       
       if (response.success) {
-        toast.success('Request rejected');
+        toast.success('Request declined and NGO has been notified');
         setRejectModalOpen(false);
         setRejectReason('');
         setSelectedRequest(null);
@@ -159,119 +182,191 @@ const DonationRequests = () => {
         // Remove from pending list
         setRequests(prev => prev.filter(r => r._id !== selectedRequest._id));
       } else {
-        toast.error(response.message || 'Failed to reject request');
+        toast.error(response.message || 'Failed to decline request');
       }
     } catch (error) {
       console.error('Reject request error:', error);
-      toast.error(error.message || 'Failed to reject request');
+      toast.error(error.message || 'Failed to decline request');
     } finally {
       setSubmitting(false);
     }
   };
 
-
-  const handleProvideLogistics = async () => {
-    if (!selectedRequest) return;
+  // ✅ Handle logistics scheduling - enhanced version
+  const handleSchedulePickup = (donation) => {
+    console.log('📅 Opening logistics modal for donation:', donation);
     
-    // Validation
-    if (!logisticsForm.address || !logisticsForm.city || !logisticsForm.contactPhone) {
-      toast.error('Please fill in all required fields');
+    if (!donation || !donation._id) {
+      console.error('❌ Invalid donation object:', donation);
+      toast.error('Error: Donation data is invalid');
       return;
     }
     
-    try {
-      setSubmitting(true);
-      const response = await requestService.provideLogistics(selectedRequest._id, logisticsForm);
-      
-      if (response.success) {
-        toast.success(`${logisticsForm.method === 'pickup' ? 'Pickup' : 'Delivery'} details provided successfully!`);
-        setLogisticsModalOpen(false);
-        setSelectedRequest(null);
-        
-        // Reset form
-        setLogisticsForm({
-          method: 'pickup',
-          address: '',
-          city: '',
-          state: '',
-          zipCode: '',
-          contactPerson: user?.name || '',
-          contactPhone: user?.contact?.phone || '',
-          preferredDate: '',
-          preferredTimeSlot: '',
-          specialInstructions: ''
-        });
-      } else {
-        toast.error(response.message || 'Failed to provide logistics details');
-      }
-    } catch (error) {
-      console.error('Provide logistics error:', error);
-      toast.error(error.message || 'Failed to provide logistics details');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // ✅ NEW: Handle pickup scheduling
-  const handleSchedulePickup = (donation) => {
     setSelectedDonation(donation);
     
     // Pre-fill if rescheduling
     if (donation.pickupSchedule) {
       setScheduleForm({
+        method: donation.pickupSchedule.method || 'pickup',
         pickupDate: donation.pickupSchedule.date || '',
         pickupTime: donation.pickupSchedule.time || '',
-        specialInstructions: donation.pickupSchedule.instructions || ''
+        
+        pickupAddress: donation.pickupSchedule.pickupAddress || donation.location?.address || '',
+        pickupCity: donation.pickupSchedule.pickupCity || donation.location?.city || '',
+        pickupState: donation.pickupSchedule.pickupState || donation.location?.state || '',
+        pickupZipCode: donation.pickupSchedule.pickupZipCode || donation.location?.zipCode || '',
+        
+        deliveryAddress: donation.pickupSchedule.deliveryAddress || '',
+        deliveryCity: donation.pickupSchedule.deliveryCity || '',
+        deliveryState: donation.pickupSchedule.deliveryState || '',
+        deliveryZipCode: donation.pickupSchedule.deliveryZipCode || '',
+        
+        contactPerson: donation.pickupSchedule.contactPerson || user.name || '',
+        contactPhone: donation.pickupSchedule.contactPhone || user.phone || '',
+        alternatePhone: donation.pickupSchedule.alternatePhone || '',
+        
+        specialInstructions: donation.pickupSchedule.specialInstructions || '',
+        parkingInfo: donation.pickupSchedule.parkingInfo || '',
+        landmarks: donation.pickupSchedule.landmarks || ''
       });
     } else {
+      // Default values for new scheduling
       setScheduleForm({
+        method: 'pickup',
         pickupDate: '',
         pickupTime: '',
-        specialInstructions: ''
+        
+        pickupAddress: donation.location?.address || '',
+        pickupCity: donation.location?.city || '',
+        pickupState: donation.location?.state || '',
+        pickupZipCode: donation.location?.zipCode || '',
+        
+        deliveryAddress: '',
+        deliveryCity: '',
+        deliveryState: '',
+        deliveryZipCode: '',
+        
+        contactPerson: user.name || '',
+        contactPhone: user.phone || '',
+        alternatePhone: '',
+        
+        specialInstructions: '',
+        parkingInfo: '',
+        landmarks: ''
       });
     }
     
     setSchedulePickupModalOpen(true);
   };
 
-  // ✅ NEW: Submit pickup schedule
+  // ✅ Submit logistics schedule
   const handleSubmitSchedule = async () => {
+    // Validation
     if (!scheduleForm.pickupDate || !scheduleForm.pickupTime) {
-      toast.error('Please select date and time');
+      toast.error('Please select date and time slot');
+      return;
+    }
+
+    if (!scheduleForm.method) {
+      toast.error('Please select pickup or delivery method');
+      return;
+    }
+
+    if (scheduleForm.method === 'pickup') {
+      if (!scheduleForm.pickupAddress || !scheduleForm.pickupCity) {
+        toast.error('Please provide pickup address and city');
+        return;
+      }
+    } else {
+      if (!scheduleForm.deliveryAddress || !scheduleForm.deliveryCity) {
+        toast.error('Please provide delivery address and city');
+        return;
+      }
+    }
+
+    if (!scheduleForm.contactPhone) {
+      toast.error('Please provide contact phone number');
+      return;
+    }
+
+    if (!selectedDonation || !selectedDonation._id) {
+      console.error('❌ No donation selected or missing ID:', selectedDonation);
+      toast.error('Error: Donation not found. Please try again.');
+      setSchedulePickupModalOpen(false);
       return;
     }
 
     try {
       setSubmitting(true);
       
+      console.log('📅 Scheduling logistics for donation:', selectedDonation._id);
+      console.log('📅 Logistics data:', scheduleForm);
+      
       const response = await api.put(`/donations/${selectedDonation._id}/schedule-pickup`, scheduleForm);
 
+      console.log('📅 Schedule response:', response);
+
       if (response.success) {
-        toast.success('Pickup scheduled successfully! NGO has been notified.');
+        const methodText = scheduleForm.method === 'pickup' ? 'Pickup' : 'Delivery';
+        toast.success(`✅ ${methodText} scheduled successfully! NGO has been notified.`);
+        
         setSchedulePickupModalOpen(false);
+        
+        // Update local state
+        setAcceptedDonations(prev => prev.map(d => 
+          d._id === selectedDonation._id 
+            ? { 
+                ...d, 
+                status: 'pickup_scheduled',
+                pickupSchedule: {
+                  ...scheduleForm,
+                  scheduledAt: new Date()
+                }
+              }
+            : d
+        ));
+        
+        // Reset form
         setSelectedDonation(null);
-        fetchData(); // Refresh data
+        setScheduleForm({
+          method: 'pickup',
+          pickupDate: '',
+          pickupTime: '',
+          pickupAddress: '',
+          pickupCity: '',
+          pickupState: '',
+          pickupZipCode: '',
+          deliveryAddress: '',
+          deliveryCity: '',
+          deliveryState: '',
+          deliveryZipCode: '',
+          contactPerson: '',
+          contactPhone: '',
+          alternatePhone: '',
+          specialInstructions: '',
+          parkingInfo: '',
+          landmarks: ''
+        });
+        
+        // Refresh data
+        setTimeout(() => {
+          fetchData();
+        }, 1000);
+      } else {
+        toast.error(response.message || 'Failed to schedule');
       }
     } catch (error) {
-      console.error('Schedule pickup error:', error);
-      toast.error(error.response?.data?.message || 'Failed to schedule pickup');
+      console.error('Schedule error:', error);
+      toast.error(error.response?.data?.message || 'Failed to schedule');
     } finally {
       setSubmitting(false);
     }
   };
 
-
-  const openAcceptModal = (request) => {
-    setSelectedRequest(request);
-    setAcceptModalOpen(true);
-  };
-
-
   const openRejectModal = (request) => {
     setSelectedRequest(request);
     setRejectModalOpen(true);
   };
-
 
   if (loading) {
     return (
@@ -280,7 +375,6 @@ const DonationRequests = () => {
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -291,7 +385,6 @@ const DonationRequests = () => {
             Manage pending requests and schedule pickups for accepted donations
           </p>
         </div>
-
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -320,10 +413,13 @@ const DonationRequests = () => {
           </Card>
         </div>
 
-        {/* ✅ NEW: Accepted Donations Section */}
+        {/* ✅ Accepted Donations Section */}
         {acceptedDonations.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Accepted Donations - Action Required</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-purple-600" />
+              Accepted Donations - Action Required
+            </h2>
             <div className="space-y-4">
               {acceptedDonations.map(donation => (
                 <Card key={donation._id} className="hover:shadow-lg transition-shadow border-l-4 border-purple-500">
@@ -340,9 +436,9 @@ const DonationRequests = () => {
                             donation.status === 'pickup_scheduled' ? 'bg-green-100 text-green-800' :
                             'bg-blue-100 text-blue-800'
                           }>
-                            {donation.status === 'accepted_by_ngo' ? 'Schedule Pickup' :
-                             donation.status === 'pickup_scheduled' ? 'Pickup Scheduled' :
-                             'In Transit'}
+                            {donation.status === 'accepted_by_ngo' ? '⏰ Schedule Logistics' :
+                             donation.status === 'pickup_scheduled' ? '✅ Pickup Scheduled' :
+                             '🚚 In Transit'}
                           </Badge>
                         </div>
 
@@ -356,17 +452,38 @@ const DonationRequests = () => {
                               <CheckCircle className="h-4 w-4 text-purple-600" />
                               <span className="font-medium">{donation.acceptedBy.organization?.name || donation.acceptedBy.name}</span>
                             </div>
+                            {donation.acceptedBy.email && (
+                              <p className="text-sm text-gray-600 mt-1">📧 {donation.acceptedBy.email}</p>
+                            )}
+                            {donation.acceptedBy.phone && (
+                              <p className="text-sm text-gray-600">📞 {donation.acceptedBy.phone}</p>
+                            )}
                           </div>
                         )}
 
                         {/* Pickup Schedule */}
                         {donation.pickupSchedule && (
-                          <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-500">
-                            <div className="flex items-center gap-2 text-green-700">
+                          <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-500 mb-3">
+                            <div className="flex items-center gap-2 text-green-700 mb-2">
                               <Calendar className="h-4 w-4" />
-                              <strong>Pickup Scheduled:</strong> 
-                              <span>{donation.pickupSchedule.date} at {donation.pickupSchedule.time}</span>
+                              <strong>{donation.pickupSchedule.method === 'pickup' ? 'Pickup' : 'Delivery'} Scheduled:</strong> 
+                              <span>{new Date(donation.pickupSchedule.date).toLocaleDateString()} at {donation.pickupSchedule.time}</span>
                             </div>
+                            {donation.pickupSchedule.method === 'pickup' && donation.pickupSchedule.pickupAddress && (
+                              <p className="text-sm text-green-600 ml-6">
+                                📍 {donation.pickupSchedule.pickupAddress}, {donation.pickupSchedule.pickupCity}
+                              </p>
+                            )}
+                            {donation.pickupSchedule.contactPerson && (
+                              <p className="text-sm text-green-600 ml-6">
+                                👤 {donation.pickupSchedule.contactPerson} • 📞 {donation.pickupSchedule.contactPhone}
+                              </p>
+                            )}
+                            {donation.pickupSchedule.specialInstructions && (
+                              <p className="text-sm text-green-600 mt-1 ml-6">
+                                📝 {donation.pickupSchedule.specialInstructions}
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -383,9 +500,10 @@ const DonationRequests = () => {
                           <Button
                             onClick={() => handleSchedulePickup(donation)}
                             className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                            size="lg"
                           >
                             <Calendar className="h-4 w-4 mr-2" />
-                            Schedule Pickup
+                            Schedule Logistics
                           </Button>
                         )}
 
@@ -400,15 +518,15 @@ const DonationRequests = () => {
                               Reschedule
                             </Button>
                             <Badge className="bg-blue-100 text-blue-800 text-center py-2">
-                              Waiting for NGO
+                              Waiting for NGO Pickup
                             </Badge>
                           </>
                         )}
 
                         {donation.status === 'in_transit' && (
-                          <Badge className="bg-indigo-100 text-indigo-800 text-center py-2 whitespace-nowrap">
+                          <Badge className="bg-indigo-100 text-indigo-800 text-center py-3 whitespace-nowrap">
                             <Truck className="h-4 w-4 mr-1 inline" />
-                            In Transit
+                            In Transit to NGO
                           </Badge>
                         )}
                       </div>
@@ -420,9 +538,12 @@ const DonationRequests = () => {
           </div>
         )}
 
-        {/* Requests List */}
+        {/* Pending Requests List */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Pending Donation Requests</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Package className="h-6 w-6 text-blue-600" />
+            Pending Donation Requests from NGOs
+          </h2>
           <div className="space-y-4">
             {requests.length > 0 ? (
               requests.map(request => (
@@ -447,25 +568,25 @@ const DonationRequests = () => {
                               </div>
                             </div>
                           </div>
-                          <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+                          <Badge className="bg-yellow-100 text-yellow-800">⏳ Pending</Badge>
                         </div>
 
                         <p className="text-gray-700 mb-4">{request.description}</p>
 
                         {/* Requester Info */}
-                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                          <p className="text-sm font-semibold text-gray-700 mb-2">Requested by:</p>
+                        <div className="bg-blue-50 rounded-lg p-4 mb-4 border-l-4 border-blue-500">
+                          <p className="text-sm font-semibold text-blue-700 mb-2">Requested by:</p>
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                               <User className="h-5 w-5 text-blue-600" />
                             </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{request.requester?.name}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 truncate">{request.requester?.name}</p>
                               {request.requester?.organization?.name && (
-                                <p className="text-sm text-gray-600">{request.requester.organization.name}</p>
+                                <p className="text-sm text-gray-600 truncate">{request.requester.organization.name}</p>
                               )}
                               <div className="flex items-center gap-1 text-sm text-gray-600">
-                                <MapPin className="h-3 w-3" />
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
                                 <span>{request.requester?.location?.city}</span>
                               </div>
                             </div>
@@ -502,18 +623,26 @@ const DonationRequests = () => {
                       {/* Action Buttons */}
                       <div className="flex flex-col gap-3">
                         <Button
-                          onClick={() => openAcceptModal(request)}
+                          onClick={() => handleAcceptRequest(request)}
                           className="w-full bg-green-600 hover:bg-green-700"
-                          data-testid="accept-request-btn"
+                          disabled={submitting}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Accept Request
+                          {submitting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Accepting...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Accept Request
+                            </>
+                          )}
                         </Button>
                         <Button
                           onClick={() => openRejectModal(request)}
                           variant="destructive"
                           className="w-full"
-                          data-testid="reject-request-btn"
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           Decline Request
@@ -538,51 +667,13 @@ const DonationRequests = () => {
         </div>
       </div>
 
-      {/* Accept Modal */}
-      <Dialog open={acceptModalOpen} onOpenChange={setAcceptModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Accept Request</DialogTitle>
-            <DialogDescription>
-              You're about to accept this donation request. You'll need to provide pickup or delivery details next.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Add a note (optional)</Label>
-              <Textarea
-                placeholder="Add any message for the recipient..."
-                value={acceptNote}
-                onChange={(e) => setAcceptNote(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAcceptModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAcceptRequest}
-              disabled={submitting}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Accept & Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Reject Modal */}
       <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Decline Request</DialogTitle>
             <DialogDescription>
-              Please provide a reason for declining this request.
+              Please provide a reason for declining this request. The NGO will be notified.
             </DialogDescription>
           </DialogHeader>
           
@@ -615,81 +706,342 @@ const DonationRequests = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Logistics Modal - keeping your existing one */}
-      <Dialog open={logisticsModalOpen} onOpenChange={setLogisticsModalOpen}>
-        {/* ... keep your existing logistics modal code ... */}
+      {/* ✅ ENHANCED LOGISTICS MODAL */}
+      <Dialog open={schedulePickupModalOpen} onOpenChange={(open) => {
+        if (!submitting) {
+          setSchedulePickupModalOpen(open);
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-blue-600" />
+              Schedule Logistics
+            </DialogTitle>
+            <DialogDescription>
+              Choose how you'd like to transfer this donation and provide necessary details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmitSchedule(); }} className="space-y-6 py-4">
+            
+            {/* Method Selection */}
+            <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+              <Label className="text-base font-semibold mb-3 block">Transfer Method *</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setScheduleForm(prev => ({ ...prev, method: 'pickup' }))}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    scheduleForm.method === 'pickup'
+                      ? 'border-blue-600 bg-blue-100 shadow-md'
+                      : 'border-gray-300 bg-white hover:border-blue-400'
+                  }`}
+                >
+                  <Package className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                  <p className="font-semibold">Pickup</p>
+                  <p className="text-xs text-gray-600">NGO picks up from you</p>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setScheduleForm(prev => ({ ...prev, method: 'delivery' }))}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    scheduleForm.method === 'delivery'
+                      ? 'border-green-600 bg-green-100 shadow-md'
+                      : 'border-gray-300 bg-white hover:border-green-400'
+                  }`}
+                >
+                  <Truck className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                  <p className="font-semibold">Delivery</p>
+                  <p className="text-xs text-gray-600">You deliver to NGO</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Date & Time */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Date *</Label>
+                <Input
+                  type="date"
+                  value={scheduleForm.pickupDate}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, pickupDate: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  required
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label>Time Slot *</Label>
+                <Select
+                  value={scheduleForm.pickupTime}
+                  onValueChange={(value) => setScheduleForm(prev => ({ ...prev, pickupTime: value }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select time slot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="morning">🌅 Morning (9 AM - 12 PM)</SelectItem>
+                    <SelectItem value="afternoon">☀️ Afternoon (12 PM - 3 PM)</SelectItem>
+                    <SelectItem value="evening">🌆 Evening (3 PM - 6 PM)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* PICKUP ADDRESS (if method is pickup) */}
+            {scheduleForm.method === 'pickup' && (
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Home className="h-4 w-4" />
+                  Pickup Address (Where NGO will come)
+                </h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label>Street Address *</Label>
+                    <Input
+                      type="text"
+                      placeholder="123 Main Street, Building/Apt #"
+                      value={scheduleForm.pickupAddress}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, pickupAddress: e.target.value }))}
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label>City *</Label>
+                      <Input
+                        type="text"
+                        placeholder="City"
+                        value={scheduleForm.pickupCity}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, pickupCity: e.target.value }))}
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>State</Label>
+                      <Input
+                        type="text"
+                        placeholder="State"
+                        value={scheduleForm.pickupState}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, pickupState: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>ZIP Code</Label>
+                      <Input
+                        type="text"
+                        placeholder="000000"
+                        value={scheduleForm.pickupZipCode}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, pickupZipCode: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Parking Information</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., Free parking available in front, Gate code: 1234"
+                      value={scheduleForm.parkingInfo}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, parkingInfo: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Nearby Landmarks</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., Near City Mall, behind HDFC Bank"
+                      value={scheduleForm.landmarks}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, landmarks: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* DELIVERY ADDRESS (if method is delivery) */}
+            {scheduleForm.method === 'delivery' && selectedDonation?.acceptedBy && (
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Delivery Address (Where you'll deliver)
+                </h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label>Street Address *</Label>
+                    <Input
+                      type="text"
+                      placeholder="NGO's address"
+                      value={scheduleForm.deliveryAddress}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, deliveryAddress: e.target.value }))}
+                      required
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 Tip: Contact {selectedDonation.acceptedBy.organization?.name || selectedDonation.acceptedBy.name} for their exact address
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label>City *</Label>
+                      <Input
+                        type="text"
+                        placeholder="City"
+                        value={scheduleForm.deliveryCity}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, deliveryCity: e.target.value }))}
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>State</Label>
+                      <Input
+                        type="text"
+                        placeholder="State"
+                        value={scheduleForm.deliveryState}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, deliveryState: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>ZIP Code</Label>
+                      <Input
+                        type="text"
+                        placeholder="000000"
+                        value={scheduleForm.deliveryZipCode}
+                        onChange={(e) => setScheduleForm(prev => ({ ...prev, deliveryZipCode: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Contact Information */}
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                Contact Information
+              </h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label>Contact Person Name *</Label>
+                  <Input
+                    type="text"
+                    placeholder="Your name or person to contact"
+                    value={scheduleForm.contactPerson}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, contactPerson: e.target.value }))}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Primary Phone *</Label>
+                    <Input
+                      type="tel"
+                      placeholder="+91 00000 00000"
+                      value={scheduleForm.contactPhone}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, contactPhone: e.target.value }))}
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Alternate Phone (Optional)</Label>
+                    <Input
+                      type="tel"
+                      placeholder="+91 00000 00000"
+                      value={scheduleForm.alternatePhone}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, alternatePhone: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Special Instructions */}
+            <div>
+              <Label>Special Instructions (Optional)</Label>
+              <Textarea
+                placeholder="Any special instructions (e.g., call before arriving, best time to reach, gate access codes, etc.)"
+                value={scheduleForm.specialInstructions}
+                onChange={(e) => setScheduleForm(prev => ({ ...prev, specialInstructions: e.target.value }))}
+                rows={3}
+                className="mt-1"
+              />
+            </div>
+
+            {/* NGO Contact Info Display */}
+            {selectedDonation?.acceptedBy && (
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 className="font-semibold mb-2 text-sm text-blue-800">NGO Contact Information:</h3>
+                <div className="text-sm space-y-1">
+                  <p><strong>Organization:</strong> {selectedDonation.acceptedBy.organization?.name || selectedDonation.acceptedBy.name}</p>
+                  {selectedDonation.acceptedBy.email && (
+                    <p><strong>Email:</strong> {selectedDonation.acceptedBy.email}</p>
+                  )}
+                  {selectedDonation.acceptedBy.phone && (
+                    <p><strong>Phone:</strong> {selectedDonation.acceptedBy.phone}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <DialogFooter className="gap-2">
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={() => setSchedulePickupModalOpen(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting || !scheduleForm.pickupDate || !scheduleForm.pickupTime || !scheduleForm.contactPhone}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Scheduling...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Confirm {scheduleForm.method === 'pickup' ? 'Pickup' : 'Delivery'} Schedule
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
-
-      {/* ✅ NEW: Schedule Pickup Modal */}
-      {/* ✅ Schedule Pickup Modal - with time slots */}
-{/* ✅ Schedule Pickup Modal - with 3 time slots */}
-<Dialog open={schedulePickupModalOpen} onOpenChange={setSchedulePickupModalOpen}>
-  <DialogContent className="max-w-md">
-    <DialogHeader>
-      <DialogTitle>Schedule Pickup</DialogTitle>
-      <DialogDescription>
-        Choose a date and time slot for the NGO to pick up your donation
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4 py-4">
-      <div>
-        <Label>Pickup Date *</Label>
-        <Input
-          type="date"
-          value={scheduleForm.pickupDate}
-          onChange={(e) => setScheduleForm(prev => ({ ...prev, pickupDate: e.target.value }))}
-          min={new Date().toISOString().split('T')[0]}
-          required
-        />
-      </div>
-
-      <div>
-        <Label>Pickup Time Slot *</Label>
-        <Select
-          value={scheduleForm.pickupTime}
-          onValueChange={(value) => setScheduleForm(prev => ({ ...prev, pickupTime: value }))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select time slot" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="morning">Morning (9 AM - 12 PM)</SelectItem>
-            <SelectItem value="afternoon">Afternoon (12 PM - 3 PM)</SelectItem>
-            <SelectItem value="evening">Evening (3 PM - 6 PM)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-     <div>
-  <Label>Special Instructions (Optional)</Label>
-  <Textarea
-    placeholder="Any special instructions for pickup..."
-    value={scheduleForm.specialInstructions}
-    onChange={(e) => setScheduleForm(prev => ({ ...prev, specialInstructions: e.target.value }))}
-    rows={3}
-  />
-</div>
-
-    </div>
-
-    <DialogFooter>
-      <Button variant="outline" onClick={() => setSchedulePickupModalOpen(false)}>
-        Cancel
-      </Button>
-      <Button
-        onClick={handleSubmitSchedule}
-        disabled={submitting || !scheduleForm.pickupDate || !scheduleForm.pickupTime}
-        className="bg-green-600 hover:bg-green-700"
-      >
-        {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-        Confirm Pickup Schedule
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
-
     </div>
   );
 };

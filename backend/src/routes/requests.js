@@ -495,7 +495,6 @@ async function notifyNearbyDonors(request) {
 
 
 // ==================== DONOR RESPONSE ENDPOINTS CONTINUED ====================
-
 // @desc    Donor accepts a request
 // @route   POST /api/requests/:id/accept
 // @access  Private (Donor)
@@ -516,7 +515,7 @@ router.post('/:id/accept', protect, restrictTo('donor'), async (req, res) => {
       return fail(res, 'Not authorized to accept this request', 403);
     }
 
-    // Update request status
+    // ✅ FIX: Update BOTH request AND donation status
     request.donorResponse = {
       status: 'accepted',
       respondedAt: new Date(),
@@ -527,21 +526,32 @@ router.post('/:id/accept', protect, restrictTo('donor'), async (req, res) => {
 
     await request.save();
 
+    // ✅ NEW: Update donation status to accepted_by_ngo
+    const donation = await Donation.findById(request.donation._id);
+    if (donation) {
+      donation.status = 'accepted_by_ngo';
+      donation.acceptedBy = request.requester._id; // The NGO who made the request
+      donation.acceptedAt = new Date();
+      await donation.save();
+      
+      console.log(`✅ Donation ${donation._id} accepted by NGO ${request.requester._id}`);
+    }
+
     // Notify recipient
-    await Notification.createAndSend({
+    await Notification.create({
       recipient: request.requester._id,
       type: 'request_accepted',
       title: 'Request Accepted! 🎉',
-      message: `${req.user.name} has accepted your request for "${request.donation.title}"`,
+      message: `${req.user.name} has accepted your request for "${request.donation.title}". They will schedule a pickup time soon.`,
       data: {
         requestId: request._id,
         donationId: request.donation._id,
-        actionUrl: `/recipient/my-requests/${request._id}`
+        actionUrl: `/recipient/my-requests`
       },
       channels: { inApp: true, email: true }
     });
 
-    return ok(res, { request }, 'Request accepted successfully');
+    return ok(res, { request }, 'Request accepted successfully. Please schedule pickup time.');
   } catch (error) {
     console.error('Accept request error:', error);
     return fail(res, 'Failed to accept request', 500);

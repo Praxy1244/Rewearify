@@ -907,6 +907,34 @@ router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res
 
     console.log(`✅ Pickup scheduled: ${pickupDate} at ${pickupTime}`);
 
+    // ✅ NEW: Update the linked Request status to 'pickup_scheduled'
+    try {
+      const linkedRequest = await Request.findOne({
+        donation: donation._id,
+        requester: donation.acceptedBy,
+        status: 'accepted'
+      });
+
+      if (linkedRequest) {
+        linkedRequest.status = 'pickup_scheduled';
+        linkedRequest.pickupDelivery = {
+          method: 'pickup',
+          preferredDate: pickupDate,
+          preferredTimeSlot: pickupTime,
+          specialInstructions: specialInstructions || '',
+          scheduledAt: new Date()
+        };
+        await linkedRequest.save();
+        
+        console.log(`✅ Request ${linkedRequest._id} status updated to pickup_scheduled`);
+      } else {
+        console.log(`⚠️ No linked request found for donation ${donation._id}`);
+      }
+    } catch (requestUpdateError) {
+      console.error('⚠️ Failed to update request status:', requestUpdateError);
+      // Don't fail the pickup scheduling if request update fails
+    }
+
     // Now populate for response
     await donation.populate('acceptedBy', 'name organization email phone');
 
@@ -926,7 +954,7 @@ router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res
           address: donation.location?.address,
           specialInstructions,
           donorPhone: req.user.phone,
-          actionUrl: `/recipient/donations/${donation._id}`
+          actionUrl: `/recipient/my-requests`
         },
         channels: { inApp: true, email: true, push: false }
       });
@@ -967,6 +995,7 @@ router.put('/:id/schedule-pickup', protect, restrictTo('donor'), async (req, res
     return fail(res, 'Server error during pickup scheduling', 500);
   }
 });
+
 // @desc    Update donation status (for NGO workflow: in_transit, delivered)
 // @route   PUT /api/donations/:id/update-status
 // @access  Private (Recipient/NGO only)
@@ -1014,6 +1043,31 @@ router.put('/:id/update-status', protect, restrictTo('recipient'), async (req, r
     await donation.save();
 
     console.log(`✅ Donation ${donation._id} status changed: ${oldStatus} → ${status}`);
+
+    // ✅ NEW: Update linked Request status
+    try {
+      const linkedRequest = await Request.findOne({
+        donation: donation._id,
+        requester: req.user.id
+      });
+
+      if (linkedRequest) {
+        linkedRequest.status = status;
+        
+        if (status === 'delivered') {
+          linkedRequest.fulfillment = {
+            ...linkedRequest.fulfillment,
+            deliveredAt: new Date(),
+            deliveryConfirmedBy: req.user.id
+          };
+        }
+        
+        await linkedRequest.save();
+        console.log(`✅ Request ${linkedRequest._id} status updated to ${status}`);
+      }
+    } catch (requestUpdateError) {
+      console.error('⚠️ Failed to update request status:', requestUpdateError);
+    }
 
     // Notify donor about status change
     try {
@@ -1119,6 +1173,33 @@ router.put('/:id/feedback', protect, restrictTo('recipient'), async (req, res) =
 
     console.log(`✅ Feedback submitted: ${rating}⭐`);
 
+    // ✅ NEW: Update linked Request with feedback
+    try {
+      const linkedRequest = await Request.findOne({
+        donation: donation._id,
+        requester: req.user.id
+      });
+
+      if (linkedRequest) {
+        linkedRequest.fulfillment = {
+          ...linkedRequest.fulfillment,
+          feedback: {
+            rating: parseInt(rating),
+            comment: comment || '',
+            submittedAt: new Date()
+          },
+          impact: {
+            beneficiariesHelped: beneficiariesHelped ? parseInt(beneficiariesHelped) : 0,
+            impactStory: impactStory || ''
+          }
+        };
+        await linkedRequest.save();
+        console.log(`✅ Request ${linkedRequest._id} feedback updated`);
+      }
+    } catch (requestUpdateError) {
+      console.error('⚠️ Failed to update request feedback:', requestUpdateError);
+    }
+
     // Notify admins about feedback submission
     try {
       const admins = await User.find({ role: 'admin', status: 'active' });
@@ -1198,6 +1279,7 @@ router.put('/:id/feedback', protect, restrictTo('recipient'), async (req, res) =
     return fail(res, 'Server error during feedback submission', 500);
   }
 });
+
 
 // @desc    Admin marks donation as completed after reviewing feedback
 // @route   PUT /api/donations/:id/mark-completed

@@ -4,16 +4,15 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
-import { Truck, MapPin, Calendar, CheckCircle, Package, Clock, ArrowRight, Star, User, Phone, Home } from 'lucide-react';
+import { Truck, MapPin, Calendar, CheckCircle, Package, Clock, ArrowRight, Star, User, Phone, Home, Eye } from 'lucide-react';
 import { donationService, requestService } from '../../services';
 import { toast } from 'sonner';
 import api from '../../lib/api';
 
-
 const LogisticsDashboard = () => {
   const [pickups, setPickups] = useState([]);
   const [transitItems, setTransitItems] = useState([]);
-  const [pendingReview, setPendingReview] = useState([]); // Both donations and requests
+  const [pendingReview, setPendingReview] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Feedback review modal
@@ -21,130 +20,68 @@ const LogisticsDashboard = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [completing, setCompleting] = useState(false);
 
-
   useEffect(() => {
     fetchLogisticsData();
   }, []);
 
-const fetchLogisticsData = async () => {
-  setLoading(true);
-  try {
-    // 1. Get donations scheduled for pickup
-    const scheduledRes = await api.get('/donations', {
-      params: { status: 'pickup_scheduled', limit: 100 }
-    });
-    if (scheduledRes.success) setPickups(scheduledRes.data || []);
-
-    // 2. Get donations currently in transit
-    const transitRes = await api.get('/donations', {
-      params: { status: 'in_transit', limit: 100 }
-    });
-    if (transitRes.success) setTransitItems(transitRes.data || []);
-
-    // 3. Get DONATIONS with feedback awaiting review
-    console.log('🔍 Fetching delivered donations...');
-    const deliveredRes = await api.get('/donations', {
-      params: { status: 'delivered', limit: 100 }
-    });
-    
-    console.log('📦 Full delivered response:', deliveredRes);
-    console.log('📦 Response data:', deliveredRes.data);
-    console.log('📦 Response data type:', typeof deliveredRes.data);
-    console.log('📦 Is array?', Array.isArray(deliveredRes.data));
-    
-    let reviewItems = [];
-    
-    if (deliveredRes.success && deliveredRes.data) {
-      // Handle different response structures
-      let allDelivered = [];
-      
-      if (Array.isArray(deliveredRes.data)) {
-        allDelivered = deliveredRes.data;
-      } else if (deliveredRes.data.donations && Array.isArray(deliveredRes.data.donations)) {
-        allDelivered = deliveredRes.data.donations;
-      } else if (deliveredRes.data.data && Array.isArray(deliveredRes.data.data)) {
-        allDelivered = deliveredRes.data.data;
-      }
-      
-      console.log(`📊 Total delivered donations: ${allDelivered.length}`);
-      console.log('📊 All delivered donations:', allDelivered);
-      
-      // Check each donation
-      allDelivered.forEach((d, idx) => {
-        console.log(`\n[${idx}] Donation: ${d.title} (ID: ${d._id})`);
-        console.log('   Status:', d.status);
-        console.log('   Has completion?', !!d.completion);
-        console.log('   Completion object:', d.completion);
-        console.log('   Has completion.feedback?', !!(d.completion?.feedback));
-        console.log('   Completion.feedback:', d.completion?.feedback);
-        console.log('   Rating:', d.completion?.feedback?.rating);
-      });
-      
-      const donationsWithFeedback = allDelivered.filter(d => {
-        const hasFeedback = !!(d.completion?.feedback?.rating);
-        console.log(`✓ ${d.title}: Has feedback? ${hasFeedback}`);
-        return hasFeedback;
-      });
-      
-      console.log(`⭐ Donations with feedback: ${donationsWithFeedback.length}`);
-      console.log('⭐ Donations list:', donationsWithFeedback);
-      
-      reviewItems = donationsWithFeedback.map(d => ({ ...d, itemType: 'donation' }));
-    } else {
-      console.log('❌ No delivered donations or failed response');
-    }
-
-    // 4. Get REQUESTS with feedback awaiting review
-    const requestsRes = await api.get('/requests', {
-      params: { status: 'delivered' }
-    });
-    
-    console.log('📋 Requests response:', requestsRes);
-    
-    if (requestsRes.success) {
-      const requestsWithFeedback = (requestsRes.data || []).filter(r => 
-        r.fulfillment?.feedback?.submittedAt && r.status !== 'fulfilled'
-      );
-      console.log(`📋 Requests with feedback: ${requestsWithFeedback.length}`);
-      reviewItems = [...reviewItems, ...requestsWithFeedback.map(r => ({ ...r, itemType: 'request' }))];
-    }
-
-    console.log(`\n✅ FINAL: Total items pending review: ${reviewItems.length}`);
-    console.log('✅ Final review items:', reviewItems);
-    
-    setPendingReview(reviewItems);
-
-  } catch (error) {
-    console.error("❌ Failed to load logistics data", error);
-    toast.error("Failed to load logistics data");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleStatusUpdate = async (donationId, nextStatus) => {
+  const fetchLogisticsData = async () => {
+    setLoading(true);
     try {
-      const response = await api.put(`/donations/${donationId}/update-status`, {
-        status: nextStatus,
-        notes: `Status updated to ${nextStatus} by Admin`
+      // 1. Get donations scheduled for pickup (READ-ONLY)
+      const scheduledRes = await api.get('/donations', {
+        params: { status: 'pickup_scheduled', limit: 100 }
       });
+      if (scheduledRes.success) setPickups(scheduledRes.data || []);
 
-      if (response.success) {
-        toast.success(`Status updated to ${nextStatus.replace('_', ' ')}`);
-        fetchLogisticsData();
+      // 2. Get donations currently in transit (READ-ONLY)
+      const transitRes = await api.get('/donations', {
+        params: { status: 'in_transit', limit: 100 }
+      });
+      if (transitRes.success) setTransitItems(transitRes.data || []);
+
+      // 3. Get DONATIONS with feedback awaiting review
+      const deliveredRes = await api.get('/donations', {
+        params: { status: 'delivered', limit: 100 }
+      });
+      
+      let reviewItems = [];
+      
+      if (deliveredRes.success && deliveredRes.data) {
+        let allDelivered = Array.isArray(deliveredRes.data) ? deliveredRes.data : [];
+        
+        const donationsWithFeedback = allDelivered.filter(d => 
+          !!(d.completion?.feedback?.rating)
+        );
+        
+        reviewItems = donationsWithFeedback.map(d => ({ ...d, itemType: 'donation' }));
       }
+
+      // 4. Get REQUESTS with feedback awaiting review
+      const requestsRes = await api.get('/requests', {
+        params: { status: 'delivered' }
+      });
+      
+      if (requestsRes.success) {
+        const requestsWithFeedback = (requestsRes.data || []).filter(r => 
+          r.fulfillment?.feedback?.submittedAt && r.status !== 'fulfilled'
+        );
+        reviewItems = [...reviewItems, ...requestsWithFeedback.map(r => ({ ...r, itemType: 'request' }))];
+      }
+
+      setPendingReview(reviewItems);
+
     } catch (error) {
-      console.error("Update failed", error);
-      toast.error("Failed to update status");
+      console.error("❌ Failed to load logistics data", error);
+      toast.error("Failed to load logistics data");
+    } finally {
+      setLoading(false);
     }
   };
-
 
   const handleReviewFeedback = (item) => {
     setSelectedItem(item);
     setFeedbackModalOpen(true);
   };
-
 
   const handleCompleteItem = async () => {
     if (!selectedItem) return;
@@ -155,12 +92,10 @@ const fetchLogisticsData = async () => {
       let response;
       
       if (selectedItem.itemType === 'donation') {
-        // Complete donation
         response = await api.put(`/donations/${selectedItem._id}/mark-completed`, {
           adminNotes: 'Reviewed and approved'
         });
       } else {
-        // Complete request
         response = await requestService.adminCompleteRequest(selectedItem._id);
       }
       
@@ -180,7 +115,6 @@ const fetchLogisticsData = async () => {
     }
   };
 
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -189,22 +123,20 @@ const fetchLogisticsData = async () => {
     );
   }
 
-
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Logistics Management</h1>
-          <p className="text-gray-600 mt-1">Manage donation pickups, deliveries, and feedback reviews.</p>
+          <h1 className="text-3xl font-bold text-gray-900">Logistics Overview</h1>
+          <p className="text-gray-600 mt-1">Monitor donation pickups, deliveries, and review feedback (View Only)</p>
         </div>
 
-
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardContent className="p-6 flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Pending Pickups</p>
+                <p className="text-sm text-gray-500">Scheduled Pickups</p>
                 <p className="text-3xl font-bold text-blue-600">{pickups.length}</p>
               </div>
               <Truck className="h-10 w-10 text-blue-100" />
@@ -230,8 +162,7 @@ const fetchLogisticsData = async () => {
           </Card>
         </div>
 
-
-        {/* Main Management Tabs */}
+        {/* Main Tabs */}
         <Tabs defaultValue="pickups" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 max-w-2xl">
             <TabsTrigger value="pickups">Scheduled Pickups ({pickups.length})</TabsTrigger>
@@ -239,18 +170,17 @@ const fetchLogisticsData = async () => {
             <TabsTrigger value="feedback">Pending Review ({pendingReview.length})</TabsTrigger>
           </TabsList>
 
-
-          {/* Tab 1: Pickups */}
+          {/* Tab 1: Pickups (VIEW ONLY) */}
           <TabsContent value="pickups">
             {pickups.length > 0 ? (
               pickups.map(item => (
                 <Card key={item._id} className="mb-4">
                   <CardContent className="p-5 flex justify-between items-center">
-                    <div className="flex gap-4 items-center">
+                    <div className="flex gap-4 items-center flex-1">
                       <div className="bg-blue-50 p-3 rounded-full">
                         <Clock className="h-6 w-6 text-blue-600" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-semibold text-lg">{item.title}</h4>
                         <p className="text-sm text-gray-600">{item.location?.address || item.location?.city}</p>
                         <div className="flex gap-2 mt-1">
@@ -262,15 +192,17 @@ const fetchLogisticsData = async () => {
                             📅 Scheduled: {new Date(item.pickupSchedule.date).toLocaleDateString()} at {item.pickupSchedule.time}
                           </p>
                         )}
+                        <p className="text-xs text-blue-600 mt-2">
+                          👤 NGO: {item.acceptedBy?.organization?.name || item.acceptedBy?.name}
+                        </p>
                       </div>
                     </div>
                     
-                    <Button 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleStatusUpdate(item._id, 'in_transit')}
-                    >
-                      Start Transit <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    {/* ✅ CHANGED: View Only Badge instead of Action Button */}
+                    <Badge className="bg-blue-100 text-blue-700">
+                      <Eye className="mr-1 h-3 w-3" />
+                      Awaiting NGO Pickup
+                    </Badge>
                   </CardContent>
                 </Card>
               ))
@@ -279,30 +211,31 @@ const fetchLogisticsData = async () => {
             )}
           </TabsContent>
 
-
-          {/* Tab 2: In Transit */}
+          {/* Tab 2: In Transit (VIEW ONLY) */}
           <TabsContent value="transit">
             {transitItems.length > 0 ? (
               transitItems.map(item => (
                 <Card key={item._id} className="mb-4 border-l-4 border-l-orange-500">
                   <CardContent className="p-5 flex justify-between items-center">
-                    <div className="flex gap-4 items-center">
+                    <div className="flex gap-4 items-center flex-1">
                       <div className="bg-orange-50 p-3 rounded-full">
                         <Truck className="h-6 w-6 text-orange-600" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-semibold text-lg">{item.title}</h4>
                         <p className="text-sm text-gray-600">Destination: {item.location?.city}</p>
                         <p className="text-xs text-gray-400 mt-1">Picked up from: {item.donor?.name}</p>
+                        <p className="text-xs text-orange-600 mt-2">
+                          🚚 Handled by: {item.acceptedBy?.organization?.name || item.acceptedBy?.name}
+                        </p>
                       </div>
                     </div>
                     
-                    <Button 
-                      className="bg-green-600 hover:bg-green-700"
-                      onClick={() => handleStatusUpdate(item._id, 'delivered')}
-                    >
-                      Mark Delivered <CheckCircle className="ml-2 h-4 w-4" />
-                    </Button>
+                    {/* ✅ CHANGED: View Only Badge instead of Action Button */}
+                    <Badge className="bg-orange-100 text-orange-700">
+                      <Eye className="mr-1 h-3 w-3" />
+                      In Transit by NGO
+                    </Badge>
                   </CardContent>
                 </Card>
               ))
@@ -311,13 +244,12 @@ const fetchLogisticsData = async () => {
             )}
           </TabsContent>
 
-
-          {/* Tab 3: Feedback Review */}
+          {/* Tab 3: Feedback Review (ADMIN CAN COMPLETE) */}
           <TabsContent value="feedback">
             {pendingReview.length > 0 ? (
               pendingReview.map(item => {
                 const isDonation = item.itemType === 'donation';
-                const feedback = isDonation ? item.feedback : item.fulfillment?.feedback;
+                const feedback = isDonation ? item.completion?.feedback : item.fulfillment?.feedback;
                 const recipientName = isDonation 
                   ? item.acceptedBy?.organization?.name || item.acceptedBy?.name 
                   : item.requester?.name;
@@ -360,17 +292,6 @@ const fetchLogisticsData = async () => {
                                   </span>
                                 </div>
                               )}
-                              
-                              {(feedback?.beneficiariesHelped || item.fulfillment?.impact?.beneficiariesHelped) && (
-                                <div className="flex items-center gap-2">
-                                  <Package className="h-4 w-4 text-gray-400" />
-                                  <span className="text-gray-600">
-                                    Helped: <span className="font-medium">
-                                      {feedback?.beneficiariesHelped || item.fulfillment?.impact?.beneficiariesHelped} people
-                                    </span>
-                                  </span>
-                                </div>
-                              )}
 
                               <div className="text-xs text-gray-400 pt-1">
                                 Submitted: {new Date(feedback?.submittedAt || item.fulfillment?.feedback?.submittedAt).toLocaleString()}
@@ -401,7 +322,6 @@ const fetchLogisticsData = async () => {
         </Tabs>
       </div>
 
-
       {/* Feedback Review Modal */}
       <Dialog open={feedbackModalOpen} onOpenChange={setFeedbackModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -414,7 +334,6 @@ const fetchLogisticsData = async () => {
           
           {selectedItem && (
             <div className="space-y-4 py-4">
-              {/* Item Info */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -446,11 +365,9 @@ const fetchLogisticsData = async () => {
                 </CardContent>
               </Card>
 
-
-              {/* Feedback */}
               {(() => {
                 const feedback = selectedItem.itemType === 'donation' 
-                  ? selectedItem.feedback 
+                  ? selectedItem.completion?.feedback
                   : selectedItem.fulfillment?.feedback;
                 const impact = selectedItem.itemType === 'donation'
                   ? { beneficiariesHelped: feedback?.beneficiariesHelped, impactStory: feedback?.impactStory }
@@ -478,36 +395,28 @@ const fetchLogisticsData = async () => {
                               }`}
                             />
                           ))}
-                          <span className="ml-2 font-semibold">
-                            {feedback.rating}/5
-                          </span>
+                          <span className="ml-2 font-semibold">{feedback.rating}/5</span>
                         </div>
                       </div>
 
                       {feedback.comment && (
                         <div>
                           <p className="text-sm text-gray-600 mb-1">Comment</p>
-                          <p className="bg-gray-50 p-3 rounded-lg text-gray-700">
-                            {feedback.comment}
-                          </p>
+                          <p className="bg-gray-50 p-3 rounded-lg text-gray-700">{feedback.comment}</p>
                         </div>
                       )}
 
                       {impact?.beneficiariesHelped && (
                         <div>
                           <p className="text-sm text-gray-600 mb-1">Beneficiaries Helped</p>
-                          <p className="font-medium">
-                            {impact.beneficiariesHelped} people
-                          </p>
+                          <p className="font-medium">{impact.beneficiariesHelped} people</p>
                         </div>
                       )}
 
                       {impact?.impactStory && (
                         <div>
                           <p className="text-sm text-gray-600 mb-1">Impact Story</p>
-                          <p className="bg-gray-50 p-3 rounded-lg text-gray-700">
-                            {impact.impactStory}
-                          </p>
+                          <p className="bg-gray-50 p-3 rounded-lg text-gray-700">{impact.impactStory}</p>
                         </div>
                       )}
                     </CardContent>
@@ -516,7 +425,6 @@ const fetchLogisticsData = async () => {
               })()}
             </div>
           )}
-
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setFeedbackModalOpen(false)}>
@@ -536,6 +444,5 @@ const fetchLogisticsData = async () => {
     </div>
   );
 };
-
 
 export default LogisticsDashboard;

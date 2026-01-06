@@ -11,37 +11,44 @@ const notificationSchema = new mongoose.Schema({
     ref: 'User'
   },
   type: {
-    type: String,
-    required: [true, 'Notification type is required'],
-    enum: [
-      'donation_approved',
-      'donation_rejected', 
-      'donation_matched',
-      'donation_completed',
-      'request_matched',
-      'request_fulfilled',
-      'new_donation_nearby',
-      'new_request_nearby',
-      'match_suggestion',
-      'system_update',
-      'account_verified',
-      'new_donation_request',      // ✅ ADD THIS
-    'request_accepted',            // ✅ ADD THIS
-    'request_rejected',            // ✅ ADD THIS
-    'logistics_scheduled',         // ✅ ADD THIS
-    'status_update',               // ✅ ADD THIS
-    'feedback_submitted',          // ✅ ADD THIS
-    'request_completed',           // ✅ ADD THIS
-      'password_changed',
-       'feedback_received', 
-      'login_alert',
-      'reminder',
-      'promotion',
-      'feedback_request',
-      'new_donation_pending',
-      'fraud_alert'
-    ]
-  },
+  type: String,
+  required: [true, 'Notification type is required'],
+  enum: [
+    'donation_approved',
+    'donation_rejected', 
+    'donation_matched',
+    'donation_completed',
+    'donation_picked_up',        // ✅ ADD THIS
+    'donation_delivered',        // ✅ ADD THIS
+    'request_matched',
+    'request_fulfilled',
+    'new_donation_nearby',
+    'new_request_nearby',
+    'match_suggestion',
+    'system_update',
+    'account_verified',
+    'new_donation_request',
+    'request_accepted',
+    'request_rejected',
+    'logistics_scheduled',
+    'pickup_scheduled',          // ✅ ADD THIS
+    'status_update',
+    'feedback_submitted',
+    'request_completed',
+    'congratulations',           // ✅ ADD THIS
+    'ngo_accepted',              // ✅ ADD THIS
+    'donation_offer',            // ✅ ADD THIS
+    'password_changed',
+    'feedback_received', 
+    'login_alert',
+    'reminder',
+    'promotion',
+    'feedback_request',
+    'new_donation_pending',
+    'fraud_alert'
+  ]
+},
+
   title: {
     type: String,
     required: [true, 'Notification title is required'],
