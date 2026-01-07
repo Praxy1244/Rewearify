@@ -42,10 +42,11 @@ const AIInsights = () => {
         popularRes.json()
       ]);
 
+      // ✅ Fix: Handle nested data structure
       setData({
-        recommendations: recsData.recommendations || [],
-        profile: profileData.profile,
-        popular: popularData.recommendations || []
+        recommendations: recsData.data?.recommendations || recsData.recommendations || [],
+        profile: profileData.data?.profile || profileData.profile,
+        popular: popularData.data?.recommendations || popularData.recommendations || []
       });
     } catch (error) {
       console.error('Failed to fetch AI data:', error);
@@ -121,7 +122,7 @@ const AIInsights = () => {
                               <h3 className="text-lg font-bold">{ngo.name}</h3>
                               <p className="text-sm text-gray-600 flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
-                                {ngo.location}
+                                {ngo.location?.city || ngo.city || ngo.location?.address || 'Unknown'}
                               </p>
                             </div>
                             <Badge className="bg-green-600 text-white">
@@ -268,7 +269,9 @@ const AIInsights = () => {
                         <div className="text-2xl font-bold text-gray-400">#{idx + 1}</div>
                         <div>
                           <h4 className="font-semibold">{ngo.name}</h4>
-                          <p className="text-sm text-gray-600">{ngo.location}</p>
+                          <p className="text-sm text-gray-600">
+                            {ngo.location?.city || ngo.city || ngo.location?.address || 'Unknown'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">

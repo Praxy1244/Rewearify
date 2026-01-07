@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { donationService, userService } from '../../services';
 import aiService from '../../services/aiService';
 import axios from 'axios';
+import api from '../../lib/api';
 
 // Category to subcategory mapping
 const categoryMap = {
@@ -237,71 +238,61 @@ const DonationForm = () => {
     { value: 'good', label: 'Good - Minor wear' },
     { value: 'fair', label: 'Fair - Some wear but usable' }
   ];
-
 const fetchRecommendations = async () => {
   setLoadingRecommendations(true);
   try {
-    const token = localStorage.getItem('token');
-    // ✅ FIX: Use environment variable for backend URL
-    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    console.log('🎁 Fetching recommendations for donation');
     
-    console.log('🎁 Fetching recommendations for donation:', {
-      category: formData.category,
-      location: formData.location,
-      coordinates: formData.coordinates
+    const response = await api.get('/recommendations', {
+      params: { limit: 10 }
     });
     
-    const response = await fetch(`${BACKEND_URL}/api/recommendations/for-donation`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        category: formData.category,
-        subcategory: formData.subcategory,
-        quantity: formData.quantity,
-        location: {
-          city: formData.location.split(',')[0]?.trim() || formData.location,
-          coordinates: formData.coordinates || [77.5946, 12.9716]
-        },
-        condition: formData.condition,
-        urgentNeeded: formData.urgentNeeded,
-        season: formData.season
-      })
-    });
+    console.log('✅ Full recommendations response:', response);
     
-    const data = await response.json();
+    // ✅ FIX: Backend returns data.data.recommendations, not data.recommendations
+    const recommendations = response?.data?.recommendations || response?.recommendations || [];
     
-    console.log('✅ Full recommendations response:', data);
-    
-    if (data.success && data.data && data.data.recommendations) {
-      // ✅ FIX: Generate unique IDs for NGOs without them
-      const fixedRecommendations = data.data.recommendations.map((ngo, index) => {
-        const uniqueId = ngo._id || ngo.id || ngo.ngo_id || `rec-${index}-${ngo.name.replace(/\s/g, '-').toLowerCase()}`;
+    if (recommendations.length > 0) {
+      // ✅ THIS IS WHERE fixedRecommendations IS
+      const fixedRecommendations = recommendations.map((ngo, index) => {
+        const uniqueId = ngo._id || ngo.id || `rec-${index}-${ngo.name?.replace(/\s/g, '-').toLowerCase()}`;
+        
+        // ✅ Extract location string from object
+        const locationString = typeof ngo.location === 'string' 
+          ? ngo.location 
+          : (ngo.location?.city || ngo.location?.address || ngo.city || 'Unknown');
         
         console.log(`[${index}] ${ngo.name} -> ID: ${uniqueId}`);
         
         return {
           ...ngo,
           _id: uniqueId,
-          id: uniqueId
+          id: uniqueId,
+          name: ngo.name || 'Unknown NGO',
+          location: locationString,  // ✅ Now it's a string, not object
+          city: ngo.location?.city || ngo.city || 'Unknown',
+          trust_score: ngo.trust_score || 4.0,
+          impact_score: ngo.impact_score || 4.0,
+          score: ngo.score || 0.8,
+          distance: ngo.distance || null,
+          reason: ngo.reason || `Recommended based on your donation history`
         };
       });
       
       setRecommendedNGOs(fixedRecommendations);
       console.log(`✅ Got ${fixedRecommendations.length} recommended NGOs with fixed IDs`);
     } else {
+      console.log('⚠️ No recommendations in response');
       setRecommendedNGOs([]);
-      console.log('⚠️ No recommendations received');
     }
   } catch (error) {
-    console.error('Failed to fetch recommendations:', error);
+    console.error('❌ Failed to fetch recommendations:', error);
     setRecommendedNGOs([]);
   } finally {
     setLoadingRecommendations(false);
   }
 };
+
 
   const fetchNearbyNGOs = async () => {
   if (!formData.coordinates || !Array.isArray(formData.coordinates) || formData.coordinates.length !== 2) {
@@ -901,9 +892,12 @@ const renderSubcategorySuggestions = () => {
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
-                  <p className="text-sm text-gray-600">{ngo.location}</p>
-                </div>
+  <h3 className="text-lg font-bold text-gray-900">{ngo.name}</h3>
+  <p className="text-sm text-gray-600">
+    {ngo.location?.city || ngo.city || ngo.location?.address || 'Unknown'}
+  </p>
+</div>
+
                 {isSelected ? (
                   <Badge className="bg-green-600 flex gap-1">
                     <CheckCircle className="h-3 w-3"/> Selected

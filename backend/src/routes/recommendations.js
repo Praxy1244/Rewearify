@@ -5,71 +5,108 @@ import { ok, fail } from '../utils/response.js';
 
 const router = express.Router();
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-
-// @desc    Get popular NGOs (fallback for new users)
+// @desc    Get popular NGOs
 // @route   GET /api/recommendations/popular
 // @access  Public
 router.get('/popular', async (req, res) => {
   try {
-    const { limit = 10 } = req.query;
+    const limit = parseInt(req.query.limit) || 20;
     
-    console.log(`📊 Fetching ${limit} popular NGOs...`);
-    
-    const response = await axios.get(`${AI_SERVICE_URL}/recommendations/popular?limit=${limit}`, {
-      timeout: 10000
-    });
+    const User = (await import('../models/User.js')).default;
+    const popularNGOs = await User.find({ role: 'recipient' })
+      .sort({ trust_score: -1, impact_score: -1 })
+      .limit(limit);
 
-    if (response.data.success) {
-      console.log(`✅ Got ${response.data.data.recommendations.length} popular NGOs`);
-      return ok(res, response.data.data, 'Popular NGOs retrieved');
-    } else {
-      return fail(res, 'Failed to get popular NGOs', 500);
-    }
+    // ✅ FIX: Convert location objects to strings
+    const recommendations = popularNGOs.map(ngo => ({
+      _id: ngo._id.toString(),
+      id: ngo._id.toString(),
+      name: ngo.organization?.name || ngo.name || 'Unknown NGO',
+      location: ngo.location?.city || ngo.location?.address || 'Unknown',
+      city: ngo.location?.city || 'Unknown',
+      trust_score: ngo.trust_score || 4.0,
+      impact_score: ngo.impact_score || 4.0,
+      match_score: 0.8
+    }));
+
+    return ok(res, { recommendations, count: recommendations.length }, 'Popular NGOs retrieved');
   } catch (error) {
-    console.error('❌ Popular NGOs error:', error.message);
-    return fail(res, 'Failed to get popular NGOs', 500);
+    console.error('Popular NGOs error:', error);
+    return serverError(res, 'Failed to get popular NGOs');
   }
 });
 
-// @desc    Get personalized recommendations (USER PROFILE-BASED)
+
+// @desc    Get personalized recommendations
 // @route   GET /api/recommendations
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { limit = 10 } = req.query;
-    const userLocation = req.user.location?.city;
-    
+    const limit = parseInt(req.query.limit) || 10;
     console.log(`🎯 Personalized recommendations for user ${req.user.id}`);
-    
-    const response = await axios.post(`${AI_SERVICE_URL}/recommendations/hybrid`, {
-      donor_id: req.user.id,
-      location: userLocation,
-      limit: parseInt(limit)
-    }, { timeout: 10000 });
 
-    if (response.data.success) {
-      console.log(`✅ Got ${response.data.data.count} recommendations`);
-      return ok(res, {
-        recommendations: response.data.data.recommendations,
-        count: response.data.data.count,
-        method: response.data.data.method
-      }, 'Recommendations retrieved');
-    } else {
-      console.log('⚠️ Falling back to popular...');
-      const popularResponse = await axios.get(`${AI_SERVICE_URL}/recommendations/popular?limit=${limit}`);
-      
-      return ok(res, {
-        recommendations: popularResponse.data.data.recommendations,
-        count: popularResponse.data.data.recommendations.length,
-        method: 'popular',
-        note: 'Showing popular NGOs'
-      }, 'Popular NGOs retrieved');
+    try {
+      const response = await axios.get(`${AI_SERVICE_URL}/recommendations/hybrid`, {
+        params: {
+          donor_id: req.user.id,
+          limit: limit
+        },
+        timeout: 10000
+      });
+
+      if (response.data.success && response.data.data.recommendations) {
+        // ✅ FIX: Convert location objects to strings
+        const fixedRecommendations = response.data.data.recommendations.map(ngo => ({
+          ...ngo,
+          location: typeof ngo.location === 'string' 
+            ? ngo.location 
+            : (ngo.location?.city || ngo.location?.address || 'Unknown'),
+          city: ngo.location?.city || ngo.city || 'Unknown'
+        }));
+
+        console.log(`✅ Got ${fixedRecommendations.length} recommendations`);
+        return ok(res, {
+          recommendations: fixedRecommendations,
+          count: fixedRecommendations.length,
+          method: response.data.data.method || 'hybrid'
+        }, 'Recommendations retrieved');
+      }
+    } catch (aiError) {
+      console.log('⚠️ AI service unavailable, using fallback');
     }
+
+    // Fallback to popular NGOs
+    const User = (await import('../models/User.js')).default;
+    const popularNGOs = await User.find({ role: 'recipient' })
+      .sort({ trust_score: -1, impact_score: -1 })
+      .limit(limit);
+
+    // ✅ FIX: Convert location objects to strings for fallback too
+    const fixedPopularNGOs = popularNGOs.map(ngo => ({
+      _id: ngo._id.toString(),
+      id: ngo._id.toString(),
+      name: ngo.organization?.name || ngo.name || 'Unknown NGO',
+      location: ngo.location?.city || ngo.location?.address || 'Unknown',
+      city: ngo.location?.city || 'Unknown',
+      trust_score: ngo.trust_score || 4.0,
+      impact_score: ngo.impact_score || 4.0,
+      score: 0.7,
+      reason: 'Popular NGO in your area'
+    }));
+
+    console.log(`✅ Got ${fixedPopularNGOs.length} recommendations`);
+    return ok(res, {
+      recommendations: fixedPopularNGOs,
+      count: fixedPopularNGOs.length,
+      method: 'popular'
+    }, 'Popular recommendations retrieved');
+
   } catch (error) {
     console.error('❌ Recommendations error:', error.message);
-    return fail(res, 'Failed to get recommendations', 500);
+    return serverError(res, 'Failed to get recommendations');
   }
 });
+
 
 // @desc    Get donor profile insights
 // @route   GET /api/recommendations/profile
@@ -78,19 +115,34 @@ router.get('/profile', protect, async (req, res) => {
   try {
     console.log(`👤 Fetching profile for donor ${req.user.id}`);
     
-    const response = await axios.get(`${AI_SERVICE_URL}/recommendations/donor-profile/${req.user.id}`, {
-      timeout: 5000
-    });
+    try {
+      const response = await axios.get(`${AI_SERVICE_URL}/recommendations/donor-profile/${req.user.id}`, {
+        timeout: 5000
+      });
 
-    if (response.data.success) {
-      console.log('✅ Profile retrieved');
-      return ok(res, response.data.data, 'Donor profile retrieved');
-    } else {
-      return fail(res, 'Failed to get profile', 500);
+      if (response.data.success) {
+        console.log('✅ Profile retrieved');
+        return ok(res, response.data.data, 'Donor profile retrieved');
+      }
+    } catch (aiError) {
+      console.log('⚠️ AI profile not available, returning basic profile');
+      // ✅ FALLBACK: Return a basic profile instead of failing
+      return ok(res, {
+        profile: {
+          donation_frequency: 0,
+          activity_level: 'New',
+          avg_items_per_donation: 0,
+          preferred_categories: [],
+          message: 'Make a few donations to see your AI-generated profile'
+        }
+      }, 'Basic profile retrieved');
     }
   } catch (error) {
     console.error('❌ Profile error:', error.message);
-    return fail(res, 'Failed to get donor profile', 500);
+    // ✅ Return empty profile instead of error
+    return ok(res, {
+      profile: null
+    }, 'Profile not available');
   }
 });
 
