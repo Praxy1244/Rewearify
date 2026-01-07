@@ -8,7 +8,6 @@ import sys
 import pandas as pd
 import pickle
 
-
 # Import services
 from services.fraud_detection import FraudDetector
 from services.suggestions import generate_smart_suggestions
@@ -16,18 +15,15 @@ from services.matching import DonationMatcher
 from services.recommendations import initialize_recommendation_engine
 from services.forcasting_mongo import forecaster  # ✅ Import the global forecaster instance
 
-
 # Setup paths
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
-
 
 app = FastAPI(
     title="Rewearify AI Service",
     description="AI-powered fraud detection, smart suggestions, NGO matching, clustering, and recommendations",
     version="6.1.0"
 )
-
 
 # Enable CORS
 app.add_middleware(
@@ -38,14 +34,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Global services
 fraud_detector = None
 matcher = None
 recommender = None
 # forecaster is now imported globally
 cluster_stats = None
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -63,24 +57,54 @@ async def startup_event():
         # Smart suggestions is rule-based
         print("✅ Smart suggestions service ready")
         
-        # Initialize NGO matcher
-        matcher = DonationMatcher()
-        print(f"✅ NGO Matcher loaded")
-        
         # Forecaster is already initialized globally
         print("✅ Demand forecaster ready")
         
-        # Initialize recommendation engine
+        # Load MongoDB data FIRST (for both matcher and recommender)
         try:
-            data_path = os.path.join(ROOT_DIR, "data")
-            ngos_df = pd.read_csv(os.path.join(data_path, "ngos.csv"))
-            donations_df = pd.read_csv(os.path.join(data_path, "donations.csv"))
+            from pymongo import MongoClient
+            from dotenv import load_dotenv
             
+            load_dotenv()
+            MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/rewearify')
+            
+            print(f"🔗 Connecting to MongoDB...")
+            mongo_client = MongoClient(MONGODB_URI)
+            db = mongo_client.get_database()
+            
+            # Load NGOs and donations from MongoDB
+            users_collection = db['users']
+            donations_collection = db['donations']
+            
+            # Filter users to get only recipients (NGOs)
+            ngos_list = list(users_collection.find({'role': 'recipient'}))
+            donations_list = list(donations_collection.find())
+            
+            print(f"📊 Loaded {len(ngos_list)} NGOs from MongoDB")
+            print(f"📊 Loaded {len(donations_list)} donations from MongoDB")
+            
+            # Convert to DataFrames
+            ngos_df = pd.DataFrame(ngos_list)
+            donations_df = pd.DataFrame(donations_list)
+            
+            if len(ngos_df) > 0 and 'name' in ngos_df.columns:
+                print(f"✅ Sample NGO names: {ngos_df['name'].head(3).tolist()}")
+            
+            # Initialize NGO matcher with MongoDB data
+            matcher = DonationMatcher(ngos_df=ngos_df)
+            print(f"✅ NGO Matcher loaded with MongoDB data")
+            
+            # Initialize recommendation engine with MongoDB data
             recommender = initialize_recommendation_engine(ngos_df, donations_df)
-            print(f"✅ Recommendation engine loaded")
-        except Exception as rec_error:
-            print(f"⚠️ Recommendation engine failed to load: {rec_error}")
-            print(f"   Will use fallback to popular NGOs")
+            print(f"✅ Recommendation engine loaded with FRESH MongoDB data")
+            
+        except Exception as mongo_error:
+            print(f"⚠️ MongoDB connection failed: {mongo_error}")
+            print(f"   Falling back to CSV data for matcher")
+            import traceback
+            traceback.print_exc()
+            # Fall back to CSV loading
+            matcher = DonationMatcher()
             recommender = None
         
         # Load clustering data
@@ -106,9 +130,7 @@ async def startup_event():
         import traceback
         traceback.print_exc()
 
-
 # --- Data Models ---
-
 
 class FraudCheckRequest(BaseModel):
     donor_id: str
@@ -116,14 +138,12 @@ class FraudCheckRequest(BaseModel):
     donor_data: Dict[str, Any]
     model_name: str = Field(default="random_forest")
 
-
 class SmartSuggestionRequest(BaseModel):
     category: str
     condition: str
     title: Optional[str] = ""
     description: Optional[str] = ""
     mode: Optional[str] = "donation"
-
 
 class DonationMatchRequest(BaseModel):
     donation_id: Optional[str] = "NEW"
@@ -134,7 +154,6 @@ class DonationMatchRequest(BaseModel):
     longitude: float
     description: Optional[str] = ""
     max_distance: Optional[int] = 50
-
 
 class RequestMatchRequest(BaseModel):
     requestId: str
@@ -147,17 +166,14 @@ class RequestMatchRequest(BaseModel):
     max_distance: Optional[int] = 50
     maxMatches: Optional[int] = 5
 
-
 class MatchingRequest(BaseModel):
     donation: dict
     requests: list
-
 
 class ForecastRequest(BaseModel):
     clothing_type: str
     city: str
     periods: Optional[int] = 30
-
 
 class SupplyGapRequest(BaseModel):
     clothing_type: str
@@ -165,15 +181,12 @@ class SupplyGapRequest(BaseModel):
     current_supply: int
     periods: Optional[int] = 30
 
-
 class HybridRecommendationRequest(BaseModel):
     donor_id: str
     location: Optional[str] = None
     limit: Optional[int] = 10
 
-
 # --- Root & Health Endpoints ---
-
 
 @app.get("/")
 def read_root():
@@ -206,7 +219,6 @@ def read_root():
         }
     }
 
-
 @app.get("/health")
 def health_check():
     return {
@@ -238,9 +250,7 @@ def health_check():
         }
     }
 
-
 # ==================== CLUSTERING ENDPOINTS ====================
-
 
 @app.get("/clusters")
 def get_clusters():
@@ -264,7 +274,6 @@ def get_clusters():
     except Exception as e:
         print(f"❌ Clustering error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Clustering error: {str(e)}")
-
 
 @app.get("/clusters/{cluster_id}")
 def get_cluster_details(cluster_id: str):
@@ -293,9 +302,7 @@ def get_cluster_details(cluster_id: str):
         print(f"❌ Cluster details error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 # ==================== FRAUD DETECTION ====================
-
 
 @app.post("/api/ai/check-fraud")
 def check_fraud(request: FraudCheckRequest):
@@ -340,9 +347,7 @@ def check_fraud(request: FraudCheckRequest):
         print(f"❌ Fraud detection error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Fraud detection error: {str(e)}")
 
-
 # ==================== SMART SUGGESTIONS ====================
-
 
 def _generate_suggestions(request: SmartSuggestionRequest):
     try:
@@ -368,19 +373,15 @@ def _generate_suggestions(request: SmartSuggestionRequest):
         print(f"❌ Smart suggestions error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 @app.post("/api/ai/analyze-donation")
 def analyze_donation_full(request: SmartSuggestionRequest):
     return _generate_suggestions(request)
-
 
 @app.post("/analyze-donation")
 def analyze_donation_short(request: SmartSuggestionRequest):
     return _generate_suggestions(request)
 
-
 # ==================== NGO MATCHING ====================
-
 
 @app.post("/api/ai/match-donations")
 def match_donations(request: DonationMatchRequest):
@@ -423,9 +424,7 @@ def match_donations(request: DonationMatchRequest):
         print(f"❌ Matching error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Matching error: {str(e)}")
 
-
 # ==================== REQUEST MATCHING ====================
-
 
 @app.post("/match-requests")
 async def match_requests(data: MatchingRequest):
@@ -458,7 +457,6 @@ async def match_requests(data: MatchingRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Matching failed: {str(e)}")
 
-
 @app.post("/find-matches")
 def find_donation_matches(request: RequestMatchRequest):
     """DEPRECATED: Use /match-requests instead"""
@@ -469,9 +467,7 @@ def find_donation_matches(request: RequestMatchRequest):
         "matches": []
     }
 
-
 # ==================== FORECASTING ENDPOINTS ====================
-
 
 @app.post("/forecast")
 def get_forecast(request: ForecastRequest):
@@ -498,7 +494,6 @@ def get_forecast(request: ForecastRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Forecasting error: {str(e)}")
 
-
 @app.get("/seasonal-trends/{clothing_type}")
 def get_seasonal_trends(clothing_type: str):
     """Get seasonal trends for a clothing category"""
@@ -515,7 +510,6 @@ def get_seasonal_trends(clothing_type: str):
     except Exception as e:
         print(f"❌ Trends error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Trends error: {str(e)}")
-
 
 @app.post("/supply-gap")
 def analyze_supply_gap(request: SupplyGapRequest):
@@ -539,7 +533,6 @@ def analyze_supply_gap(request: SupplyGapRequest):
         print(f"❌ Supply gap error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Supply gap error: {str(e)}")
 
-
 @app.get("/forecast-categories")
 def get_forecast_categories():
     """Get available categories and cities for forecasting"""
@@ -554,9 +547,7 @@ def get_forecast_categories():
         print(f"❌ Categories error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 # ==================== RECOMMENDATIONS ====================
-
 
 @app.post("/recommendations/hybrid")
 def get_hybrid_recommendations(request: HybridRecommendationRequest):
@@ -636,7 +627,6 @@ def get_hybrid_recommendations(request: HybridRecommendationRequest):
         "message": "Recommendation service temporarily unavailable. Please try popular NGOs or search manually."
     }
 
-
 @app.get("/recommendations/popular")
 def get_popular_ngos(limit: int = 10):
     """Get most popular/highly-rated NGOs"""
@@ -667,7 +657,7 @@ def get_popular_ngos(limit: int = 10):
                 'state': ngo.get('state', 'Unknown'),
                 'trust_score': float(ngo.get('trust_score', 75)),
                 'recommendation_score': 0.9 - (idx * 0.05),  # Gradually decrease score
-                'recommendation_reason': f"Top {idx + 1} rated NGO with {ngo.get('trust_score', 75)}% trust score",
+                'recommendation_reason': f"Top {idx + 1} rated NGO with {ngo.get('trust_score', 75):.1f}% trust score",
                 'categories_accepted': ngo.get('categories_accepted', []),
                 'total_donations_received': int(ngo.get('total_donations_received', 0)),
                 'verified': bool(ngo.get('verified', True))
@@ -688,7 +678,6 @@ def get_popular_ngos(limit: int = 10):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
 
 @app.get("/recommendations/nearby")
 def get_nearby_ngos(city: str, limit: int = 10):
@@ -747,9 +736,7 @@ def get_nearby_ngos(city: str, limit: int = 10):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 # ==================== RUN THE APP ====================
-
 
 if __name__ == "__main__":
     print("\n" + "="*60)

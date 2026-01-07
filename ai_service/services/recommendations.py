@@ -4,6 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime, timedelta
 import json
 
+
 class RecommendationEngine:
     def __init__(self, ngos_df, donations_df):
         """Initialize recommendation engine with NGO and donation data"""
@@ -19,13 +20,14 @@ class RecommendationEngine:
     def _normalize_donation_columns(self):
         """Normalize donation dataframe column names to match expected format"""
         column_mapping = {
+            'donor': 'donor_id',  # MongoDB field
             'DonorID': 'donor_id',
             'Type': 'category',
             'Condition_Donor': 'condition',
             'Matched_NGO_ID': 'matched_ngo',
             'Timestamp_Submitted': 'created_at',
             'Location_City': 'city',
-            'Quantity': 'quantity'
+            'Quantity': 'quantity',
         }
         
         # Rename columns if they exist
@@ -80,13 +82,13 @@ class RecommendationEngine:
             
             profile = {
                 'total_donations': len(donor_donations),
-                'categories': donor_donations['category'].value_counts().to_dict(),
-                'preferred_locations': donor_donations['city'].value_counts().to_dict(),
-                'avg_quantity': donor_donations['quantity'].mean(),
-                'total_quantity': donor_donations['quantity'].sum(),
-                'conditions': donor_donations['condition'].value_counts().to_dict(),
-                'recent_activity': (datetime.now() - pd.to_datetime(donor_donations['created_at']).max()).days,
-                'donation_frequency': len(donor_donations) / max((datetime.now() - pd.to_datetime(donor_donations['created_at']).min()).days, 1)
+                'categories': donor_donations['category'].value_counts().to_dict() if 'category' in donor_donations.columns else {},
+                'preferred_locations': donor_donations['city'].value_counts().to_dict() if 'city' in donor_donations.columns else {},
+                'avg_quantity': donor_donations['quantity'].mean() if 'quantity' in donor_donations.columns else 1,
+                'total_quantity': donor_donations['quantity'].sum() if 'quantity' in donor_donations.columns else len(donor_donations),
+                'conditions': donor_donations['condition'].value_counts().to_dict() if 'condition' in donor_donations.columns else {},
+                'recent_activity': (datetime.now() - pd.to_datetime(donor_donations['created_at']).max()).days if 'created_at' in donor_donations.columns else 30,
+                'donation_frequency': len(donor_donations) / max((datetime.now() - pd.to_datetime(donor_donations['created_at']).min()).days, 1) if 'created_at' in donor_donations.columns else 0.1
             }
             
             donor_profiles[str(donor_id)] = profile
@@ -141,9 +143,10 @@ class RecommendationEngine:
             similar_donor_donations = self.donations_df[
                 self.donations_df['donor_id'] == similar_donor_id
             ]
-            for ngo_id in similar_donor_donations['matched_ngo'].dropna().unique():
-                if ngo_id not in recommended_ngos:
-                    recommended_ngos.append(ngo_id)
+            if 'matched_ngo' in similar_donor_donations.columns:
+                for ngo_id in similar_donor_donations['matched_ngo'].dropna().unique():
+                    if ngo_id not in recommended_ngos:
+                        recommended_ngos.append(ngo_id)
         
         return recommended_ngos[:n]
     
@@ -159,18 +162,21 @@ class RecommendationEngine:
         ideal_profile = np.zeros(self.ngo_features.shape[1])
         
         # Weight by recency (recent donations matter more)
-        for _, donation in donor_donations.iterrows():
-            ngo_id = donation.get('matched_ngo')
-            if pd.notna(ngo_id):
-                ngo_idx = self.ngos_df[self.ngos_df['_id'] == ngo_id].index
-                if len(ngo_idx) > 0:
-                    # Calculate recency weight (exponential decay)
-                    days_ago = (datetime.now() - pd.to_datetime(donation['created_at'])).days
-                    weight = np.exp(-days_ago / 90)  # 90-day half-life
-                    ideal_profile += self.ngo_features[ngo_idx[0]] * weight
+        if 'matched_ngo' in donor_donations.columns and 'created_at' in donor_donations.columns:
+            for _, donation in donor_donations.iterrows():
+                ngo_id = donation.get('matched_ngo')
+                if pd.notna(ngo_id):
+                    ngo_idx = self.ngos_df[self.ngos_df['_id'] == ngo_id].index
+                    if len(ngo_idx) > 0:
+                        # Calculate recency weight (exponential decay)
+                        days_ago = (datetime.now() - pd.to_datetime(donation['created_at'])).days
+                        weight = np.exp(-days_ago / 90)  # 90-day half-life
+                        ideal_profile += self.ngo_features[ngo_idx[0]] * weight
         
         if ideal_profile.sum() > 0:
             ideal_profile = ideal_profile / ideal_profile.sum()
+        else:
+            return self.get_popular_ngos(n)
         
         # Calculate similarity to all NGOs
         similarities = cosine_similarity([ideal_profile], self.ngo_features)[0]
@@ -185,7 +191,7 @@ class RecommendationEngine:
         """Get recommendations based on NGO clusters"""
         donor_donations = self.donations_df[self.donations_df['donor_id'] == donor_id]
         
-        if len(donor_donations) == 0:
+        if len(donor_donations) == 0 or 'matched_ngo' not in donor_donations.columns:
             return self.get_popular_ngos(n)
         
         # Find clusters donor has donated to
@@ -210,32 +216,41 @@ class RecommendationEngine:
         ]
         
         # Sort by trust and impact scores
-        cluster_ngos = cluster_ngos.sort_values(
-            by=['trust_score', 'impact_score'], 
-            ascending=False
-        )
+        if 'trust_score' in cluster_ngos.columns and 'impact_score' in cluster_ngos.columns:
+            cluster_ngos = cluster_ngos.sort_values(
+                by=['trust_score', 'impact_score'], 
+                ascending=False
+            )
         
         return cluster_ngos.head(n)['_id'].tolist()
     
     def get_location_based_recommendations(self, donor_id, donor_location, n=5):
         """Get recommendations based on donor's location"""
+        if 'city' not in self.ngos_df.columns:
+            return self.get_popular_ngos(n)
+            
         # Get NGOs near donor
         nearby_ngos = self.ngos_df[
             self.ngos_df['city'].str.lower() == donor_location.lower()
         ]
         
         # Sort by trust score
-        nearby_ngos = nearby_ngos.sort_values(by='trust_score', ascending=False)
+        if 'trust_score' in nearby_ngos.columns:
+            nearby_ngos = nearby_ngos.sort_values(by='trust_score', ascending=False)
         
         return nearby_ngos.head(n)['_id'].tolist()
     
     def get_popular_ngos(self, n=5):
         """Get most popular NGOs (fallback)"""
         # Sort by trust and impact scores
-        popular = self.ngos_df.sort_values(
-            by=['trust_score', 'impact_score'], 
-            ascending=False
-        )
+        if 'trust_score' in self.ngos_df.columns and 'impact_score' in self.ngos_df.columns:
+            popular = self.ngos_df.sort_values(
+                by=['trust_score', 'impact_score'], 
+                ascending=False
+            )
+        else:
+            popular = self.ngos_df
+            
         return popular.head(n)['_id'].tolist()
     
     def get_hybrid_recommendations(self, donor_id, donor_location=None, n=10, weights=None):
@@ -273,18 +288,24 @@ class RecommendationEngine:
             score = 0
             
             if ngo_id in collab_recs:
-                score += weights['collaborative'] * (1 - collab_recs.index(ngo_id) / len(collab_recs))
+                score += weights['collaborative'] * (1 - collab_recs.index(ngo_id) / max(len(collab_recs), 1))
             
             if ngo_id in content_recs:
-                score += weights['content'] * (1 - content_recs.index(ngo_id) / len(content_recs))
+                score += weights['content'] * (1 - content_recs.index(ngo_id) / max(len(content_recs), 1))
             
             if ngo_id in cluster_recs:
-                score += weights['cluster'] * (1 - cluster_recs.index(ngo_id) / len(cluster_recs))
+                score += weights['cluster'] * (1 - cluster_recs.index(ngo_id) / max(len(cluster_recs), 1))
             
             if ngo_id in location_recs:
-                score += weights['location'] * (1 - location_recs.index(ngo_id) / len(location_recs))
+                score += weights['location'] * (1 - location_recs.index(ngo_id) / max(len(location_recs), 1))
             
             recommendations[ngo_id] = score
+        
+        # If no recommendations, fall back to popular
+        if not recommendations:
+            popular_ids = self.get_popular_ngos(n)
+            for idx, ngo_id in enumerate(popular_ids):
+                recommendations[ngo_id] = 1 - (idx / max(len(popular_ids), 1))
         
         # Sort by score
         sorted_recs = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
@@ -295,6 +316,9 @@ class RecommendationEngine:
             ngo = self.ngos_df[self.ngos_df['_id'] == ngo_id]
             if len(ngo) > 0:
                 ngo_data = ngo.iloc[0].to_dict()
+                # Convert ObjectId to string
+                if '_id' in ngo_data:
+                    ngo_data['_id'] = str(ngo_data['_id'])
                 ngo_data['recommendation_score'] = round(score, 3)
                 ngo_data['recommendation_reason'] = self._get_recommendation_reason(
                     ngo_id, collab_recs, content_recs, cluster_recs, location_recs
@@ -318,8 +342,10 @@ class RecommendationEngine:
         
         return ", ".join(reasons) if reasons else "Highly rated NGO"
 
+
 # Initialize with empty data (will be loaded in main.py)
 recommendation_engine = None
+
 
 def initialize_recommendation_engine(ngos_df, donations_df):
     """Initialize the recommendation engine with data"""

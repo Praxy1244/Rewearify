@@ -7,6 +7,7 @@ import math
 from datetime import datetime
 from geopy.distance import geodesic
 
+
 class DonationMatcher:
     """
     Enhanced matcher that supports:
@@ -14,13 +15,26 @@ class DonationMatcher:
     2. Finding requests for donations (NEW)
     """
     
-    def __init__(self):
+    def __init__(self, ngos_df=None):
+        """
+        Initialize matcher with optional NGO dataframe
+        If ngos_df is provided, use it (from MongoDB)
+        Otherwise, fall back to CSV loading
+        """
         self.ngos_df = None
         self.donations_df = None
-        self.load_data()
+        
+        if ngos_df is not None:
+            # Use provided MongoDB data
+            self.ngos_df = ngos_df.copy()
+            self.ngos_df.columns = self.ngos_df.columns.str.lower()
+            self._process_ngo_data()
+        else:
+            # Fall back to CSV loading
+            self.load_data()
 
     def load_data(self):
-        """Load NGO and donation data"""
+        """Load NGO data from CSV (fallback method)"""
         current_dir = os.path.dirname(os.path.abspath(__file__))
         root_dir = os.path.dirname(os.path.dirname(current_dir))
         data_dir = os.path.join(root_dir, 'data')
@@ -30,33 +44,36 @@ class DonationMatcher:
         if os.path.exists(ngo_path):
             self.ngos_df = pd.read_csv(ngo_path)
             self.ngos_df.columns = self.ngos_df.columns.str.lower()
-            
-            # Calculate trust_score if not present
-            if 'trust_score' not in self.ngos_df.columns:
-                print("📊 Calculating trust_score for NGOs...")
-                self.ngos_df['trust_score'] = self._calculate_trust_score()
-                print(f"✅ Trust scores calculated (range: {self.ngos_df['trust_score'].min():.1f}-{self.ngos_df['trust_score'].max():.1f})")
-            
-            # Generate accepted_clothing_types from special_focus if not present
-            if 'accepted_clothing_types' not in self.ngos_df.columns:
-                print("📊 Generating accepted_clothing_types from special_focus...")
-                self.ngos_df['accepted_clothing_types'] = self._generate_accepted_types()
-                print("✅ Accepted clothing types generated")
-            
-            # Add verified field if not present
-            if 'verified' not in self.ngos_df.columns:
-                self.ngos_df['verified'] = True
-            
-            # Add categories_accepted if not present (as list)
-            if 'categories_accepted' not in self.ngos_df.columns:
-                self.ngos_df['categories_accepted'] = self.ngos_df.apply(
-                    lambda row: self._parse_categories(row.get('special_focus', '')), axis=1
-                )
-            
-            print(f"✅ Matcher loaded {len(self.ngos_df)} NGOs")
+            self._process_ngo_data()
         else:
             print(f"⚠️ Warning: NGO file not found at {ngo_path}")
             self.ngos_df = pd.DataFrame()
+
+    def _process_ngo_data(self):
+        """Process NGO dataframe (common for both CSV and MongoDB)"""
+        # Calculate trust_score if not present
+        if 'trust_score' not in self.ngos_df.columns:
+            print("📊 Calculating trust_score for NGOs...")
+            self.ngos_df['trust_score'] = self._calculate_trust_score()
+            print(f"✅ Trust scores calculated (range: {self.ngos_df['trust_score'].min():.1f}-{self.ngos_df['trust_score'].max():.1f})")
+        
+        # Generate accepted_clothing_types from special_focus if not present
+        if 'accepted_clothing_types' not in self.ngos_df.columns:
+            print("📊 Generating accepted_clothing_types from special_focus...")
+            self.ngos_df['accepted_clothing_types'] = self._generate_accepted_types()
+            print("✅ Accepted clothing types generated")
+        
+        # Add verified field if not present
+        if 'verified' not in self.ngos_df.columns:
+            self.ngos_df['verified'] = True
+        
+        # Add categories_accepted if not present (as list)
+        if 'categories_accepted' not in self.ngos_df.columns:
+            self.ngos_df['categories_accepted'] = self.ngos_df.apply(
+                lambda row: self._parse_categories(row.get('special_focus', '')), axis=1
+            )
+        
+        print(f"✅ Matcher loaded {len(self.ngos_df)} NGOs")
 
     def _calculate_trust_score(self):
         """
