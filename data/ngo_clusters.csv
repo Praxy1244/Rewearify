@@ -1,51 +1,61 @@
 NGO_ID,Name,Email,City,State,Latitude,Longitude,Special_Focus,Capacity_per_week,Urgent_Need,Cause,Acceptance_Rate,Organization_Name,Organization_Type,Total_Donations_Received,Total_Requests_Made,Created_At,GeoCluster,BehavioralCluster
-6946f7f013cd35f261c0d358,Hope Foundation - Mumbai,ngo1@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Hope Foundation - Mumbai,NGO,0,19,,0,0.0
-6946f7f013cd35f261c0d359,Seva Trust - Mumbai,ngo2@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Seva Trust - Mumbai,NGO,0,39,,1,0.0
-6946f7f013cd35f261c0d35a,Care India - Mumbai,ngo3@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Care India - Mumbai,NGO,0,19,,2,0.0
-6946f7f013cd35f261c0d35b,Helping Hands - Mumbai,ngo4@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Helping Hands - Mumbai,NGO,0,25,,3,0.0
-6946f7f013cd35f261c0d35c,Smile Foundation - Mumbai,ngo5@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Smile Foundation - Mumbai,NGO,0,24,,0,0.0
-6946f7f013cd35f261c0d35d,Hope Foundation - Delhi,ngo6@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Hope Foundation - Delhi,NGO,0,14,,1,0.0
-6946f7f013cd35f261c0d35e,Seva Trust - Delhi,ngo7@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Seva Trust - Delhi,NGO,0,3,,2,0.0
-6946f7f013cd35f261c0d35f,Care India - Delhi,ngo8@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Care India - Delhi,NGO,0,35,,3,0.0
-6946f7f013cd35f261c0d360,Helping Hands - Delhi,ngo9@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Helping Hands - Delhi,NGO,0,17,,0,0.0
-6946f7f013cd35f261c0d361,Smile Foundation - Delhi,ngo10@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Smile Foundation - Delhi,NGO,0,21,,1,0.0
-6946f7f013cd35f261c0d362,Hope Foundation - Bengaluru,ngo11@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Hope Foundation - Bengaluru,NGO,0,27,,2,0.0
-6946f7f013cd35f261c0d363,Seva Trust - Bengaluru,ngo12@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Seva Trust - Bengaluru,NGO,0,10,,3,0.0
-6946f7f013cd35f261c0d364,Care India - Bengaluru,ngo13@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Care India - Bengaluru,NGO,0,44,,0,0.0
-6946f7f013cd35f261c0d365,Helping Hands - Bengaluru,ngo14@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Helping Hands - Bengaluru,NGO,0,4,,1,0.0
-6946f7f013cd35f261c0d366,Smile Foundation - Bengaluru,ngo15@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Smile Foundation - Bengaluru,NGO,0,44,,2,0.0
-6946f7f013cd35f261c0d367,Hope Foundation - Hyderabad,ngo16@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Hope Foundation - Hyderabad,NGO,0,37,,3,0.0
-6946f7f013cd35f261c0d368,Seva Trust - Hyderabad,ngo17@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Seva Trust - Hyderabad,NGO,0,3,,0,0.0
-6946f7f013cd35f261c0d369,Care India - Hyderabad,ngo18@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Care India - Hyderabad,NGO,0,27,,1,0.0
-6946f7f013cd35f261c0d36a,Helping Hands - Hyderabad,ngo19@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Helping Hands - Hyderabad,NGO,0,8,,2,0.0
-6946f7f013cd35f261c0d36b,Smile Foundation - Hyderabad,ngo20@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Smile Foundation - Hyderabad,NGO,0,6,,3,0.0
-6946f7f013cd35f261c0d36c,Hope Foundation - Chennai,ngo21@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Hope Foundation - Chennai,NGO,0,11,,0,0.0
-6946f7f013cd35f261c0d36d,Seva Trust - Chennai,ngo22@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Seva Trust - Chennai,NGO,0,47,,1,0.0
-6946f7f013cd35f261c0d36e,Care India - Chennai,ngo23@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Care India - Chennai,NGO,0,8,,2,0.0
-6946f7f013cd35f261c0d36f,Helping Hands - Chennai,ngo24@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Helping Hands - Chennai,NGO,0,47,,3,0.0
-6946f7f013cd35f261c0d370,Smile Foundation - Chennai,ngo25@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Smile Foundation - Chennai,NGO,0,43,,0,0.0
-6946f7f013cd35f261c0d371,Hope Foundation - Kolkata,ngo26@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Hope Foundation - Kolkata,NGO,0,49,,1,0.0
-6946f7f013cd35f261c0d372,Seva Trust - Kolkata,ngo27@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Seva Trust - Kolkata,NGO,0,19,,2,0.0
-6946f7f013cd35f261c0d373,Care India - Kolkata,ngo28@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Care India - Kolkata,NGO,0,3,,3,0.0
-6946f7f013cd35f261c0d374,Helping Hands - Kolkata,ngo29@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Helping Hands - Kolkata,NGO,0,15,,0,0.0
-6946f7f013cd35f261c0d375,Smile Foundation - Kolkata,ngo30@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Smile Foundation - Kolkata,NGO,0,37,,1,0.0
-6946f7f013cd35f261c0d376,Hope Foundation - Pune,ngo31@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Hope Foundation - Pune,NGO,0,16,,2,0.0
-6946f7f013cd35f261c0d377,Seva Trust - Pune,ngo32@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Seva Trust - Pune,NGO,0,26,,3,0.0
-6946f7f013cd35f261c0d378,Care India - Pune,ngo33@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Care India - Pune,NGO,0,39,,0,0.0
-6946f7f013cd35f261c0d379,Helping Hands - Pune,ngo34@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Helping Hands - Pune,NGO,0,40,,1,0.0
-6946f7f013cd35f261c0d37a,Smile Foundation - Pune,ngo35@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Smile Foundation - Pune,NGO,0,43,,2,0.0
-6946f7f013cd35f261c0d37b,Hope Foundation - Ahmedabad,ngo36@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Hope Foundation - Ahmedabad,NGO,0,39,,3,0.0
-6946f7f013cd35f261c0d37c,Seva Trust - Ahmedabad,ngo37@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Seva Trust - Ahmedabad,NGO,0,34,,0,0.0
-6946f7f013cd35f261c0d37d,Care India - Ahmedabad,ngo38@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Care India - Ahmedabad,NGO,0,29,,1,0.0
-6946f7f013cd35f261c0d37e,Helping Hands - Ahmedabad,ngo39@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Helping Hands - Ahmedabad,NGO,0,3,,2,0.0
-6946f7f013cd35f261c0d37f,Smile Foundation - Ahmedabad,ngo40@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Smile Foundation - Ahmedabad,NGO,0,43,,3,0.0
-6946f7f013cd35f261c0d380,Hope Foundation - Jaipur,ngo41@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Hope Foundation - Jaipur,NGO,0,12,,0,0.0
-6946f7f013cd35f261c0d381,Seva Trust - Jaipur,ngo42@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Seva Trust - Jaipur,NGO,0,24,,1,0.0
-6946f7f013cd35f261c0d382,Care India - Jaipur,ngo43@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Care India - Jaipur,NGO,0,6,,2,0.0
-6946f7f013cd35f261c0d383,Helping Hands - Jaipur,ngo44@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Helping Hands - Jaipur,NGO,0,45,,3,0.0
-6946f7f013cd35f261c0d384,Smile Foundation - Jaipur,ngo45@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Smile Foundation - Jaipur,NGO,0,39,,0,0.0
-6946f7f013cd35f261c0d385,Hope Foundation - Mysuru,ngo46@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Hope Foundation - Mysuru,NGO,0,0,,1,0.0
-6946f7f013cd35f261c0d386,Seva Trust - Mysuru,ngo47@example.com,Mangaluru,Karnataka,12.9141,74.856,All types,400,True,Poverty,0.8,Seva Trust - Mysuru,NGO,0,39,,2,0.0
-6946f7f013cd35f261c0d387,Care India - Mysuru,ngo48@example.com,Hubballi,Karnataka,15.3647,75.124,"Women's Wear, Accessories",150,False,Women Empowerment,0.8,Care India - Mysuru,NGO,0,2,,3,0.0
-6946f7f013cd35f261c0d388,Helping Hands - Mysuru,ngo49@example.com,Bengaluru,Karnataka,12.9716,77.5946,"Men's Wear, Women's Wear, Winter Wear",250,True,Education,0.8,Helping Hands - Mysuru,NGO,0,0,,0,0.0
-6946f7f013cd35f261c0d389,Smile Foundation - Mysuru,ngo50@example.com,Mysuru,Karnataka,12.2958,76.6394,"Kids Wear, Women's Wear",180,False,Child Welfare,0.8,Smile Foundation - Mysuru,NGO,0,27,,1,0.0
+695eaa536a771ef84b04568a,Learn & Grow Foundation Mumbai,ngo1@example.com,Mumbai,Maharashtra,19.067739,72.935148,"Kids Wear, Footwear",278,False,Education,0.85,Learn & Grow Foundation Mumbai,NGO,20,0,,0,2.0
+695eaa536a771ef84b04568b,School Support Trust Mumbai,ngo2@example.com,Mumbai,Maharashtra,19.050192,72.899539,"Kids Wear, All types",341,True,Child Welfare,0.9,School Support Trust Mumbai,NGO,17,0,,0,1.0
+695eaa536a771ef84b04568c,Women Empowerment Society Mumbai,ngo3@example.com,Mumbai,Maharashtra,19.09704,72.86929,"Women's Wear, Accessories",171,False,Women Empowerment,0.8,Women Empowerment Society Mumbai,NGO,10,0,,0,0.0
+695eaa536a771ef84b04568d,Shakti Foundation Mumbai,ngo4@example.com,Mumbai,Maharashtra,19.078171,72.903532,"Women's Wear, All types",239,True,Women Empowerment,0.88,Shakti Foundation Mumbai,NGO,8,0,,0,1.0
+695eaa536a771ef84b04568e,Hope For All Mumbai,ngo5@example.com,Mumbai,Maharashtra,19.12458,72.855226,All types,305,False,Poverty,0.92,Hope For All Mumbai,NGO,11,0,,0,0.0
+695eaa536a771ef84b04568f,Seva Trust Mumbai,ngo6@example.com,Mumbai,Maharashtra,19.127845,72.806626,"Men's Wear, Women's Wear, Kids Wear",391,False,General,0.87,Seva Trust Mumbai,NGO,24,0,,0,0.0
+695eaa536a771ef84b045690,Learn & Grow Foundation Delhi,ngo7@example.com,Delhi,Delhi,28.763058,77.106084,"Kids Wear, Footwear",253,False,Education,0.85,Learn & Grow Foundation Delhi,NGO,9,0,,1,2.0
+695eaa536a771ef84b045691,School Support Trust Delhi,ngo8@example.com,Delhi,Delhi,28.650108,77.088255,"Kids Wear, All types",254,True,Child Welfare,0.9,School Support Trust Delhi,NGO,12,0,,1,1.0
+695eaa536a771ef84b045692,Women Empowerment Society Delhi,ngo9@example.com,Delhi,Delhi,28.734315,77.161951,"Women's Wear, Accessories",238,False,Women Empowerment,0.8,Women Empowerment Society Delhi,NGO,9,0,,1,0.0
+695eaa536a771ef84b045693,Shakti Foundation Delhi,ngo10@example.com,Delhi,Delhi,28.684051,77.123753,"Women's Wear, All types",244,True,Women Empowerment,0.88,Shakti Foundation Delhi,NGO,18,0,,1,1.0
+695eaa536a771ef84b045694,Hope For All Delhi,ngo11@example.com,Delhi,Delhi,28.706313,77.061826,All types,357,False,Poverty,0.92,Hope For All Delhi,NGO,18,0,,1,0.0
+695eaa536a771ef84b045695,Seva Trust Delhi,ngo12@example.com,Delhi,Delhi,28.757777,77.080147,"Men's Wear, Women's Wear, Kids Wear",290,False,General,0.87,Seva Trust Delhi,NGO,8,0,,1,0.0
+695eaa536a771ef84b045696,Learn & Grow Foundation Bengaluru,ngo13@example.com,Bengaluru,Karnataka,12.934588,77.556357,"Kids Wear, Footwear",187,False,Education,0.85,Learn & Grow Foundation Bengaluru,NGO,20,0,,2,2.0
+695eaa536a771ef84b045697,School Support Trust Bengaluru,ngo14@example.com,Bengaluru,Karnataka,12.921605,77.526328,"Kids Wear, All types",260,True,Child Welfare,0.9,School Support Trust Bengaluru,NGO,24,0,,2,1.0
+695eaa536a771ef84b045698,Women Empowerment Society Bengaluru,ngo15@example.com,Bengaluru,Karnataka,12.965115,77.521218,"Women's Wear, Accessories",191,False,Women Empowerment,0.8,Women Empowerment Society Bengaluru,NGO,12,0,,2,0.0
+695eaa536a771ef84b045699,Shakti Foundation Bengaluru,ngo16@example.com,Bengaluru,Karnataka,13.020879,77.667487,"Women's Wear, All types",238,True,Women Empowerment,0.88,Shakti Foundation Bengaluru,NGO,21,0,,2,1.0
+695eaa536a771ef84b04569a,Hope For All Bengaluru,ngo17@example.com,Bengaluru,Karnataka,12.932472,77.562683,All types,329,False,Poverty,0.92,Hope For All Bengaluru,NGO,9,0,,2,0.0
+695eaa536a771ef84b04569b,Seva Trust Bengaluru,ngo18@example.com,Bengaluru,Karnataka,12.928993,77.590826,"Men's Wear, Women's Wear, Kids Wear",268,False,General,0.87,Seva Trust Bengaluru,NGO,11,0,,2,0.0
+695eaa536a771ef84b04569c,Learn & Grow Foundation Hyderabad,ngo19@example.com,Hyderabad,Telangana,17.354813,78.430171,"Kids Wear, Footwear",257,False,Education,0.85,Learn & Grow Foundation Hyderabad,NGO,10,0,,3,2.0
+695eaa536a771ef84b04569d,School Support Trust Hyderabad,ngo20@example.com,Hyderabad,Telangana,17.411726,78.54718,"Kids Wear, All types",338,True,Child Welfare,0.9,School Support Trust Hyderabad,NGO,15,0,,3,1.0
+695eaa536a771ef84b04569e,Women Empowerment Society Hyderabad,ngo21@example.com,Hyderabad,Telangana,17.413341,78.49248,"Women's Wear, Accessories",203,False,Women Empowerment,0.8,Women Empowerment Society Hyderabad,NGO,8,0,,3,0.0
+695eaa536a771ef84b04569f,Shakti Foundation Hyderabad,ngo22@example.com,Hyderabad,Telangana,17.384475,78.519813,"Women's Wear, All types",180,True,Women Empowerment,0.88,Shakti Foundation Hyderabad,NGO,17,0,,3,1.0
+695eaa536a771ef84b0456a0,Hope For All Hyderabad,ngo23@example.com,Hyderabad,Telangana,17.349696,78.534732,All types,492,False,Poverty,0.92,Hope For All Hyderabad,NGO,13,0,,3,0.0
+695eaa536a771ef84b0456a1,Seva Trust Hyderabad,ngo24@example.com,Hyderabad,Telangana,17.321425,78.507181,"Men's Wear, Women's Wear, Kids Wear",324,False,General,0.87,Seva Trust Hyderabad,NGO,19,0,,3,0.0
+695eaa536a771ef84b0456a2,Learn & Grow Foundation Chennai,ngo25@example.com,Chennai,Tamil Nadu,13.078914,80.263245,"Kids Wear, Footwear",241,False,Education,0.85,Learn & Grow Foundation Chennai,NGO,13,0,,4,2.0
+695eaa536a771ef84b0456a3,School Support Trust Chennai,ngo26@example.com,Chennai,Tamil Nadu,13.028665,80.333745,"Kids Wear, All types",217,True,Child Welfare,0.9,School Support Trust Chennai,NGO,17,0,,4,1.0
+695eaa536a771ef84b0456a4,Women Empowerment Society Chennai,ngo27@example.com,Chennai,Tamil Nadu,13.137361,80.265236,"Women's Wear, Accessories",106,False,Women Empowerment,0.8,Women Empowerment Society Chennai,NGO,14,0,,4,0.0
+695eaa536a771ef84b0456a5,Shakti Foundation Chennai,ngo28@example.com,Chennai,Tamil Nadu,13.080242,80.260629,"Women's Wear, All types",206,True,Women Empowerment,0.88,Shakti Foundation Chennai,NGO,7,0,,4,1.0
+695eaa536a771ef84b0456a6,Hope For All Chennai,ngo29@example.com,Chennai,Tamil Nadu,13.102093,80.329771,All types,430,False,Poverty,0.92,Hope For All Chennai,NGO,17,0,,4,2.0
+695eaa536a771ef84b0456a7,Seva Trust Chennai,ngo30@example.com,Chennai,Tamil Nadu,13.113322,80.251518,"Men's Wear, Women's Wear, Kids Wear",257,False,General,0.87,Seva Trust Chennai,NGO,9,0,,4,0.0
+695eaa536a771ef84b0456a8,Learn & Grow Foundation Kolkata,ngo31@example.com,Kolkata,West Bengal,22.524749,88.425295,"Kids Wear, Footwear",176,False,Education,0.85,Learn & Grow Foundation Kolkata,NGO,12,0,,5,2.0
+695eaa536a771ef84b0456a9,School Support Trust Kolkata,ngo32@example.com,Kolkata,West Bengal,22.614465,88.325341,"Kids Wear, All types",308,True,Child Welfare,0.9,School Support Trust Kolkata,NGO,7,0,,5,1.0
+695eaa536a771ef84b0456aa,Women Empowerment Society Kolkata,ngo33@example.com,Kolkata,West Bengal,22.584358,88.438199,"Women's Wear, Accessories",146,False,Women Empowerment,0.8,Women Empowerment Society Kolkata,NGO,6,0,,5,0.0
+695eaa536a771ef84b0456ab,Shakti Foundation Kolkata,ngo34@example.com,Kolkata,West Bengal,22.62776,88.404281,"Women's Wear, All types",138,True,Women Empowerment,0.88,Shakti Foundation Kolkata,NGO,18,0,,5,1.0
+695eaa536a771ef84b0456ac,Hope For All Kolkata,ngo35@example.com,Kolkata,West Bengal,22.536055,88.335865,All types,347,False,Poverty,0.92,Hope For All Kolkata,NGO,14,0,,5,0.0
+695eaa536a771ef84b0456ad,Seva Trust Kolkata,ngo36@example.com,Kolkata,West Bengal,22.647358,88.370832,"Men's Wear, Women's Wear, Kids Wear",406,False,General,0.87,Seva Trust Kolkata,NGO,10,0,,5,0.0
+695eaa536a771ef84b0456ae,Learn & Grow Foundation Pune,ngo37@example.com,Pune,Maharashtra,18.463301,73.929751,"Kids Wear, Footwear",165,False,Education,0.85,Learn & Grow Foundation Pune,NGO,17,0,,6,2.0
+695eaa536a771ef84b0456af,School Support Trust Pune,ngo38@example.com,Pune,Maharashtra,18.532455,73.826849,"Kids Wear, All types",334,True,Child Welfare,0.9,School Support Trust Pune,NGO,14,0,,6,1.0
+695eaa536a771ef84b0456b0,Women Empowerment Society Pune,ngo39@example.com,Pune,Maharashtra,18.490418,73.873647,"Women's Wear, Accessories",234,False,Women Empowerment,0.8,Women Empowerment Society Pune,NGO,16,0,,6,0.0
+695eaa536a771ef84b0456b1,Shakti Foundation Pune,ngo40@example.com,Pune,Maharashtra,18.54706,73.882447,"Women's Wear, All types",120,True,Women Empowerment,0.88,Shakti Foundation Pune,NGO,9,0,,6,1.0
+695eaa536a771ef84b0456b2,Hope For All Pune,ngo41@example.com,Pune,Maharashtra,18.499517,73.918273,All types,462,False,Poverty,0.92,Hope For All Pune,NGO,12,0,,6,0.0
+695eaa536a771ef84b0456b3,Seva Trust Pune,ngo42@example.com,Pune,Maharashtra,18.480701,73.926296,"Men's Wear, Women's Wear, Kids Wear",403,False,General,0.87,Seva Trust Pune,NGO,8,0,,6,0.0
+695eaa536a771ef84b0456b4,Learn & Grow Foundation Ahmedabad,ngo43@example.com,Ahmedabad,Gujarat,23.00296,72.569737,"Kids Wear, Footwear",283,False,Education,0.85,Learn & Grow Foundation Ahmedabad,NGO,7,0,,7,2.0
+695eaa536a771ef84b0456b5,School Support Trust Ahmedabad,ngo44@example.com,Ahmedabad,Gujarat,23.047758,72.613343,"Kids Wear, All types",225,True,Child Welfare,0.9,School Support Trust Ahmedabad,NGO,18,0,,7,1.0
+695eaa536a771ef84b0456b6,Women Empowerment Society Ahmedabad,ngo45@example.com,Ahmedabad,Gujarat,22.970805,72.553611,"Women's Wear, Accessories",213,False,Women Empowerment,0.8,Women Empowerment Society Ahmedabad,NGO,10,0,,7,0.0
+695eaa536a771ef84b0456b7,Shakti Foundation Ahmedabad,ngo46@example.com,Ahmedabad,Gujarat,22.950576,72.619852,"Women's Wear, All types",280,True,Women Empowerment,0.88,Shakti Foundation Ahmedabad,NGO,15,0,,7,1.0
+695eaa536a771ef84b0456b8,Hope For All Ahmedabad,ngo47@example.com,Ahmedabad,Gujarat,23.04125,72.541545,All types,399,False,Poverty,0.92,Hope For All Ahmedabad,NGO,16,0,,7,0.0
+695eaa536a771ef84b0456b9,Seva Trust Ahmedabad,ngo48@example.com,Ahmedabad,Gujarat,23.007613,72.635318,"Men's Wear, Women's Wear, Kids Wear",317,False,General,0.87,Seva Trust Ahmedabad,NGO,18,0,,7,0.0
+695eaa536a771ef84b0456ba,Learn & Grow Foundation Jaipur,ngo49@example.com,Jaipur,Rajasthan,26.919688,75.784245,"Kids Wear, Footwear",177,False,Education,0.85,Learn & Grow Foundation Jaipur,NGO,8,0,,8,2.0
+695eaa536a771ef84b0456bb,School Support Trust Jaipur,ngo50@example.com,Jaipur,Rajasthan,26.934016,75.852341,"Kids Wear, All types",239,True,Child Welfare,0.9,School Support Trust Jaipur,NGO,16,0,,8,1.0
+695eaa536a771ef84b0456bc,Women Empowerment Society Jaipur,ngo51@example.com,Jaipur,Rajasthan,26.892627,75.753906,"Women's Wear, Accessories",177,False,Women Empowerment,0.8,Women Empowerment Society Jaipur,NGO,4,0,,8,0.0
+695eaa536a771ef84b0456bd,Shakti Foundation Jaipur,ngo52@example.com,Jaipur,Rajasthan,26.941275,75.768019,"Women's Wear, All types",200,True,Women Empowerment,0.88,Shakti Foundation Jaipur,NGO,11,0,,8,1.0
+695eaa536a771ef84b0456be,Hope For All Jaipur,ngo53@example.com,Jaipur,Rajasthan,26.870234,75.752782,All types,364,False,Poverty,0.92,Hope For All Jaipur,NGO,11,0,,8,0.0
+695eaa536a771ef84b0456bf,Seva Trust Jaipur,ngo54@example.com,Jaipur,Rajasthan,26.952202,75.858354,"Men's Wear, Women's Wear, Kids Wear",430,False,General,0.87,Seva Trust Jaipur,NGO,14,0,,8,0.0
+695eaa536a771ef84b0456c0,Learn & Grow Foundation Mysuru,ngo55@example.com,Mysuru,Karnataka,12.352355,76.679509,"Kids Wear, Footwear",226,False,Education,0.85,Learn & Grow Foundation Mysuru,NGO,16,0,,9,2.0
+695eaa536a771ef84b0456c1,School Support Trust Mysuru,ngo56@example.com,Mysuru,Karnataka,12.221026,76.66314,"Kids Wear, All types",386,True,Child Welfare,0.9,School Support Trust Mysuru,NGO,17,0,,9,1.0
+695eaa536a771ef84b0456c2,Women Empowerment Society Mysuru,ngo57@example.com,Mysuru,Karnataka,12.298371,76.651599,"Women's Wear, Accessories",164,False,Women Empowerment,0.8,Women Empowerment Society Mysuru,NGO,13,0,,9,0.0
+695eaa536a771ef84b0456c3,Shakti Foundation Mysuru,ngo58@example.com,Mysuru,Karnataka,12.232831,76.671877,"Women's Wear, All types",183,True,Women Empowerment,0.88,Shakti Foundation Mysuru,NGO,15,0,,9,1.0
+695eaa536a771ef84b0456c4,Hope For All Mysuru,ngo59@example.com,Mysuru,Karnataka,12.224991,76.675566,All types,312,False,Poverty,0.92,Hope For All Mysuru,NGO,14,0,,9,0.0
+695eaa536a771ef84b0456c5,Seva Trust Mysuru,ngo60@example.com,Mysuru,Karnataka,12.248148,76.66396,"Men's Wear, Women's Wear, Kids Wear",365,False,General,0.87,Seva Trust Mysuru,NGO,14,0,,9,0.0

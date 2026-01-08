@@ -26,12 +26,17 @@ router.get('/', searchValidations.donations, handleValidationErrors, async (req,
       radius = 25,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      status = 'active',
+      status,  // ✅ FIXED: Removed default value
       search
     } = req.query;
 
     // Build query
-    let query = { status };
+    let query = {};  // ✅ FIXED: Start with empty query
+    
+    // ✅ FIXED: Only filter by status if provided
+    if (status) {
+      query.status = status;
+    }
     
     if (category) query.category = category;
     if (urgency) query.urgency = { $in: urgency.split(',') };
@@ -112,6 +117,7 @@ router.get('/donor/pending', protect, restrictTo('donor'), async (req, res) => {
     return fail(res, 'Failed to get pending requests', 500);
   }
 });
+
 // @desc    Get general community requests (not linked to specific donations)
 // @route   GET /api/requests/community
 // @access  Public
@@ -268,7 +274,8 @@ router.post('/',
     try {
       const requestData = {
         ...req.body,
-        requester: req.user.id
+        requester: req.user.id,
+        status: 'pending'  // ✅ FIXED: Always start as pending
       };
 
       // Create request
@@ -279,62 +286,23 @@ router.post('/',
         $inc: { 'statistics.totalRequests': 1 }
       });
 
-      // If request is for a specific donation, notify the donor
-      if (request.donation) {
-        const donation = await Donation.findById(request.donation).populate('donor', 'name email');
-        
-        if (donation) {
-          // ✅ Check if donation is still available (approved and not accepted)
-          if (donation.status === 'approved' && !donation.acceptedBy) {
-            // Set request as pending donor approval
-            request.donorResponse = {
-              status: 'pending',
-              respondedAt: null,
-              respondedBy: null,
-              acceptanceNote: '',
-              rejectionReason: ''
-            };
-            request.status = 'pending_donor';
-            await request.save();
-
-            // Notify the donor about the request
-            await Notification.create({
-              recipient: donation.donor._id,
-              type: 'new_donation_request',
-              title: 'New Request for Your Donation! 📦',
-              message: `${req.user.organization?.name || req.user.name} has requested your donation "${donation.title}"`,
-              data: {
-                requestId: request._id,
-                donationId: donation._id,
-                requesterName: req.user.name,
-                actionUrl: `/donor/donation-requests`
-              },
-              channels: { inApp: true, email: true }
-            });
-          } else {
-            // Donation no longer available
-            request.status = 'cancelled';
-            await request.save();
-          }
-        }
+      // ✅ FIXED: Notify admin about new request for approval
+      const admins = await User.find({ role: 'admin', status: 'active' });
+      for (const admin of admins) {
+        await Notification.create({
+          recipient: admin._id,
+          type: 'new_donation_request',
+          title: 'New Request Needs Approval 📋',
+          message: `${req.user.organization?.name || req.user.name} submitted a new request "${request.title}"`,
+          data: {
+            requestId: request._id,
+            actionUrl: `/admin/manage-donations?tab=requests`
+          },
+          channels: { inApp: true, email: false }
+        });
       }
 
-
-      // Find potential matches using AI if no specific donation
-      if (!request.donation) {
-        try {
-          await findPotentialMatches(request._id);
-        } catch (matchError) {
-          console.error('Error finding matches:', matchError);
-        }
-
-        // Notify nearby donors about urgent requests
-        if (request.urgency === 'high' || request.urgency === 'critical') {
-          await notifyNearbyDonors(request);
-        }
-      }
-
-      return created(res, { request }, 'Request created successfully');
+      return created(res, { request }, 'Request submitted successfully. Awaiting admin approval.');
     } catch (error) {
       console.error('Create request error:', error);
       return fail(res, 'Failed to create request', 500);
@@ -361,17 +329,76 @@ router.put('/:id',
         return fail(res, 'Not authorized to update this request', 403);
       }
 
-      // Only allow updates if request is active
-      if (request.status !== 'active' && req.user.role !== 'admin') {
-        return fail(res, 'Cannot update request in current status', 400);
-      }
+      // ✅ FIXED: Check if admin is approving pending request
+      const wasPending = request.status === 'pending';
+      const isApproving = req.body.status === 'active' && req.user.role === 'admin';
 
       // Update request
       const updatedRequest = await Request.findByIdAndUpdate(
         req.params.id,
         req.body,
         { new: true, runValidators: true }
-      );
+      ).populate('requester', 'name organization').populate('donation');
+
+      // ✅ NEW: If admin just approved the request, trigger notifications and matching
+      if (wasPending && isApproving) {
+        // Notify requester
+        await Notification.create({
+          recipient: updatedRequest.requester._id,
+          type: 'request_approved',
+          title: 'Request Approved! ✅',
+          message: `Your request "${updatedRequest.title}" has been approved and is now active.`,
+          data: {
+            requestId: updatedRequest._id,
+            actionUrl: `/recipient/my-requests/${updatedRequest._id}`
+          },
+          channels: { inApp: true, email: true }
+        });
+
+        // If request is for a specific donation, notify the donor
+        if (updatedRequest.donation) {
+          const donation = await Donation.findById(updatedRequest.donation._id).populate('donor');
+          
+          if (donation && donation.status === 'approved' && !donation.acceptedBy) {
+            // Update to pending_donor status
+            updatedRequest.status = 'pending_donor';
+            updatedRequest.donorResponse = {
+              status: 'pending',
+              respondedAt: null,
+              respondedBy: null,
+              acceptanceNote: '',
+              rejectionReason: ''
+            };
+            await updatedRequest.save();
+
+            // Notify donor
+            await Notification.create({
+              recipient: donation.donor._id,
+              type: 'new_donation_request',
+              title: 'New Request for Your Donation! 📦',
+              message: `${updatedRequest.requester.organization?.name || updatedRequest.requester.name} has requested your donation "${donation.title}"`,
+              data: {
+                requestId: updatedRequest._id,
+                donationId: donation._id,
+                requesterName: updatedRequest.requester.name,
+                actionUrl: `/donor/donation-requests`
+              },
+              channels: { inApp: true, email: true }
+            });
+          }
+        } else {
+          // General request - find matches and notify nearby donors
+          try {
+            await findPotentialMatches(updatedRequest._id);
+          } catch (matchError) {
+            console.error('Error finding matches:', matchError);
+          }
+
+          if (updatedRequest.urgency === 'high' || updatedRequest.urgency === 'critical') {
+            await notifyNearbyDonors(updatedRequest);
+          }
+        }
+      }
 
       return ok(res, { request: updatedRequest }, 'Request updated successfully');
     } catch (error) {
@@ -492,7 +519,6 @@ async function notifyNearbyDonors(request) {
     console.error('Error notifying nearby donors:', error);
   }
 }
-
 
 // ==================== DONOR RESPONSE ENDPOINTS CONTINUED ====================
 // @desc    Donor accepts a request
@@ -1027,6 +1053,5 @@ router.get('/:id/congratulations', protect, restrictTo('donor'), async (req, res
     return fail(res, 'Failed to get congratulations data', 500);
   }
 });
-
 
 export default router;

@@ -25,7 +25,6 @@ class AdminService {
   // Get all donations for admin management
   async getAllDonations(params = {}) {
     try {
-      // This route is defined in src/routes/admin.js
       const response = await api.get(API_ENDPOINTS.ADMIN.DONATIONS, { params });
       return response;
     } catch (error) {
@@ -43,8 +42,7 @@ class AdminService {
     }
   }
 
-  // --- THIS IS THE FIX ---
-  // Replaced old functions with the correct one that matches src/routes/admin.js
+  // Moderate donation
   async moderateDonation(donationId, action, reason = '') {
     try {
       const response = await api.put(
@@ -56,7 +54,6 @@ class AdminService {
       throw error;
     }
   }
-  // --- END OF FIX ---
 
   // Update user status
   async updateUserStatus(userId, status, reason = '') {
@@ -71,19 +68,21 @@ class AdminService {
     }
   }
 
-  // Get platform analytics
-  async getAnalytics(timeframe = '30d') {
+  // ==================== FIXED ANALYTICS METHOD ====================
+  // Get comprehensive platform analytics with time range
+  async getAnalytics(params = {}) {
     try {
-      const response = await api.get(API_ENDPOINTS.ADMIN.ANALYTICS, {
-        params: { timeframe }
+      const { timeRange = '30d' } = params;
+      // REMOVED /api prefix since api client already adds it
+      const response = await api.get('/analytics', {
+        params: { timeRange }
       });
       return response;
     } catch (error) {
+      console.error('Error fetching analytics:', error);
       throw error;
     }
   }
-
-  // ... (rest of the functions remain the same) ...
 
   // Get user activity logs
   async getUserActivityLogs(userId, params = {}) {

@@ -19,14 +19,14 @@ const ManageDonations = () => {
   const [donations, setDonations] = useState([]);
   const [donationsLoading, setDonationsLoading] = useState(true);
   const [donationSearchTerm, setDonationSearchTerm] = useState('');
-  const [donationStatusFilter, setDonationStatusFilter] = useState('pending');
+  const [donationStatusFilter, setDonationStatusFilter] = useState('all'); // ✅ FIXED
   const [selectedDonation, setSelectedDonation] = useState(null);
   
   // State for Requests
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [requestSearchTerm, setRequestSearchTerm] = useState('');
-  const [requestStatusFilter, setRequestStatusFilter] = useState('pending');
+  const [requestStatusFilter, setRequestStatusFilter] = useState('all'); // ✅ FIXED
   const [selectedRequest, setSelectedRequest] = useState(null);
   
   // Shared states
@@ -34,7 +34,7 @@ const ManageDonations = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [processing, setProcessing] = useState(null);
-  const [rejectType, setRejectType] = useState(null); // 'donation' or 'request'
+  const [rejectType, setRejectType] = useState(null);
 
   useEffect(() => {
     fetchDonations();
@@ -82,9 +82,11 @@ const ManageDonations = () => {
       
       const response = await api.put(`/donations/${donationId}/admin-approve`);
       
-      if (response.data.success) {
+      // ✅ FIXED: Check response structure properly
+      if (response.data && response.data.success) {
         const notifiedNGO = response.data.data?.notifiedNGO;
         
+        // ✅ FIXED: Update state immediately
         setDonations(prev => prev.map(donation => 
           donation._id === donationId 
             ? { ...donation, status: 'approved', isFlagged: false }
@@ -97,9 +99,10 @@ const ManageDonations = () => {
           toast.success("Donation approved successfully!");
         }
         
+        // ✅ FIXED: Close modal immediately
         setSelectedDonation(null);
       } else {
-        toast.error(response.data.message || "Failed to approve donation");
+        toast.error(response.data?.message || "Failed to approve donation");
       }
     } catch (err) {
       console.error('❌ Error approving donation:', err);
@@ -119,13 +122,16 @@ const ManageDonations = () => {
     try {
        const response = await adminService.moderateDonation(donationId, 'reject', rejectReason);
        
-       if (response.success) {
+       // ✅ FIXED: Check response properly
+       if (response && response.success) {
+         // ✅ FIXED: Update state immediately
          setDonations(prev => prev.map(donation => 
            donation._id === donationId 
             ? { ...donation, status: 'rejected', moderation: { ...donation.moderation, rejectionReason: rejectReason } }
             : donation
          ));
          
+         // ✅ FIXED: Close modals and reset state
          setRejectReason('');
          setRejectModalOpen(false);
          setSelectedDonation(null);
@@ -133,7 +139,7 @@ const ManageDonations = () => {
          
          toast.success("Donation Rejected");
        } else {
-         toast.error(response.message || "Failed to reject donation");     
+         toast.error(response?.message || "Failed to reject donation");     
        }
      } catch (err) {
        console.error('Error rejecting donation:', err);
@@ -143,42 +149,35 @@ const ManageDonations = () => {
      }
   };
 
-// ==================== REQUESTS ====================
-const fetchRequests = async () => {
-  try {
-    setRequestsLoading(true);
-    
-    const response = await api.get('/requests?limit=100');
-    
-    // ✅ CORRECT: response.data.data contains the array
-    let requestsData = [];
-    
-    if (response.data && response.data.data) {
-      requestsData = response.data.data;
-      console.log('✅ Requests loaded:', requestsData.length);
-    } else if (Array.isArray(response.data)) {
-      requestsData = response.data;
-      console.log('✅ Direct array:', requestsData.length);
+  // ==================== REQUESTS ====================
+  const fetchRequests = async () => {
+    try {
+      setRequestsLoading(true);
+      
+      const response = await api.get('/requests?limit=100');
+      
+      let requestsData = [];
+      
+      if (response.data && response.data.data) {
+        requestsData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        requestsData = response.data;
+      }
+      
+      const sortedData = requestsData.sort((a, b) => {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      
+      setRequests(sortedData);
+      
+    } catch (err) {
+      console.error('❌ Error fetching requests:', err);
+      toast.error('Failed to load requests');
+      setRequests([]);
+    } finally {
+      setRequestsLoading(false);
     }
-    
-    // Sort by creation date (newest first)
-    const sortedData = requestsData.sort((a, b) => {
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
-    
-    setRequests(sortedData);
-    
-  } catch (err) {
-    console.error('❌ Error fetching requests:', err);
-    toast.error('Failed to load requests');
-    setRequests([]);
-  } finally {
-    setRequestsLoading(false);
-  }
-};
-
-
-
+  };
 
   const filteredRequests = requests.filter(request => {
     const requesterName = request.requester?.name || request.requester?.organization?.name || '';
@@ -191,73 +190,78 @@ const fetchRequests = async () => {
     return matchesSearch && matchesStatus;
   });
 
-const handleApproveRequest = async (requestId) => {
-  setProcessing(requestId);
-  try {
-    console.log(`✅ Admin approving request ${requestId}...`);
-    
-    // ✅ Use PUT to update status to 'active' (based on your backend)
-    const response = await api.put(`/requests/${requestId}`, {
-      status: 'active'
-    });
-    
-    if (response.data && response.data.success) {
-      setRequests(prev => prev.map(request => 
-        request._id === requestId 
-          ? { ...request, status: 'active' }
-          : request
-      ));
+  const handleApproveRequest = async (requestId) => {
+    setProcessing(requestId);
+    try {
+      console.log(`✅ Admin approving request ${requestId}...`);
       
-      toast.success("Request approved and published!");
-      setSelectedRequest(null);
-    } else {
-      toast.error(response.data?.message || "Failed to approve request");
+      const response = await api.put(`/requests/${requestId}`, {
+        status: 'active'
+      });
+      
+      // ✅ FIXED: Check response structure
+      if (response.data && (response.data.success || response.data.data)) {
+        // ✅ FIXED: Update state immediately
+        setRequests(prev => prev.map(request => 
+          request._id === requestId 
+            ? { ...request, status: 'active' }
+            : request
+        ));
+        
+        toast.success("Request approved and published!");
+        
+        // ✅ FIXED: Close modal immediately
+        setSelectedRequest(null);
+      } else {
+        toast.error(response.data?.message || "Failed to approve request");
+      }
+    } catch (err) {
+      console.error('❌ Error approving request:', err);
+      toast.error(err.response?.data?.message || "Failed to approve request");
+    } finally {
+      setProcessing(null);
     }
-  } catch (err) {
-    console.error('❌ Error approving request:', err);
-    toast.error(err.response?.data?.message || "Failed to approve request");
-  } finally {
-    setProcessing(null);
-  }
-};
+  };
 
-const handleRejectRequest = async (requestId) => {
-  if (!rejectReason.trim()) {
-    toast.error("Please provide a reason for rejection.");
-    return;
-  }
-  
-  setProcessing(requestId);
-  try {
-    // ✅ Use PUT to update status to 'rejected'
-    const response = await api.put(`/requests/${requestId}`, {
-      status: 'rejected',
-      rejectionReason: rejectReason
-    });
-    
-    if (response.data && response.data.success) {
-      setRequests(prev => prev.map(request => 
-        request._id === requestId 
-          ? { ...request, status: 'rejected', rejectionReason: rejectReason }
-          : request
-      ));
-      
-      setRejectReason('');
-      setRejectModalOpen(false);
-      setSelectedRequest(null);
-      setRejectType(null);
-      
-      toast.success("Request Rejected");
-    } else {
-      toast.error(response.data?.message || "Failed to reject request");     
+  const handleRejectRequest = async (requestId) => {
+    if (!rejectReason.trim()) {
+      toast.error("Please provide a reason for rejection.");
+      return;
     }
-  } catch (err) {
-    console.error('❌ Error rejecting request:', err);
-    toast.error(err.response?.data?.message || "Failed to reject request");
-  } finally {
-    setProcessing(null);
-  }
-};
+    
+    setProcessing(requestId);
+    try {
+      const response = await api.put(`/requests/${requestId}`, {
+        status: 'rejected',
+        rejectionReason: rejectReason
+      });
+      
+      // ✅ FIXED: Check response structure
+      if (response.data && (response.data.success || response.data.data)) {
+        // ✅ FIXED: Update state immediately
+        setRequests(prev => prev.map(request => 
+          request._id === requestId 
+            ? { ...request, status: 'rejected', rejectionReason: rejectReason }
+            : request
+        ));
+        
+        // ✅ FIXED: Close modals and reset state
+        setRejectReason('');
+        setRejectModalOpen(false);
+        setSelectedRequest(null);
+        setRejectType(null);
+        
+        toast.success("Request Rejected");
+      } else {
+        toast.error(response.data?.message || "Failed to reject request");     
+      }
+    } catch (err) {
+      console.error('❌ Error rejecting request:', err);
+      toast.error(err.response?.data?.message || "Failed to reject request");
+    } finally {
+      setProcessing(null);
+    }
+  };
 
   // ==================== SHARED FUNCTIONS ====================
   const getStatusColor = (status) => {
@@ -409,11 +413,11 @@ const handleRejectRequest = async (requestId) => {
                             <div className="flex items-center space-x-3">
                               <Avatar className="h-10 w-10 border-2 border-gray-200">
                                 <AvatarImage 
-                                  src={donation.donor?.profile?.profilePicture?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(donation.donor?.name || 'Donor')}&background=4F46E5&color=fff&size=200`}
-                                  alt={donation.donor?.name || 'Donor'} 
+                                  src={donation.images?.[0]?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(donation.title || 'Item')}&background=4F46E5&color=fff&size=200`}
+                                  alt={donation.title} 
                                 />
                                 <AvatarFallback className="bg-blue-100 text-blue-700">
-                                  {donation.donor?.name?.charAt(0)?.toUpperCase() || 'D'}
+                                  {donation.title?.charAt(0)?.toUpperCase() || 'D'}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
@@ -477,19 +481,18 @@ const handleRejectRequest = async (requestId) => {
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
-  <SelectItem value="all">All Status</SelectItem>
-  <SelectItem value="pending">Pending</SelectItem>
-  <SelectItem value="active">Active</SelectItem>
-  <SelectItem value="pending_donor">Pending Donor</SelectItem>
-  <SelectItem value="accepted">Accepted</SelectItem>
-  <SelectItem value="pickup_scheduled">Pickup Scheduled</SelectItem>
-  <SelectItem value="in_transit">In Transit</SelectItem>
-  <SelectItem value="delivered">Delivered</SelectItem>
-  <SelectItem value="fulfilled">Fulfilled</SelectItem>
-  <SelectItem value="rejected">Rejected</SelectItem>
-  <SelectItem value="cancelled">Cancelled</SelectItem>
-</SelectContent>
-
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending_donor">Pending Donor</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="pickup_scheduled">Pickup Scheduled</SelectItem>
+                    <SelectItem value="in_transit">In Transit</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="fulfilled">Fulfilled</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
             </CardContent>

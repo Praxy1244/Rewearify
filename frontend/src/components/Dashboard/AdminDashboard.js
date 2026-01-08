@@ -71,49 +71,49 @@ const AdminDashboard = () => {
 
         // Set Basic Stats
         if (statsResponse.success) setDashboardData(statsResponse.data);
-        if (requestsResponse.success) setPendingRequests(requestsResponse.data.requests || []);
+        if (requestsResponse.success) setPendingRequests(requestsResponse.data || []); // ✅ FIXED
 
-        // Set Donations & Check for Fraud
-        if (donationsResponse.success) {
-          const allPending = donationsResponse.data.donations || [];
-          setPendingDonations(allPending.slice(0, 5));
 
-          // Fetch fraud scores from AI service
-          const donationsWithFraud = await Promise.all(
-            allPending.map(async (donation) => {
-              try {
-                const fraudRes = await fetch('http://localhost:8000/api/fraud/check', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    donation_id: donation._id,
-                    title: donation.title,
-                    description: donation.description,
-                    quantity: donation.quantity,
-                    category: donation.category,
-                    donor_id: donation.donor?._id || donation.donor
-                  })
-                });
-                
-                if (fraudRes.ok) {
-                  const fraudData = await fraudRes.json();
-                  return {
-                    ...donation,
-                    fraudScore: fraudData.fraud_score || 0,
-                    fraudReason: fraudData.reason || '',
-                    isFlagged: fraudData.is_fraud || false
-                  };
-                }
-              } catch (err) {
-                console.error('Fraud check failed:', err);
-              }
-              return { ...donation, fraudScore: 0, isFlagged: false };
-            })
-          );
+       // Set Donations & Check for Fraud
+if (donationsResponse.success) {
+  const allPending = donationsResponse.data || []; // ✅ FIXED: data is the array directly
+  setPendingDonations(allPending.slice(0, 5));
 
+  // Fetch fraud scores from AI service
+  const donationsWithFraud = await Promise.all(
+    allPending.map(async (donation) => {
+      try {
+        const fraudRes = await fetch('http://localhost:8000/api/fraud/check', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            donation_id: donation._id,
+            title: donation.title,
+            description: donation.description,
+            quantity: donation.quantity,
+            category: donation.category,
+            donor_id: donation.donor?._id || donation.donor
+          })
+        });
+        
+        if (fraudRes.ok) {
+          const fraudData = await fraudRes.json();
+          return {
+            ...donation,
+            fraudScore: fraudData.fraud_score || 0,
+            fraudReason: fraudData.reason || '',
+            isFlagged: fraudData.is_fraud || false
+          };
+        }
+      } catch (err) {
+        console.error('Fraud check failed:', err);
+      }
+      return { ...donation, fraudScore: 0, isFlagged: false };
+    })
+  );
           // Extract fraud alerts
           const flagged = donationsWithFraud
             .filter(d => d.isFlagged || d.fraudScore > 0.5)

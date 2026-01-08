@@ -549,9 +549,20 @@ def get_forecast_categories():
 
 # ==================== RECOMMENDATIONS ====================
 
-@app.post("/recommendations/hybrid")
-def get_hybrid_recommendations(request: HybridRecommendationRequest):
+@app.get("/recommendations/hybrid")  # ✅ Changed from POST to GET
+def get_hybrid_recommendations(
+    donor_id: str,
+    location: Optional[str] = None,
+    limit: Optional[int] = 10
+):
     """Get personalized NGO recommendations for a donor"""
+    
+    # Create request object from query parameters
+    request = HybridRecommendationRequest(
+        donor_id=donor_id,
+        location=location,
+        limit=limit
+    )
     
     # Try to use the recommendation engine first
     if recommender:
@@ -626,6 +637,8 @@ def get_hybrid_recommendations(request: HybridRecommendationRequest):
         },
         "message": "Recommendation service temporarily unavailable. Please try popular NGOs or search manually."
     }
+
+    
 
 @app.get("/recommendations/popular")
 def get_popular_ngos(limit: int = 10):
