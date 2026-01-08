@@ -1675,10 +1675,12 @@ router.get('/:id/congratulations', protect, restrictTo('donor'), async (req, res
 
     // Check if donation is completed
     // ✅ Allow congratulations for delivered, fulfilled, or completed donations
-const allowedStatuses = ['delivered', 'fulfilled', 'completed'];
+// More permissive status check
+const allowedStatuses = ['delivered', 'fulfilled', 'completed', 'accepted_by_ngo', 'pickup_scheduled', 'in_transit'];
 if (!allowedStatuses.includes(donation.status)) {
-  return fail(res, `Donation must be delivered, fulfilled, or completed to view congratulations. Current status: ${donation.status}`, 400);
+  return fail(res, `Donation must be in a valid completion state to view congratulations. Current status: ${donation.status}`, 400);
 }
+
 
     // Get donor details with stats
     const donor = await User.findById(req.user.id);

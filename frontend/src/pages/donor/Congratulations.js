@@ -13,7 +13,9 @@ const Congratulations = () => {
   const [isVoluntaryDonation, setIsVoluntaryDonation] = useState(false);
 
   // Get ID from params
-  const id = params.id || params.requestId || params.donationId;
+  // NEW CODE (line 14) - Simpler since route now uses :id
+const id = params.id;
+
 
   console.log('🔍 Route params:', params);
   console.log('🔍 Location:', location.pathname);
@@ -29,59 +31,65 @@ const Congratulations = () => {
     }
   }, [id]);
 
-  const fetchCongratulationsData = async () => {
-    if (!id || id === 'undefined') {
-      console.error('❌ Invalid ID:', id);
-      toast.error('Invalid ID provided');
-      navigate('/donor/dashboard');
-      return;
-    }
+ const fetchCongratulationsData = async () => {
+  if (!id || id === 'undefined') {
+    console.error('❌ Invalid ID:', id);
+    toast.error('Invalid ID provided');
+    navigate('/donor/dashboard');
+    return;
+  }
 
+  try {
+    setLoading(true);
+    console.log('🔍 Fetching congratulations data for ID:', id);
+    
+    // Try fetching as REQUEST first (most common case)
     try {
-      setLoading(true);
-      console.log('🔍 Fetching congratulations data for ID:', id);
+      console.log('📋 Trying as REQUEST with ID:', id);
+      const response = await requestService.getCongratulations(id);
+      console.log('✅ Request response:', response);
       
-      // Try fetching as request first (request-based donation)
-      try {
-        console.log('📋 Trying as request with ID:', id);
-        const response = await requestService.getCongratulations(id);
-        console.log('✅ Request response:', response);
-        
-        if (response.success) {
-          setData(response.data);
-          setIsVoluntaryDonation(false);
-          console.log('✅ Loaded as request-based donation');
-          return;
-        }
-      } catch (requestError) {
-        console.log('❌ Not a request, error:', requestError.message);
+      if (response.success) {
+        setData(response.data);
+        setIsVoluntaryDonation(false);
+        console.log('✅ Loaded as request-based donation');
+        return;
       }
-
-      // If request fails, try as donation (voluntary donation)
-      try {
-        console.log('🎁 Trying as donation with ID:', id);
-        const response = await donationService.getCongratulations(id);
-        console.log('✅ Donation response:', response);
-        
-        if (response.success) {
-          setData(response.data);
-          setIsVoluntaryDonation(response.data.isVoluntaryDonation || true);
-          console.log('✅ Loaded as voluntary donation');
-          return;
-        }
-      } catch (donationError) {
-        console.error('❌ Donation fetch failed:', donationError);
-        throw new Error('Failed to load congratulations data from both sources');
-      }
-      
-    } catch (error) {
-      console.error('❌ Final error:', error);
-      toast.error('Failed to load congratulations data');
-      navigate('/donor/dashboard');
-    } finally {
-      setLoading(false);
+    } catch (requestError) {
+      console.log('❌ Not a valid request, trying as donation...', requestError.message);
     }
-  };
+
+    // If request fails, try as DONATION (voluntary donation)
+    try {
+      console.log('🎁 Trying as DONATION with ID:', id);
+      const response = await donationService.getCongratulations(id);
+      console.log('✅ Donation response:', response);
+      
+      if (response.success) {
+        setData(response.data);
+        setIsVoluntaryDonation(response.data.isVoluntaryDonation || true);
+        console.log('✅ Loaded as voluntary donation');
+        return;
+      }
+    } catch (donationError) {
+      console.error('❌ Donation fetch failed:', donationError);
+    }
+    
+    // If both fail
+    throw new Error('Failed to load congratulations data - ID not found in requests or donations');
+    
+  } catch (error) {
+    console.error('❌ Final error:', error);
+    toast.error('Unable to load congratulations data');
+    // Don't redirect immediately - show error state
+    setTimeout(() => {
+      navigate('/donor/dashboard');
+    }, 2000);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   if (loading) {
     return (

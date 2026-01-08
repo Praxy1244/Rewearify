@@ -84,52 +84,40 @@ export const NotificationProvider = ({ children }) => {
   const showToastNotification = useCallback((notification) => {
     const { type, title, message, data } = notification;
 
-    // Helper function to create clickable toast
-    const createClickableToast = (icon, duration = 5000, actionLabel = null) => {
-      const toastConfig = {
+    // Helper function to create toast
+    const createToast = (icon, duration = 5000) => {
+      return {
         description: message,
         icon,
         duration,
       };
-
-      // Add action button if actionUrl exists
-      if (data?.actionUrl && actionLabel) {
-        toastConfig.action = {
-          label: actionLabel,
-          onClick: () => {
-            console.log('🔗 Navigating to:', data.actionUrl);
-            window.location.href = data.actionUrl; // Force navigation
-          }
-        };
-      }
-
-      return toastConfig;
     };
 
     // Different toast styles based on notification type
     switch (type) {
       case 'new_donation_pending':
       case 'new_request':
-        toast.success(title, createClickableToast('📦'));
+        toast.success(title, createToast('📦'));
         break;
 
       case 'match_found':
       case 'donation_approved':
-        toast.success(title, createClickableToast('✅'));
+        toast.success(title, createToast('✅'));
         break;
 
       case 'fraud_alert':
       case 'donation_rejected':
-        toast.error(title, createClickableToast('⚠️'));
+        toast.error(title, createToast('⚠️'));
         break;
 
       case 'pickup_scheduled':
       case 'donation_delivered':
-        toast.success(title, createClickableToast('🚚'));
+        toast.success(title, createToast('🚚'));
         break;
 
       case 'congratulations':
-        toast.success(title, createClickableToast('🎉', 8000, 'View Details'));
+      case 'donation_completed':
+        toast.success(title, createToast('🎉', 8000));
         if (data?.newAchievements && data.newAchievements > 0) {
           triggerConfetti();
         }
@@ -140,27 +128,37 @@ export const NotificationProvider = ({ children }) => {
           description: message,
           icon: '🏆',
           duration: 10000,
-          action: {
-            label: 'View Achievement',
-            onClick: () => {
-              window.location.href = '/donor/achievements';
-            }
-          }
         });
         triggerConfetti();
         playAchievementSound();
         break;
 
       case 'request_accepted':
-        toast.success(title, createClickableToast('🎉'));
+        toast.success(title, createToast('🎉'));
         break;
 
       case 'new_donation_request':
-        toast.info(title, createClickableToast('📬', 7000, 'View Request'));
+        toast.info(title, createToast('📬', 7000));
+        break;
+
+      case 'ngo_accepted':
+        toast.success(title, createToast('✨'));
+        break;
+
+      case 'request_status_updated':
+        toast.info(title, createToast('📋'));
+        break;
+
+      case 'donation_offer':
+        toast.info(title, createToast('🎁'));
+        break;
+
+      case 'feedback_received':
+        toast.info(title, createToast('💬'));
         break;
 
       default:
-        toast.info(title, { description: message });
+        toast.info(title, { description: message, icon: '🔔' });
     }
   }, [triggerConfetti, playAchievementSound]);
 
@@ -278,9 +276,16 @@ export const NotificationProvider = ({ children }) => {
       message_received: '💬',
       system_update: 'ℹ️',
       congratulations: '🎉',
+      donation_completed: '🎉',
       achievement_earned: '🏆',
       request_accepted: '✨',
-      new_donation_request: '📬'
+      new_donation_request: '📬',
+      ngo_accepted: '✨',
+      request_status_updated: '📋',
+      donation_offer: '🎁',
+      feedback_received: '💬',
+      donation_picked_up: '🚚',
+      new_donation_available: '📦'
     };
     return icons[type] || '🔔';
   };

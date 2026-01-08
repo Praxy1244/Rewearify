@@ -954,33 +954,43 @@ router.put('/:id/complete', protect, restrictTo('admin'), async (req, res) => {
     }
 
     // Notify donor and recipient
-    const notifications = [
-      {
-        recipient: request.requester._id,
-        title: 'Request Completed! ✅',
-        message: `Your request "${request.title}" has been marked as completed. Thank you for your feedback!`
-      }
-    ];
-
-    if (request.donation) {
-      notifications.push({
-        recipient: request.donation.donor._id,
-        title: 'Donation Completed! 🎉',
-        message: `Your donation "${request.donation.title}" has been successfully completed. Thank you for your generosity!`
-      });
+   // Notify donor and recipient
+const notifications = [
+  {
+    recipient: request.requester._id,
+    title: 'Request Completed! ✅',
+    message: `Your request "${request.title}" has been marked as completed. Thank you for your feedback!`,
+    data: {
+      requestId: request._id,
+      actionUrl: `/recipient/my-requests`
     }
+  }
+];
 
-    for (const notif of notifications) {
-      await Notification.createAndSend({
-        ...notif,
-        type: 'request_completed',
-        data: {
-          requestId: request._id,
-          actionUrl: `/profile`
-        },
-        channels: { inApp: true, email: true }
-      });
+if (request.donation) {
+  notifications.push({
+    recipient: request.donation.donor._id,
+    title: 'Donation Completed! 🎉',
+    message: `Your donation "${request.donation.title}" has been successfully completed. Thank you for your generosity!`,
+    data: {
+      donationId: request.donation._id,
+      requestId: request._id,
+      actionUrl: `/donor/congratulations/${request._id}`
     }
+  });
+}
+
+for (const notif of notifications) {
+  await Notification.createAndSend({
+    ...notif,
+    type: notif.recipient.toString() === request.donation?.donor._id.toString() 
+      ? 'donation_completed'
+      : 'request_completed',
+    data: notif.data,  // Use the data we already defined above
+    channels: { inApp: true, email: true }
+  });
+}
+
 
     return ok(res, { request }, 'Request marked as completed');
   } catch (error) {

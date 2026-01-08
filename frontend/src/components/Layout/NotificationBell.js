@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { notificationService } from '../../services'; 
 
+
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -21,6 +22,7 @@ const NotificationBell = () => {
     getNotificationIcon
   } = useNotifications();
 
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -28,71 +30,90 @@ const NotificationBell = () => {
       }
     };
 
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
- const handleNotificationClick = (notification) => {
-  console.log('🔔 Full Notification Object:', notification);
-  console.log('🔔 Notification Type:', notification.type);
-  console.log('🔔 Notification Data:', notification.data);
-  
-  // Mark as read
-  if (!notification.read) {
-    markAsRead(notification._id || notification.id);
-  }
-  
-  let targetUrl = null;
-  
-  // ✅ PRIORITY 1: Handle congratulations and completed donations
-  if (
-    notification.type === 'congratulations' || 
-    notification.type === 'donation_completed'
-  ) {
-    // Try requestId first (request-based donation)
-    if (notification.data?.requestId) {
-      targetUrl = `/donor/congratulations/${notification.data.requestId}`;
-      console.log('🎉 Using requestId for congratulations');
+  const handleNotificationClick = (notification) => {
+    console.log('🔔 Clicked notification:', notification.type);
+    console.log('🔔 Data:', notification.data);
+    
+    // Mark as read
+    if (!notification.read) {
+      markAsRead(notification._id || notification.id);
     }
-    // Fallback to donationId (voluntary donation)
-    else if (notification.data?.donationId) {
-      targetUrl = `/donor/congratulations/${notification.data.donationId}`;
-      console.log('🎉 Using donationId for congratulations');
-    }
-  }
-  // ✅ PRIORITY 2: Check for explicit actionUrl
-  else if (notification.data?.actionUrl) {
-    targetUrl = notification.data.actionUrl;
-  }
-  // ✅ PRIORITY 3: Type-based routing for other notifications
-  else {
+    
+    let targetUrl = null;
+    
+    // Route based on notification type
     switch (notification.type) {
-      case 'new_donation_request':
-        targetUrl = '/donor/donation-requests';
+      case 'congratulations':
+      case 'donation_completed':
+        const id = notification.data?.requestId || notification.data?.donationId;
+        targetUrl = id ? `/donor/congratulations/${id}` : '/donor/my-donations';
         break;
-      case 'request_accepted':
-        targetUrl = '/recipient/my-requests';
+        
+      case 'donation_approved':
+      case 'ngo_accepted':
+      case 'pickup_scheduled':
+      case 'donation_picked_up':
+      case 'donation_delivered':
+      case 'feedback_received':
+        targetUrl = '/donor/my-donations';
         break;
+        
       case 'achievement_earned':
         targetUrl = '/donor/achievements';
         break;
+        
+      case 'new_donation_request':
+        targetUrl = '/donor/donation-requests';
+        break;
+        
+      case 'donation_offer':
+        targetUrl = '/recipient/offers';
+        break;
+        
+      case 'request_accepted':
+      case 'request_status_updated':
+        targetUrl = '/recipient/my-requests';
+        break;
+        
+      case 'new_donation_available':
+        targetUrl = '/recipient/browseItems';
+        break;
+        
+      case 'new_donation_pending':
+      case 'fraud_alert':
+      case 'feedback_submitted':
+        targetUrl = '/admin/donations';
+        break;
+      
+      case 'request_completed':  // ✅ NEW: Handle request_completed type
+        targetUrl = '/donor/profile';
+        break;
+        
       default:
-        targetUrl = '/notifications';
+        targetUrl = notification.data?.actionUrl || '/notifications';
     }
-  }
-  
-  console.log('🎯 Final Target URL:', targetUrl);
-  
-  if (targetUrl) {
-    setIsOpen(false);
-    setTimeout(() => {
+    
+    // ✅ FIX: Convert old /profile URLs to /donor/profile
+    if (targetUrl === '/profile') {
+      targetUrl = '/donor/profile';
+    }
+    
+    console.log('🎯 Navigating to:', targetUrl);
+    
+    if (targetUrl) {
+      setIsOpen(false);
       navigate(targetUrl);
-    }, 100);
-  } else {
-    console.warn('⚠️ No valid target URL found');
-    toast.error('Could not determine where to navigate');
-  }
-};
+    } else {
+      console.warn('⚠️ No valid URL found');
+      toast.error('Unable to navigate');
+    }
+  };
+
 
   const handleDeleteAll = async () => {
     try {
@@ -108,21 +129,25 @@ const NotificationBell = () => {
     }
   };
 
+
   const handleSingleDelete = (e, id) => {
     e.stopPropagation();
     deleteNotification(id);
   };
+
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
     const diff = Math.floor((now - date) / 1000);
 
+
     if (diff < 60) return 'Just now';
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   };
+
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -145,6 +170,7 @@ const NotificationBell = () => {
           </span>
         )}
       </button>
+
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[500px] overflow-hidden flex flex-col">
@@ -172,6 +198,7 @@ const NotificationBell = () => {
                 )}
             </div>
           </div>
+
 
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
@@ -216,6 +243,7 @@ const NotificationBell = () => {
                     )}
                   </div>
 
+
                   <button
                     onClick={(e) => handleSingleDelete(e, notification._id || notification.id)}
                     className="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all"
@@ -227,6 +255,7 @@ const NotificationBell = () => {
               ))
             )}
           </div>
+
 
           <div className="p-3 border-t border-gray-200 text-center">
             <button
@@ -244,5 +273,6 @@ const NotificationBell = () => {
     </div>
   );
 };
+
 
 export default NotificationBell;

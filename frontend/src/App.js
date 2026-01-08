@@ -188,13 +188,13 @@ function AppContent() {
               <DonationRequests />
             </ProtectedRoute>
           } />
+{/* ✨ Congratulations Routes - Support both request and donation IDs */}
+<Route path="/donor/congratulations/:id" element={
+  <ProtectedRoute allowedRoles={['donor']}>
+    <Congratulations />
+  </ProtectedRoute>
+} />
 
-          {/* ✨ NEW: Congratulations Route */}
-          <Route path="/donor/congratulations/:requestId" element={
-            <ProtectedRoute allowedRoles={['donor']}>
-              <Congratulations />
-            </ProtectedRoute>
-          } />
 
           {/* ✨ NEW: Achievements Route */}
           <Route path="/donor/achievements" element={

@@ -176,7 +176,18 @@ getCommunityRequests: async (filters = {}) => {
       console.error('Admin complete request error:', error);
       throw error;
     }
+  },
+
+  // Get congratulations data for a completed request
+getCongratulations: async (requestId) => {
+  try {
+    return await api.get(`/requests/${requestId}/congratulations`);
+  } catch (error) {
+    console.error('Get congratulations error:', error);
+    throw error;
   }
+},
+
 };
 
 export default requestService;
